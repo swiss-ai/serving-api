@@ -1,0 +1,63 @@
+name: Release
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  validate-tag:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate semver tag
+        run: |
+          TAG="${{ github.event.release.tag_name }}"
+          if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Tag '$TAG' is not valid semver (expected vX.Y.Z)"
+            exit 1
+          fi
+
+  retag-images:
+    runs-on: ubuntu-latest
+    needs: [validate-tag]
+    strategy:
+      matrix:
+        image: [backend, frontend]
+    steps:
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Re-tag ${{ matrix.image }} image with release version
+        run: |
+          SRC="ghcr.io/${{ github.repository }}/${{ matrix.image }}:${{ github.sha }}"
+          DST="ghcr.io/${{ github.repository }}/${{ matrix.image }}:${{ github.event.release.tag_name }}"
+          docker pull "$SRC"
+          docker tag "$SRC" "$DST"
+          docker push "$DST"
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: [retag-images]
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          repository: breithorn-poc/rob-poc
+          token: ${{ secrets.ARGO_PAT }}
+          path: argocd
+      - name: Update prod image tags
+        run: |
+          TAG="${{ github.event.release.tag_name }}"
+          sed -i "s|image: ghcr.io/swiss-ai/serving-api/backend:.*|image: ghcr.io/swiss-ai/serving-api/backend:$TAG|" argocd/serving-api/prod/backend-deployment.yaml
+          sed -i "s|image: ghcr.io/swiss-ai/serving-api/frontend:.*|image: ghcr.io/swiss-ai/serving-api/frontend:$TAG|" argocd/serving-api/prod/frontend-deployment.yaml
+      - name: Commit and push
+        run: |
+          cd argocd
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add serving-api/prod/
+          git diff --staged --quiet && echo "No changes to deploy" || (git commit -m "release serving-api ${{ github.event.release.tag_name }}" && git push)
