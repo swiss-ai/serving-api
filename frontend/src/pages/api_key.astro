@@ -1,0 +1,343 @@
+---
+import { getSession } from 'auth-astro/server';
+import PageLayout from "@layouts/PageLayout.astro";
+import Container from "@components/Container.astro";
+import { SITE } from "@consts";
+import { getUserProfile } from '@lib/auth';
+import { SignIn } from 'auth-astro/components';
+
+export const prerender = false;
+
+// Check if user is authenticated
+const session = await getSession(Astro.request);
+
+// If not authenticated, redirect to home page
+if (!session) {
+  return Astro.redirect('/');
+}
+
+// API key will be fetched client-side to avoid exposing it in the HTML
+let apiKey = "Loading...";
+const apiUrl = process.env.VITE_API_URL || 'https://api.swissai.cscs.ch';
+---
+
+<PageLayout title="API Key" description="Your personal API key for accessing Research Computer services">
+  <Container>
+    <div class="space-y-12 py-8">
+      <!-- Header Section -->
+      <div class="animate text-center">
+        <h1 class="text-4xl md:text-5xl font-bold gradient-text mb-4">
+          Your API Key
+        </h1>
+        <p class="text-lg text-slate-600 dark:text-slate-400 max-w-2xl mx-auto">
+          Access Swiss AI Platform services with your personal API key
+        </p>
+      </div>
+
+      <!-- Security Information Card -->
+      <div class="animate card p-8 bg-gradient-to-br from-red-50 to-red-100 dark:from-red-900/20 dark:to-red-800/20 border-red-200 dark:border-red-800">
+        <div class="flex items-start gap-4">
+          <div class="w-12 h-12 bg-gradient-to-r from-red-600 to-red-700 rounded-xl flex items-center justify-center flex-shrink-0">
+            <svg class="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 20 20">
+              <path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd"/>
+            </svg>
+          </div>
+          <div>
+            <h2 class="text-xl font-bold text-red-900 dark:text-red-100 mb-3">API Key Security</h2>
+            <div class="space-y-3 text-red-800 dark:text-red-200">
+              <p><span class="font-semibold">⚠️ Keep your API key secure</span>. Do not share it publicly or include it in client-side code.</p>
+              <p>If you believe your API key has been compromised, please contact support to reset it.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="animate card p-8 bg-gradient-to-br from-red-50 to-red-100 dark:from-red-900/20 dark:to-red-800/20 border-red-200 dark:border-red-800">
+        <div class="flex items-start gap-4">
+          <div class="w-12 h-12 bg-gradient-to-r from-red-600 to-red-700 rounded-xl flex items-center justify-center flex-shrink-0">
+            <svg class="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 20 20">
+              <path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd"/>
+            </svg>
+          </div>
+          <div>
+            <h2 class="text-xl font-bold text-red-900 dark:text-red-100 mb-3">Consent to Data Collection</h2>
+            <div class="space-y-3 text-red-800 dark:text-red-200">
+              <p>By using this service, you consent to the collection and use of your request metadata. We collect this data in order to facilitate the research in this direction.</p>
+              <p>If you have any questions or concerns, please contact us.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Main API Key Card -->
+      <div class="animate card p-8">
+        <div class="mb-6">
+          <div class="flex items-center gap-3 mb-4">
+            <div class="w-12 h-12 bg-gradient-to-r from-indigo-600 to-blue-600 rounded-xl flex items-center justify-center">
+              <svg class="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M18 8a6 6 0 01-7.743 5.743L10 14l-1 1-1 1H6v2H2v-4l4.257-4.257A6 6 0 1118 8zm-6-4a1 1 0 100 2 2 2 0 012 2 1 1 0 102 0 4 4 0 00-4-4z" clip-rule="evenodd"/>
+              </svg>
+            </div>
+            <div>
+              <p class="text-slate-700 dark:text-slate-300 text-lg">Welcome back, <span class="font-semibold text-slate-900 dark:text-white">{session.user && session.user.name || 'User'}</span>!</p>
+              <div id="accountStatus" class="flex items-center gap-2">
+                <span class="text-slate-600 dark:text-slate-400">Account Status:</span>
+                <span id="statusText" class="font-semibold">Loading...</span>
+              </div>
+            </div>
+          </div>
+          <p class="text-slate-600 dark:text-slate-300">Below is your personal API key for accessing Swiss AI Platform services:</p>
+        </div>
+        
+        <div class="relative mt-6 mb-8">
+          <div class="flex rounded-xl overflow-hidden shadow-lg">
+            <input
+              type="text"
+              id="apiKeyDisplay"
+              value="Loading..."
+              readonly
+              class="flex-grow px-6 py-4 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none font-mono text-sm border-r border-slate-200 dark:border-slate-700"
+            />
+            <button
+              id="copyButton"
+              class="px-6 py-4 btn-primary"
+            >
+              <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z"/>
+                <path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z"/>
+              </svg>
+              Copy
+            </button>
+          </div>
+          <div id="copyMessage" class="hidden absolute -bottom-8 left-0 text-emerald-600 dark:text-emerald-400 text-sm font-medium">
+            ✓ Copied to clipboard!
+          </div>
+          <div id="loadingMessage" class="absolute -bottom-8 left-0 text-indigo-600 dark:text-indigo-400 text-sm">
+            Loading your API key...
+          </div>
+          <div id="errorMessage" class="hidden absolute -bottom-8 left-0 text-red-600 dark:text-red-400 text-sm">
+            Error loading API key. Please login again.
+            <SignIn provider="auth0" class="btn-primary ml-2">
+            Login
+          </SignIn>
+          </div>
+        </div>
+      </div>
+
+      <!-- Usage Instructions Card -->
+      <div class="animate card p-8">
+        <div class="space-y-6">
+          <h2 class="text-2xl font-bold text-slate-900 dark:text-white mb-4">How to use your API key</h2>
+          
+          <!-- Header Example -->
+          <div class="space-y-3">
+            <h3 class="text-lg font-semibold text-slate-800 dark:text-slate-200">Authorization Header</h3>
+            <p class="text-slate-600 dark:text-slate-400">Include this API key in the header of your requests:</p>
+            <div class="card p-4 bg-slate-50 dark:bg-slate-800/50">
+              <pre class="text-sm text-slate-700 dark:text-slate-300 overflow-x-auto"><code>Authorization: Bearer <span id="headerApiKey" class="text-indigo-600 dark:text-indigo-400">your-api-key</span></code></pre>
+            </div>
+          </div>
+
+          <!-- CURL Example -->
+          <div class="space-y-3">
+            <h3 class="text-lg font-semibold text-slate-800 dark:text-slate-200">CURL Example</h3>
+            <p class="text-slate-600 dark:text-slate-400">Use CURL to make requests from the command line:</p>
+            <div class="card p-4 bg-slate-50 dark:bg-slate-800/50">
+              <pre class="text-sm text-slate-700 dark:text-slate-300 overflow-x-auto"><code id="curlExample">Loading example...</code></pre>
+            </div>
+          </div>
+
+          <!-- Python Example -->
+          <div class="space-y-3">
+            <h3 class="text-lg font-semibold text-slate-800 dark:text-slate-200">Python Example</h3>
+            <p class="text-slate-600 dark:text-slate-400">The endpoint is compatible with OpenAI protocol:</p>
+            <div class="card p-4 bg-slate-50 dark:bg-slate-800/50">
+              <pre class="text-sm text-slate-700 dark:text-slate-300 overflow-x-auto"><code id="pythonApiKey">Loading example...</code></pre>
+            </div>
+          </div>
+          
+          <div class="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-4 mt-6">
+            <p class="text-amber-800 dark:text-amber-200 text-sm">
+              <strong>Note:</strong> If you cannot see your API key, please sign out and sign in again to refresh your session.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </Container>
+</PageLayout>
+
+<script define:vars={{ session, apiUrl }}>
+  // Function to get API key from storage
+  function getApiKey() {
+    return localStorage.getItem('apiKey');
+  }
+  
+  // Function to set API key in storage
+  function setApiKey(apiKey) {
+    localStorage.setItem('apiKey', apiKey);
+  }
+
+  // Function to initialize code examples with placeholders
+  function initializeCodeExamples() {
+    const pythonApiKey = document.getElementById('pythonApiKey');
+    const curlExample = document.getElementById('curlExample');
+
+    // Set CURL example
+    if (curlExample) {
+      const curlCode = `curl -X POST ${apiUrl}/v1/chat/completions \\\n` +
+'  -H "Content-Type: application/json" \\\n' +
+'  -H "Authorization: Bearer $CSCS_SERVING_API" \\\n' +
+'  -d \'{\n' +
+'    "model": "swiss-ai/Apertus-8B-Instruct-2509",\n' +
+'    "messages": [\n' +
+'      {\n' +
+'        "role": "user",\n' +
+'        "content": "Who is Pablo Picasso?"\n' +
+'      }\n' +
+'    ],\n' +
+'    "stream": false\n' +
+'  }\'';
+      curlExample.textContent = curlCode;
+    }
+
+    // Set Python example immediately so it's always visible
+    if (pythonApiKey) {
+      const pythonCode = 'import openai\n' +
+'import os\n' +
+'\n' +
+'client = openai.Client(\n' +
+'    api_key=os.environ.get("CSCS_SERVING_API"),\n' +
+`    base_url="${apiUrl}/v1"\n` +
+')\n' +
+'res = client.chat.completions.create(\n' +
+'    model="swiss-ai/Apertus-8B-Instruct-2509",\n' +
+'    messages=[\n' +
+'        {\n' +
+'            "content": "Who is Pablo Picasso?",\n' +
+'            "role": "user",\n' +
+'        }\n' +
+'    ],\n' +
+'    stream=True,\n' +
+')\n' +
+'\n' +
+'for chunk in res:\n' +
+'    if len(chunk.choices) > 0 and chunk.choices[0].delta.content:\n' +
+'        print(chunk.choices[0].delta.content, end="", flush=True)\n';
+      pythonApiKey.textContent = pythonCode;
+    }
+  }
+
+  // Function to fetch API key from the server using the access token
+  async function fetchApiKey() {
+    try {
+      const loadingMessage = document.getElementById('loadingMessage');
+      const errorMessage = document.getElementById('errorMessage');
+      const apiKeyDisplay = document.getElementById('apiKeyDisplay');
+      const headerApiKey = document.getElementById('headerApiKey');
+      const pythonApiKey = document.getElementById('pythonApiKey');
+      const statusText = document.getElementById('statusText');
+      
+      // Get user details from session
+      const userEmail = session?.user?.email || '';
+      const userName = session?.user?.name || '';
+      
+      // Try to get API key from storage first
+      let apiKey = getApiKey();
+      
+      // If not in storage, fetch from server
+      if (!apiKey) {
+        const response = await fetch(`${apiUrl}/v1/profile`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.accessToken}`,
+          }
+        });
+        
+        if (!response.ok) {
+          throw new Error(`Error: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        apiKey = data.api_key;
+        
+        // Update account status based on budget
+        if (statusText) {
+          if (data.budget <= 0) {
+            statusText.textContent = 'Inactive';
+            statusText.classList.add('text-red-600', 'dark:text-red-400');
+          } else {
+            statusText.textContent = 'Active';
+            statusText.classList.add('text-green-600', 'dark:text-green-400');
+          }
+        }
+        
+        // Store the API key if we got one
+        if (apiKey) {
+          setApiKey(apiKey);
+        }
+      }
+      
+      if (!apiKey) {
+        throw new Error('No API key available');
+      }
+      
+      // Update UI with API key
+      if (apiKeyDisplay) apiKeyDisplay.value = apiKey;
+      if (headerApiKey) headerApiKey.textContent = apiKey;
+
+      // Hide loading message
+      if (loadingMessage) loadingMessage.classList.add('hidden');
+    } catch (error) {
+      console.error('Error fetching API key:', error);
+      const loadingMessage = document.getElementById('loadingMessage');
+      const errorMessage = document.getElementById('errorMessage');
+      
+      if (loadingMessage) loadingMessage.classList.add('hidden');
+      if (errorMessage) {
+        errorMessage.classList.remove('hidden');
+        errorMessage.innerHTML = "Error loading API key. Please sign out and sign in again or refresh the page.";
+        const signInButton = document.createElement('div');
+        signInButton.innerHTML = `<button onclick="window.location.href='/auth/signin'" class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded transition-colors mt-2">Sign In</button>`;
+        errorMessage.appendChild(signInButton);
+      }
+    }
+  }
+  
+  // Copy to clipboard functionality
+  document.addEventListener('DOMContentLoaded', () => {
+    // Initialize code examples immediately so they're visible even if auth fails
+    initializeCodeExamples();
+
+    // Fetch API key on page load
+    fetchApiKey();
+    
+    const copyButton = document.getElementById('copyButton');
+    const apiKeyDisplay = document.getElementById('apiKeyDisplay');
+    const copyMessage = document.getElementById('copyMessage');
+    
+    if (copyButton && apiKeyDisplay && copyMessage) {
+      copyButton.addEventListener('click', () => {
+        // Select the text
+        apiKeyDisplay.select();
+        
+        // Copy to clipboard
+        navigator.clipboard.writeText(apiKeyDisplay.value)
+          .then(() => {
+            // Show success message
+            copyMessage.classList.remove('hidden');
+            
+            // Hide message after 2 seconds
+            setTimeout(() => {
+              copyMessage.classList.add('hidden');
+            }, 2000);
+          })
+          .catch(err => {
+            console.error('Failed to copy: ', err);
+            alert('Failed to copy API key to clipboard');
+          });
+      });
+    }
+  });
+</script>

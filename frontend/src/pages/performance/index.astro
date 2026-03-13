@@ -1,0 +1,24 @@
+---
+import PageLayout from "@layouts/PageLayout.astro";
+import Container from "@components/Container.astro";
+import PerformanceTable from "@components/PerformanceTable.svelte";
+
+export const prerender = false;
+---
+
+<PageLayout title="Performance Benchmarks" description="Hardware performance benchmarks for LLM inference">
+    <Container class="max-w-screen-xl">
+        <div class="space-y-10">
+            <div class="text-center space-y-4">
+                <h1 class="text-4xl font-bold tracking-tight text-slate-900 dark:text-white sm:text-5xl">
+                    Performance Benchmarks
+                </h1>
+                <p class="mx-auto max-w-2xl text-lg text-slate-600 dark:text-slate-400">
+                    Compare throughput, latency, and time-to-first-token across different hardware configurations.
+                </p>
+            </div>
+
+            <PerformanceTable client:load />
+        </div>
+    </Container>
+</PageLayout>

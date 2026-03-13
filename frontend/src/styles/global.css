@@ -1,0 +1,131 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    overflow-y: scroll;
+    color-scheme: light;
+  }
+
+  html.dark {
+    color-scheme: dark;
+  }
+
+  html,
+  body {
+    @apply size-full;
+  }
+
+  body {
+    @apply font-sans antialiased;
+    @apply flex flex-col;
+    /* Clean, modern background with subtle gradient */
+    @apply bg-slate-50 dark:bg-slate-950;
+    @apply text-slate-900 dark:text-slate-50;
+    @apply selection:bg-indigo-500/30 dark:selection:bg-indigo-400/30;
+  }
+
+  /* Decorative background mesh */
+  body::before {
+    content: "";
+    @apply fixed inset-0 -z-10;
+    @apply bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(120,119,198,0.15),rgba(255,255,255,0))] dark:bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(120,119,198,0.15),rgba(255,255,255,0))];
+  }
+}
+
+@layer components {
+  /* Modern Glass Header */
+  header {
+    @apply fixed top-0 w-full z-50 py-4;
+    @apply bg-white/70 dark:bg-slate-950/70 backdrop-blur-xl border-b border-slate-200/50 dark:border-slate-800/50;
+    @apply transition-all duration-300;
+  }
+
+  main {
+    @apply flex-1 pt-32 pb-20;
+  }
+
+  footer {
+    @apply py-12 text-sm;
+    @apply border-t border-slate-200 dark:border-slate-800;
+    @apply bg-slate-50/50 dark:bg-slate-950/50;
+  }
+
+  /* Typography Enhancements */
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-semibold tracking-tight;
+  }
+
+  article {
+    @apply max-w-full prose dark:prose-invert prose-img:mx-auto prose-img:rounded-xl prose-img:shadow-lg;
+    @apply prose-headings:font-bold prose-headings:tracking-tight;
+    @apply prose-a:text-indigo-600 dark:prose-a:text-indigo-400 prose-a:no-underline hover:prose-a:underline;
+    @apply prose-pre:border prose-pre:border-slate-200 dark:prose-pre:border-slate-800 prose-pre:rounded-xl;
+  }
+}
+
+@layer utilities {
+  /* Card Component */
+  .card {
+    @apply relative overflow-hidden;
+    @apply bg-white dark:bg-slate-900;
+    @apply border border-slate-200 dark:border-slate-800;
+    @apply rounded-xl;
+    @apply transition-all duration-300 ease-out;
+    @apply hover:border-slate-300 dark:hover:border-slate-700;
+    @apply hover:shadow-lg hover:shadow-slate-200/50 dark:hover:shadow-black/50;
+    @apply active:scale-[0.98];
+  }
+
+  /* Button Components */
+  .btn-primary {
+    @apply inline-flex items-center justify-center;
+    @apply px-5 py-2.5 rounded-lg;
+    @apply text-sm font-medium text-white;
+    @apply bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700;
+    @apply shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/40;
+    @apply transition-all duration-200;
+    @apply focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:ring-offset-2 dark:focus:ring-offset-slate-950;
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center justify-center;
+    @apply px-5 py-2.5 rounded-lg;
+    @apply text-sm font-medium;
+    @apply text-slate-700 dark:text-slate-200;
+    @apply bg-white dark:bg-slate-900;
+    @apply border border-slate-200 dark:border-slate-800;
+    @apply hover:bg-slate-50 dark:hover:bg-slate-800;
+    @apply hover:border-slate-300 dark:hover:border-slate-700;
+    @apply transition-all duration-200;
+    @apply focus:outline-none focus:ring-2 focus:ring-slate-500/50 focus:ring-offset-2 dark:focus:ring-offset-slate-950;
+  }
+
+  /* Animations */
+  .animate-enter {
+    @apply opacity-0 translate-y-4 animate-[slideUp_0.5s_ease-out_forwards];
+  }
+
+  /* Text Gradients */
+  .gradient-text {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-indigo-500 to-violet-500;
+  }
+
+  /* Custom Scrollbar */
+  .custom-scrollbar::-webkit-scrollbar {
+    @apply w-1.5;
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    @apply bg-slate-200 dark:bg-slate-800 rounded-full;
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    @apply bg-slate-300 dark:bg-slate-700;
+  }
+}

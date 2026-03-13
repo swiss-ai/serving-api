@@ -1,0 +1,4 @@
+node_modules/
+dist/
+arena.config.js
+.astro/

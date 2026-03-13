@@ -1,0 +1,67 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: llm-service-test
+  namespace: swiss-ai
+spec:
+  selector:
+    matchLabels:
+      app: llm-service-test
+  template:
+    metadata:
+      labels:
+        app: llm-service-test
+    spec:
+      containers:
+      - name: global-dispatcher-test
+        image: ghcr.io/researchcomputer/ocf:v0.1.8
+        imagePullPolicy: Always
+        args:
+          - start
+          # - --bootstrap.addr
+          # - "/ip4/140.238.223.116/tcp/43905/p2p/QmSk2VF9j8bF6Bhw4EFY7bhv74jXi7MTgVBScFwvmTLPGf"
+          - --mode
+          - "standalone"
+          - --seed
+          - "0"
+          - --public-addr
+          - "148.187.108.173"
+        ports:
+          - containerPort: 8092
+            name: ocf-http-port
+          - containerPort: 43905
+            name: ocf-p2p-port
+        resources:
+          requests:
+            memory: "8Gi"
+            cpu: "4"
+          limits:
+            memory: "16Gi"
+            cpu: "8"
+        volumeMounts:
+          - name: test-ocf-key-id
+            mountPath: /root/.ocfcore/keys
+            readOnly: true
+      volumes:
+        - name: test-ocf-key-id
+          secret:
+            secretName: test-dispatcher-id-key
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: lb-service-test
+  namespace: swiss-ai
+spec:
+  selector:
+    app: llm-service-test
+  ports:
+    - protocol: TCP
+      port: 8092
+      targetPort: 8092
+      name: ocf-http-port
+    - protocol: TCP
+      port: 43905
+      targetPort: 43905
+      name: ocf-p2p-port
+  type: LoadBalancer

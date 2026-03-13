@@ -1,0 +1,24 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt
+  name: serving-frontend
+  namespace: swiss-ai
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: serving.swissai.cscs.ch
+    http:
+      paths:
+      - pathType: Prefix
+        path: /
+        backend:
+          service:
+            name: serving-frontend-internal
+            port:
+              number: 80
+  tls:
+  - hosts:
+    - serving.swissai.cscs.ch
+    secretName: serving-cert

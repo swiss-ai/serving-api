@@ -1,0 +1,163 @@
+---
+import Container from "@components/Container.astro";
+import Link from "@components/Link.astro";
+import { SITE } from "@consts";
+---
+
+<header>
+  <Container>
+    <div class="flex items-center justify-between">
+      <Link href="/" underline={false}>
+        <div class="font-bold text-lg tracking-tight flex items-center gap-2">
+          <span class="text-indigo-600 dark:text-indigo-400">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="24"
+              height="24"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              class="lucide lucide-cpu"
+              ><rect width="16" height="16" x="4" y="4" rx="2"></rect><rect
+                width="6"
+                height="6"
+                x="9"
+                y="9"
+                rx="1"></rect><path d="M15 2v2"></path><path d="M15 20v2"
+              ></path><path d="M2 15h2"></path><path d="M2 9h2"></path><path
+                d="M20 15h2"></path><path d="M20 9h2"></path><path d="M9 2v2"
+              ></path><path d="M9 20v2"></path></svg
+            >
+          </span>
+          {SITE.NAME}
+        </div>
+      </Link>
+      
+      <!-- Desktop Navigation -->
+      <nav class="hidden md:flex items-center gap-6">
+        <Link
+          href="/guides"
+          class="text-sm font-medium text-slate-600 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-400 transition-colors"
+        >
+          Docs
+        </Link>
+        <Link
+          href="/leaderboard"
+          class="text-sm font-medium text-slate-600 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-400 transition-colors"
+        >
+          Leaderboard
+        </Link>
+        <Link
+          href="/performance"
+          class="text-sm font-medium text-slate-600 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-400 transition-colors"
+        >
+          Performance
+        </Link>
+        <Link
+          href="/articles"
+          class="text-sm font-medium text-slate-600 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-400 transition-colors"
+        >
+          Research
+        </Link>
+      </nav>
+
+      <!-- Mobile Menu Button -->
+      <button
+        id="mobile-menu-button"
+        class="md:hidden p-2 text-slate-600 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-400 transition-colors"
+        aria-label="Toggle menu"
+      >
+        <svg
+          id="hamburger-icon"
+          xmlns="http://www.w3.org/2000/svg"
+          width="24"
+          height="24"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <line x1="3" y1="6" x2="21" y2="6"></line>
+          <line x1="3" y1="12" x2="21" y2="12"></line>
+          <line x1="3" y1="18" x2="21" y2="18"></line>
+        </svg>
+        <svg
+          id="close-icon"
+          class="hidden"
+          xmlns="http://www.w3.org/2000/svg"
+          width="24"
+          height="24"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+      </button>
+    </div>
+
+    <nav
+      id="mobile-menu"
+      class="hidden md:hidden flex-col gap-4 pt-4 pb-2 border-t border-slate-200 dark:border-slate-800 mt-4"
+    >
+      <Link
+        href="/guides"
+        class="text-sm font-medium text-slate-600 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-400 transition-colors py-2"
+      >
+        Docs
+      </Link>
+      <Link
+        href="/leaderboard"
+        class="text-sm font-medium text-slate-600 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-400 transition-colors py-2"
+      >
+        Leaderboard
+      </Link>
+      <Link
+        href="/performance"
+        class="text-sm font-medium text-slate-600 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-400 transition-colors py-2"
+      >
+        Performance
+      </Link>
+      <Link
+        href="/articles"
+        class="text-sm font-medium text-slate-600 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-400 transition-colors py-2"
+      >
+        Research
+      </Link>
+    </nav>
+  </Container>
+</header>
+
+<script>
+  const mobileMenuButton = document.getElementById('mobile-menu-button');
+  const mobileMenu = document.getElementById('mobile-menu');
+  const hamburgerIcon = document.getElementById('hamburger-icon');
+  const closeIcon = document.getElementById('close-icon');
+
+  if (mobileMenuButton && mobileMenu && hamburgerIcon && closeIcon) {
+    mobileMenuButton.addEventListener('click', () => {
+      const isHidden = mobileMenu.classList.contains('hidden');
+      
+      if (isHidden) {
+        mobileMenu.classList.remove('hidden');
+        mobileMenu.classList.add('flex');
+        hamburgerIcon.classList.add('hidden');
+        closeIcon.classList.remove('hidden');
+      } else {
+        mobileMenu.classList.add('hidden');
+        mobileMenu.classList.remove('flex');
+        hamburgerIcon.classList.remove('hidden');
+        closeIcon.classList.add('hidden');
+      }
+    });
+  }
+</script>

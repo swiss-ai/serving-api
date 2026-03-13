@@ -1,0 +1,6 @@
+*.pyc
+*.env
+details.json
+secrets/*.json
+.venv/*
+__pycache__/

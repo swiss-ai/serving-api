@@ -1,0 +1,33 @@
+---
+interface Props {
+  currentPage: 'leaderboard' | 'details';
+}
+
+const navItems: Array<{
+  name: string;
+  href: string;
+  key: "leaderboard" | "details";
+}> = [
+  { name: 'Leaderboard', href: '/arena/leaderboard', key: 'leaderboard' },
+  { name: 'Details', href: '/arena/details', key: 'details' },
+];
+
+const { currentPage } = Astro.props;
+---
+
+<nav class="animate mb-8">
+  <div class="flex flex-wrap gap-3 justify-center">
+    {navItems.map((item) => (
+      <a
+        href={item.href}
+        class={`px-6 py-3 rounded-lg font-medium text-sm transition-colors ${
+          currentPage === item.key
+            ? 'bg-blue-600 text-white'
+            : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700'
+        }`}
+      >
+        {item.name}
+      </a>
+    ))}
+  </div>
+</nav> 

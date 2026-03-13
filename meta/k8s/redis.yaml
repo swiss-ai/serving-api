@@ -1,0 +1,68 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-service
+  namespace: swiss-ai
+spec:
+  selector:
+    app: redis
+  ports:
+    - protocol: TCP
+      port: 6379
+      targetPort: 6379
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis-deployment
+  namespace: swiss-ai
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis
+  template:
+    metadata:
+      labels:
+        app: redis
+    spec:
+      containers:
+      - name: redis
+        image: redis:8.0.3
+        ports:
+        - containerPort: 6379
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "256Mi"
+          limits:
+            cpu: "500m"
+            memory: "512Mi"
+        args:
+          - redis-server
+          - --appendonly
+          - "yes"
+          - --maxmemory
+          - "200mb"
+          - --maxmemory-policy
+          - "allkeys-lru"
+        volumeMounts:
+        - name: redis-data
+          mountPath: /data
+      volumes:
+      - name: redis-data
+        emptyDir: {}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: redis-config
+  namespace: swiss-ai
+data:
+  redis.conf: |
+    # Redis configuration for token caching
+    maxmemory 200mb
+    maxmemory-policy allkeys-lru
+    appendonly yes
+    appendfsync everysec

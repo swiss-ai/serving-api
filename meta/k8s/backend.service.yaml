@@ -1,0 +1,77 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: serving-backend-internal
+  namespace: swiss-ai
+spec:
+  ports:
+  - name: serving-http
+    port: 80
+    protocol: TCP
+    targetPort: 8080
+  selector:
+    app: serving-backend
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: serving-backend
+  namespace: swiss-ai
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: serving-backend
+  minReadySeconds: 25
+  template:
+    metadata:
+      labels:
+        app: serving-backend
+    spec:
+      containers:
+      - name: serving-backend
+        image: ghcr.io/xiaozheyao/serving-backend:dev
+        imagePullPolicy: Always
+        ports:
+          - containerPort: 8080
+        env:
+          - name: REDIS_HOST
+            value: "redis-service.swiss-ai.svc.cluster.local"
+          - name: REDIS_PORT
+            value: "6379"
+        envFrom:
+          - configMapRef:
+              name: serving
+          - secretRef:
+              name: serving-secrets
+          - secretRef:
+              name: serving-firebase-secret
+        resources:
+          requests:
+            cpu: 2000m
+            memory: 4Gi
+          limits:
+            cpu: 4000m
+            memory: 16Gi
+      restartPolicy: Always
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: serving-backend-hpa
+  namespace: swiss-ai
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: serving-backend
+  minReplicas: 1
+  maxReplicas: 8
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 85

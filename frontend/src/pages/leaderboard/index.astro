@@ -1,0 +1,93 @@
+---
+import PageLayout from "@layouts/PageLayout.astro";
+import Container from "@components/Container.astro";
+import ArenaRankings from "@components/ArenaRankings.svelte";
+
+export const prerender = false;
+
+let tokenData = {};
+let error = null;
+
+try {
+    const response = await fetch(`${process.env.VITE_API_URL || 'https://api.swissai.cscs.ch'}/v1/metrics`, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+            view: "observations",
+            metrics: [{ measure: "totalTokens", aggregation: "sum" }],
+            dimensions: [{ field: "providedModelName" }],
+            filters: [],
+            fromTimestamp: "2025-12-01T00:00:00Z",
+            toTimestamp: "2025-12-16T00:00:00Z",
+        }),
+    });
+
+    if (!response.ok) {
+        throw new Error(`API request failed with status ${response.status}`);
+    }
+
+    const result = await response.json();
+
+    // Transform API response to expected format
+    // API returns { data: [ { providedModelName: "...", sum_totalTokens: "..." } ] }
+    if (result.data && Array.isArray(result.data)) {
+        tokenData = result.data.reduce(
+            (acc: Record<string, number>, item: any) => {
+                if (item.providedModelName) {
+                    // Parse the token count as an integer
+                    acc[item.providedModelName] = parseInt(
+                        item.sum_totalTokens || "0",
+                        10,
+                    );
+                }
+                return acc;
+            },
+            {},
+        );
+    }
+} catch (e: any) {
+    console.error("Failed to fetch metrics:", e);
+    error = e.message;
+}
+---
+
+<PageLayout title="Leaderboard" description="Model rankings based on usage">
+    <Container>
+        <div class="space-y-10">
+            <div class="text-center space-y-4">
+                <h1
+                    class="text-4xl font-bold tracking-tight text-slate-900 dark:text-white sm:text-5xl"
+                >
+                    Leaderboard
+                </h1>
+                <p
+                    class="mx-auto max-w-2xl text-lg text-slate-600 dark:text-slate-400"
+                >
+                    Discover the top-performing models based on total token
+                    usage.
+                </p>
+            </div>
+
+            <div class="card p-1">
+                <div class="p-6 bg-white dark:bg-slate-900 rounded-xl">
+                    {
+                        error ? (
+                            <div class="text-center text-red-500 py-4">
+                                Error loading data: {error}
+                            </div>
+                        ) : (
+                            <ArenaRankings
+                                client:load
+                                elosData={tokenData}
+                                metricLabel="Total Tokens"
+                                enableDateFilter={true}
+                            />
+                        )
+                    }
+                </div>
+            </div>
+        </div>
+    </Container>
+</PageLayout>

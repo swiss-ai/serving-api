@@ -1,0 +1,65 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: llm-service
+  namespace: swiss-ai
+spec:
+  selector:
+    matchLabels:
+      app: llm-service
+  template:
+    metadata:
+      labels:
+        app: llm-service
+    spec:
+      containers:
+      - name: global-dispatcher
+        image: ghcr.io/researchcomputer/ocf:amd64-stable
+        imagePullPolicy: Always
+        args:
+          - start
+          - --mode
+          - "standalone"
+          - --seed
+          - "0"
+          - --public-addr
+          - "148.187.108.172"
+        ports:
+          - containerPort: 8092
+            name: ocf-http-port
+          - containerPort: 43905
+            name: ocf-p2p-port
+        resources:
+          requests:
+            memory: "8Gi"
+            cpu: "4"
+          limits:
+            memory: "16Gi"
+            cpu: "8"
+        volumeMounts:
+          - name: key-id
+            mountPath: /root/.ocfcore/keys
+            readOnly: true
+      volumes:
+        - name: key-id
+          secret:
+            secretName: dispatcher-id-key
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: lb-service
+  namespace: swiss-ai
+spec:
+  selector:
+    app: llm-service
+  ports:
+    - protocol: TCP
+      port: 8092
+      targetPort: 8092
+      name: ocf-http-port
+    - protocol: TCP
+      port: 43905
+      targetPort: 43905
+      name: ocf-p2p-port
+  type: LoadBalancer

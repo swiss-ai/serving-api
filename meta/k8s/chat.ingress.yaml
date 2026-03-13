@@ -1,0 +1,25 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt
+  name: chat-frontend
+  namespace: swiss-ai
+
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: chat.swissai.cscs.ch
+    http:
+      paths:
+      - pathType: Prefix
+        path: /
+        backend:
+          service:
+            name: chat-frontend-internal
+            port:
+              number: 80
+  tls:
+  - hosts:
+    - chat.swissai.cscs.ch
+    secretName: chat-cert

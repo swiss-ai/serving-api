@@ -1,0 +1,40 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: chat-frontend-internal
+  namespace: swiss-ai
+spec:
+  ports:
+  - name: chat-http
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  selector:
+    app: chat-frontend
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: chat-frontend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: chat-frontend
+  minReadySeconds: 25
+  template:
+    metadata:
+      labels:
+        app: chat-frontend
+    spec:
+      containers:
+      - name: chat-frontend
+        image: ghcr.io/xiaozheyao/chat-front:dev
+        imagePullPolicy: Always
+        ports:
+          - containerPort: 80
+        envFrom:
+          - configMapRef:
+              name: serving
+      restartPolicy: Always

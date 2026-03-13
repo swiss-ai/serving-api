@@ -1,0 +1,29 @@
+---
+import Container from "@components/Container.astro";
+import PageLayout from "@layouts/PageLayout.astro";
+import { SITE } from "@consts";
+
+// Select a random 404 image (1-7)
+const randomImageNumber = Math.floor(Math.random() * 7) + 1;
+const imageUrl = `/images/404/${randomImageNumber}.png`;
+
+export const prerender = true;
+---
+
+<PageLayout title="404 - Page Not Found" description="The page you're looking for doesn't exist">
+  <Container>
+    <div class="min-h-[40vh] flex items-center justify-center pt-8">
+      <div class="text-center space-y-6 max-w-2xl mx-auto">
+        <!-- 404 Image -->
+        <div class="animate flex justify-center">
+          <img 
+            src={imageUrl} 
+            alt="404 Error Illustration" 
+            class="max-w-full h-auto rounded-lg shadow-lg max-h-80 object-contain"
+            loading="lazy"
+          />
+        </div>
+      </div>
+    </div>
+  </Container>
+</PageLayout> 

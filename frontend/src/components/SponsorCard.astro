@@ -1,0 +1,21 @@
+---
+interface Props {
+  name: string;
+  logo: string;
+  url?: string;
+  width?: number;
+  height?: number;
+}
+
+const { name, logo, url, width = 158, height = 48 } = Astro.props;
+---
+
+<div class="col-span-2 max-h-12 w-full object-contain lg:col-span-2">
+  {url ? (
+    <a href={url} target="_blank" rel="noopener noreferrer">
+      <img src={logo} alt={name} width={width} height={height} class="w-full h-full object-contain" />
+    </a>
+  ) : (
+    <img src={logo} alt={name} width={width} height={height} class="w-full h-full object-contain" />
+  )}
+</div> 

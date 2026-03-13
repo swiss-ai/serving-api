@@ -1,0 +1,47 @@
+---
+import type { CollectionEntry } from "astro:content";
+
+type Props = {
+  entry: CollectionEntry<"guides"> | CollectionEntry<"articles">;
+};
+
+const { entry } = Astro.props;
+if (!entry) {
+  throw new Error("Entry is null or undefined");
+}
+---
+
+<a
+  href={`/${entry.collection}/${entry.slug}`}
+  class="card group flex flex-nowrap py-4 px-5 pr-12 items-center gap-4"
+>
+  <div class="flex flex-col flex-1 truncate">
+    <div
+      class="font-bold text-lg text-slate-800 dark:text-slate-100 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors"
+    >
+      {entry.data.title}
+    </div>
+    <div class="text-sm text-slate-600 dark:text-slate-400 line-clamp-2 mt-1">
+      {entry.data.description}
+    </div>
+  </div>
+  <div class="absolute right-5 top-1/2 -translate-y-1/2">
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      class="size-6 stroke-2 fill-none stroke-slate-400 dark:stroke-slate-500 group-hover:stroke-indigo-600 dark:group-hover:stroke-indigo-400 transition-all duration-300"
+    >
+      <line
+        x1="5"
+        y1="12"
+        x2="19"
+        y2="12"
+        class="translate-x-3 group-hover:translate-x-0 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 ease-out"
+      ></line>
+      <polyline
+        points="12 5 19 12 12 19"
+        class="-translate-x-1 group-hover:translate-x-0 transition-transform duration-300 ease-out"
+      ></polyline>
+    </svg>
+  </div>
+</a>

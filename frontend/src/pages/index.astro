@@ -1,0 +1,290 @@
+---
+import { getCollection } from "astro:content";
+import Container from "@components/Container.astro";
+import PageLayout from "@layouts/PageLayout.astro";
+import ArrowCard from "@components/ArrowCard.astro";
+import ModelList from "@components/ui/ModelList.svelte";
+import TokenUsageChart from "@components/TokenUsageChart.svelte";
+import Link from "@components/Link.astro";
+import ContributorCard from "@components/ContributorCard.astro";
+import SponsorCard from "@components/SponsorCard.astro";
+import CSCSLogo from "@components/CSCSLogo.astro";
+import { SITE, HOME } from "@consts";
+import { SignIn, SignOut } from 'auth-astro/components';
+import { getSession } from 'auth-astro/server';
+
+export const prerender = false;
+const docs = (await getCollection("guides"))
+  .filter(post => !post.data.draft)
+  .sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf())
+  .slice(0,SITE.NUM_POSTS_ON_HOMEPAGE);
+
+const articles = (await getCollection("articles"))
+  .filter(articles => !articles.data.draft)
+  .sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf())
+  .slice(0,SITE.NUM_PROJECTS_ON_HOMEPAGE);
+
+const session = await getSession(Astro.request);
+const isSessionValid = session && session.user;
+const chatAppUrl = process.env.CHAT_APP_URL || "https://chat.swissai.cscs.ch";
+
+const contributors = [
+  {
+    name: "Ilia Badanin",
+    role: "Student Engineer",
+    avatar: "/images/contributers/ilia_badanin.jpeg",
+    url: "https://ch.linkedin.com/in/ilia-badanin"
+  },
+  {
+    name: "Aryan Ahadinia",
+    role: "Student Engineer",
+    avatar: "/images/contributers/aryan_ahadinia.jpeg",
+    url: "https://aryanahadinia.github.io"
+  },
+  {
+    name: "Alexander Sternfeld",
+    role: "Research Associate ",
+    avatar: "/images/contributers/alexander_sternfeld.jpeg",
+    url: "https://www.linkedin.com/in/alexander-sternfeld-93a01799/"
+  },
+  {
+    name: "Elia Palme",
+    role: "Senior Software Engineer",
+    avatar: "/images/contributers/elia_palme.jpeg",
+    url: "https://www.cscs.ch/about/staff"
+  },
+  {
+    name: "Robert Matthew Smith",
+    role: "System Expert",
+    avatar: "/images/contributers/robert_matthew_smith.jpeg",
+    url: "#"
+  },
+  {
+    name: "Xiaozhe Yao",
+    role: "Project Lead",
+    avatar: "/images/contributers/xiaozhe_yao.jpeg",
+    url: "https://about.yao.sh"
+  },
+  {
+    name: "Imanol Schlag",
+    role: "Project Lead",
+    avatar: "/images/contributers/imanol_schlag.jpeg",
+    url: "https://ischlag.github.io/"
+  }
+];
+
+const sponsors = [
+  {
+    name: "CSCS",
+    logo: "/cscs-logo.svg",
+    component: CSCSLogo
+  },
+  {
+    name: "ETH Zurich",
+    logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/9/99/ETH_Z%C3%BCrich_Logo_black.svg/1200px-ETH_Z%C3%BCrich_Logo_black.svg.png"
+  },
+  {
+    name: "ETHZ AI Center",
+    logo: "https://ai.ethz.ch/_jcr_content/orgbox/image.imageformat.logo.1864120785.png"
+  },
+  {
+    name: "Langfuse",
+    logo: "https://langfuse.com/langfuse_logo.svg"
+  }
+];
+---
+
+<PageLayout title={HOME.TITLE} description={HOME.DESCRIPTION}>
+  <Container>
+    <div class="space-y-20">
+      
+      <!-- Hero Section -->
+      <section class="animate text-center py-16">
+        <div class="max-w-5xl mx-auto">
+          <h1 class="text-5xl md:text-7xl font-bold gradient-text mb-8 leading-tight">
+            Swiss AI Research Platform
+          </h1>
+          <p class="text-xl md:text-2xl text-slate-600 dark:text-slate-300 mb-12 leading-relaxed max-w-3xl mx-auto">
+            
+          </p>
+          
+          <!-- Authentication Section -->
+          <div class="animate-delay-2 mb-12">
+            {isSessionValid ? (
+              <div class="card p-6 max-w-2xl mx-auto">
+                <div class="flex flex-col md:flex-row justify-between items-center gap-6">
+                  <div class="text-center md:text-left">
+                    <p class="text-sm text-slate-500 dark:text-slate-400 mb-1">Welcome back</p>
+                    <p class="text-xl font-semibold text-slate-900 dark:text-white">{session.user?.name || 'User'}</p>
+                  </div>
+                  <div class="flex gap-3">
+                    <a href="/api_key" class="btn-primary">
+                      <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M18 8a6 6 0 01-7.743 5.743L10 14l-1 1-1 1H6v2H2v-4l4.257-4.257A6 6 0 1118 8zm-6-4a1 1 0 100 2 2 2 0 012 2 1 1 0 102 0 4 4 0 00-4-4z" clip-rule="evenodd"/>
+                      </svg>
+                      View API Key
+                    </a>
+                    <SignOut class="btn-secondary">
+                      Logout
+                    </SignOut>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div class="card p-6 max-w-2xl mx-auto">
+                <div class="flex flex-col md:flex-row justify-between items-center gap-6">
+                  <div class="text-center md:text-left">
+                    <h3 class="text-lg font-semibold text-slate-900 dark:text-white mb-2">Get Started</h3>
+                    <p class="text-slate-600 dark:text-slate-300">
+                      Sign in to get your API key and access our LLM services
+                    </p>
+                  </div>
+                  <SignIn provider="auth0" class="btn-primary">
+                    <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                      <path fill-rule="evenodd" d="M3 3a1 1 0 011 1v12a1 1 0 11-2 0V4a1 1 0 011-1zm7.707 3.293a1 1 0 010 1.414L9.414 9H17a1 1 0 110 2H9.414l1.293 1.293a1 1 0 01-1.414 1.414l-3-3a1 1 0 010-1.414l3-3a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                    </svg>
+                    Sign In
+                  </SignIn>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <!-- Action Buttons -->
+          <div class="animate-delay-3 flex flex-col sm:flex-row gap-6 justify-center">
+            <a href={chatAppUrl} target="_blank" rel="noopener noreferrer"
+               class="group flex items-center justify-center gap-3 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white font-semibold py-4 px-8 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
+              <svg class="w-6 h-6 group-hover:scale-110 transition-transform" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M18 10c0 3.866-3.582 7-8 7a8.841 8.841 0 01-4.083-.98L2 17l1.338-3.123C2.493 12.767 2 11.434 2 10c0-3.866 3.582-7 8-7s8 3.134 8 7zM7 9H5v2h2V9zm8 0h-2v2h2V9zM9 9h2v2H9V9z" clip-rule="evenodd"/>
+              </svg>
+              Swiss AI Chat
+            </a>
+          </div>
+        </div>
+      </section>
+
+      <!-- Available Models Section -->
+      <section class="animate space-y-8">
+        <div class="text-center">
+          <h2 class="text-3xl font-bold text-slate-900 dark:text-white mb-4">
+            Available Models
+          </h2>
+          <p class="text-lg text-slate-600 dark:text-slate-400 max-w-2xl mx-auto mb-8">
+            Access state-of-the-art language models from leading AI research organizations
+          </p>
+        </div>
+        
+        <div class="card p-8">
+          <ModelList client:load />
+        </div>
+      </section>
+
+      <!-- Token Usage Statistics -->
+      <section class="animate space-y-8">
+        <div class="text-center">
+          <h2 class="text-3xl font-bold text-slate-900 dark:text-white mb-4">
+            Usage Analytics
+          </h2>
+          <p class="text-lg text-slate-600 dark:text-slate-400 max-w-2xl mx-auto mb-8">
+            Real-time token usage and platform statistics
+          </p>
+        </div>
+        
+        <div class="card p-8">
+          <TokenUsageChart client:load />
+        </div>
+      </section>
+      
+      <!-- Documentation Section -->
+      <section class="animate space-y-8">
+        <div class="flex flex-wrap gap-y-2 items-center justify-between">
+          <div>
+            <h2 class="text-3xl font-bold text-slate-900 dark:text-white mb-2">
+              Documentation
+            </h2>
+            <p class="text-slate-600 dark:text-slate-400">Get started with our comprehensive guides</p>
+          </div>
+          <Link href="/guides" class="text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300 font-medium">
+            See all docs →
+          </Link>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {docs.map(post => (
+            <div class="card p-6 hover:shadow-xl transition-all duration-300">
+              <ArrowCard entry={post} />
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <!-- Research Articles Section -->
+      <section class="animate space-y-8">
+        <div class="flex flex-wrap gap-y-2 items-center justify-between">
+          <div>
+            <h2 class="text-3xl font-bold text-slate-900 dark:text-white mb-2">
+              Research Articles
+            </h2>
+            <p class="text-slate-600 dark:text-slate-400">Latest insights from our research team</p>
+          </div>
+          <Link href="/articles" class="text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300 font-medium">
+            See all posts →
+          </Link>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {articles.map(article => (
+            <div class="card p-6 hover:shadow-xl transition-all duration-300">
+              <ArrowCard entry={article} />
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <!-- Contributors Section -->
+      <section class="animate space-y-8">
+        <div class="text-center">
+          <h2 class="text-3xl font-bold text-slate-900 dark:text-white mb-4">
+            Platform Contributors
+          </h2>
+          <p class="text-lg text-slate-600 dark:text-slate-400 max-w-2xl mx-auto mb-8">
+            Meet the talented team behind Switzerland's AI infrastructure
+          </p>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {contributors.map(contributor => (
+            <div class="card p-6 text-center hover:shadow-xl transition-all duration-300">
+              <ContributorCard {...contributor} />
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <!-- Sponsors Section -->
+      <section class="animate space-y-8">
+        <div class="text-center">
+          <h2 class="text-3xl font-bold text-slate-900 dark:text-white mb-4">
+            Institutional Partners
+          </h2>
+          <p class="text-lg text-slate-600 dark:text-slate-400 max-w-2xl mx-auto mb-8">
+            Powered by Switzerland's leading research institutions
+          </p>
+        </div>
+        <div class="card p-6 md:p-12">
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-12 items-center justify-items-center">
+            {sponsors.map(sponsor => (
+              sponsor.component ? (
+                <div class="w-44 h-24 md:w-48 md:h-24 flex items-center justify-center opacity-70 dark:opacity-100 hover:opacity-100 dark:bg-slate-50 dark:rounded-lg dark:p-6 transition-all duration-500 ease-out transform hover:scale-105">
+                  <sponsor.component class="h-16 w-auto object-contain" width={158} height={48} />
+                </div>
+              ) : (
+                <div class="w-44 h-24 md:w-48 md:h-24 flex items-center justify-center opacity-70 dark:opacity-100 hover:opacity-100 dark:bg-slate-50 dark:rounded-lg dark:p-6 transition-all duration-500 ease-out transform hover:scale-105">
+                  <SponsorCard {...sponsor} />
+                </div>
+              )
+            ))}
+          </div>
+        </div>
+      </section>
+      
+    </div>
+  </Container>
+</PageLayout>

@@ -1,0 +1,32 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    # add an annotation indicating the issuer to use.
+    cert-manager.io/cluster-issuer: letsencrypt
+    nginx.ingress.kubernetes.io/proxy-body-size: "16m"
+    nginx.ingress.kubernetes.io/retry-non-idempotent: "true"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "600"
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: 1d
+    nginx.ingress.kubernetes.io/proxy-send-timeout: 1d
+
+  name: serving-backend
+  namespace: swiss-ai
+
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: api.swissai.cscs.ch
+    http:
+      paths:
+      - pathType: Prefix
+        path: /
+        backend:
+          service:
+            name: serving-backend-internal
+            port:
+              number: 80
+  tls:
+  - hosts:
+    - api.swissai.cscs.ch
+    secretName: api-cert
