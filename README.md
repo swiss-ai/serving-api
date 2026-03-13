@@ -19,7 +19,7 @@ Frontend and backend API proxy for SwissAI LLM serving.
         │       serving-api       │  auth + proxy (this repo)
         └─────────────────────────┘
                  │
-                 │  
+                 │
                  ▼
         ┌─────────────────┐
         │       OCF       │  OpenTela P2P routing → model=apertus-...
