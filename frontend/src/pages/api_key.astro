@@ -8,12 +8,22 @@ import { SignIn } from 'auth-astro/components';
 
 export const prerender = false;
 
-// Check if user is authenticated
-const session = await getSession(Astro.request);
+// Detect local development
+const isDev = import.meta.env.DEV;
 
-// If not authenticated, redirect to home page
-if (!session) {
-  return Astro.redirect('/');
+let session;
+if (isDev) {
+  // Dummy session for local development — bypasses Auth0
+  session = {
+    user: { name: 'Dev User', email: 'dev@localhost' },
+    accessToken: 'dev-dummy-token',
+  };
+} else {
+  // Check if user is authenticated
+  session = await getSession(Astro.request);
+  if (!session) {
+    return Astro.redirect('/');
+  }
 }
 
 // API key will be fetched client-side to avoid exposing it in the HTML
@@ -65,6 +75,35 @@ const apiUrl = process.env.VITE_API_URL || 'https://api.swissai.cscs.ch';
               <p>By using this service, you consent to the collection and use of your request metadata. We collect this data in order to facilitate the research in this direction.</p>
               <p>If you have any questions or concerns, please contact us.</p>
             </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- API Documentation Card -->
+      <div class="animate card p-8">
+        <div class="flex items-start gap-4">
+          <div class="w-12 h-12 bg-gradient-to-r from-emerald-600 to-teal-600 rounded-xl flex items-center justify-center flex-shrink-0">
+            <svg class="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 20 20">
+              <path fill-rule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clip-rule="evenodd"/>
+            </svg>
+          </div>
+          <div>
+            <h2 class="text-xl font-bold text-slate-900 dark:text-white mb-3">API Documentation</h2>
+            <p class="text-slate-600 dark:text-slate-400 mb-4">
+              Explore the full API reference with interactive documentation. Try out endpoints directly from your browser.
+            </p>
+            <a
+              href={`${apiUrl}/docs`}
+              target="_blank"
+              rel="noopener noreferrer"
+              class="inline-flex items-center gap-2 btn-primary px-6 py-3 rounded-xl text-sm font-semibold"
+            >
+              <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M11 3a1 1 0 100 2h2.586l-6.293 6.293a1 1 0 101.414 1.414L15 6.414V9a1 1 0 102 0V4a1 1 0 00-1-1h-5z"/>
+                <path d="M5 5a2 2 0 00-2 2v8a2 2 0 002 2h8a2 2 0 002-2v-3a1 1 0 10-2 0v3H5V7h3a1 1 0 000-2H5z"/>
+              </svg>
+              View Swagger API Docs
+            </a>
           </div>
         </div>
       </div>
@@ -138,6 +177,15 @@ const apiUrl = process.env.VITE_API_URL || 'https://api.swissai.cscs.ch';
             </div>
           </div>
 
+          <!-- Export Environment Variable -->
+          <div class="space-y-3">
+            <h3 class="text-lg font-semibold text-slate-800 dark:text-slate-200">Set Environment Variable</h3>
+            <p class="text-slate-600 dark:text-slate-400">Export your API key so you can copy and paste the examples below:</p>
+            <div class="card p-4 bg-slate-50 dark:bg-slate-800/50">
+              <pre class="text-sm text-slate-700 dark:text-slate-300 overflow-x-auto"><code>export CSCS_SERVING_API="<span id="exportApiKey" class="text-indigo-600 dark:text-indigo-400">your-api-key</span>"</code></pre>
+            </div>
+          </div>
+
           <!-- CURL Example -->
           <div class="space-y-3">
             <h3 class="text-lg font-semibold text-slate-800 dark:text-slate-200">CURL Example</h3>
@@ -163,6 +211,7 @@ const apiUrl = process.env.VITE_API_URL || 'https://api.swissai.cscs.ch';
           </div>
         </div>
       </div>
+
     </div>
   </Container>
 </PageLayout>
@@ -284,8 +333,10 @@ const apiUrl = process.env.VITE_API_URL || 'https://api.swissai.cscs.ch';
       }
       
       // Update UI with API key
+      const exportApiKey = document.getElementById('exportApiKey');
       if (apiKeyDisplay) apiKeyDisplay.value = apiKey;
       if (headerApiKey) headerApiKey.textContent = apiKey;
+      if (exportApiKey) exportApiKey.textContent = apiKey;
 
       // Hide loading message
       if (loadingMessage) loadingMessage.classList.add('hidden');
