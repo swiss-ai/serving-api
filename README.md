@@ -2,7 +2,10 @@
 
 Frontend and backend API proxy for SwissAI LLM serving.
 
-**Live at:** [serving.swissai.cscs.ch](https://serving.swissai.cscs.ch)
+**Live at:** 
+- Prod: [serving.swissai.svc.cscs.ch](https://serving.swissai.svc.cscs.ch)
+- Dev: [servingdev.swissai.svc.cscs.ch](https://servingdev.swissai.svc.cscs.ch)
+- Local: with `docker compose up`
 
 ## Architecture
 
@@ -23,7 +26,7 @@ Frontend and backend API proxy for SwissAI LLM serving.
                  ▼
         ┌─────────────────┐
         │       OCF       │  OpenTela P2P routing → model=apertus-...
-        │                 │  github.com/eth-easl/OpenTela
+        │                 │  
         └────────┬────────┘
                  │
                  ▼
@@ -42,7 +45,7 @@ tests/           # integration tests
 tools/           # metrics & monitoring utilities
 ```
 
-OCF (Open Compute Framework) is maintained at [eth-easl/OpenTela](https://github.com/eth-easl/OpenTela).
+OCF (Open Compute Framework) now renamed to OpenTela upstream is maintained at [eth-easl/OpenTela](https://github.com/eth-easl/OpenTela). We maintain a fork at [swiss-ai/OpenTela](https://github.com/swiss-ai/opentela) to control deployments to dev+prod.
 
 ## Quick Start
 

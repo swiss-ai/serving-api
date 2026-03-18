@@ -9,9 +9,6 @@ def get_all_models(endpoint: str, with_details: bool = False):
         return []
     models = []
     for node_info in data.values():
-        # Only include nodes that are currently connected
-        # if not node_info.get('connected', False):
-        #     continue
         if not node_info.get("service"):
             continue
         device_info = parse_hardware_info(node_info.get("hardware"))
@@ -23,7 +20,6 @@ def get_all_models(endpoint: str, with_details: bool = False):
                 for identity in service["identity_group"]
                 if identity.startswith("model=")
             ]
-            # Add each model to the list
             if with_details:
                 models.extend(
                     {

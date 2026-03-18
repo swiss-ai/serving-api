@@ -253,8 +253,6 @@ class EmbeddingObject(BaseModel):
     @classmethod
     def decode_base64_embedding(cls, v):
         if isinstance(v, str):
-            # Base64 string to list of floats
-            # Assuming little-endian float32 as is common with OpenAI compatible APIs
             byte_data = base64.b64decode(v)
             count = len(byte_data) // 4
             return list(struct.unpack(f"<{count}f", byte_data))
@@ -283,9 +281,7 @@ class ModelResponse(BaseModel):
     def __init__(self, **data):
         super().__init__(**data)
 
-        # Determine object type helper
         if not self.object:
-            # Basic heuristic if not provided
             self.object = "chat.completion"
 
     def __contains__(self, key):

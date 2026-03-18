@@ -1,4 +1,4 @@
-from backend.protocols import LLMRequest, LLMCompletionsRequest, ModelResponse
+from backend.models.protocols import LLMRequest, LLMCompletionsRequest, ModelResponse
 
 
 def test_llm_request_to_payload():
