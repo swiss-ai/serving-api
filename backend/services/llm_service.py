@@ -394,3 +394,107 @@ async def llm_proxy_responses(
         model=model,
         raw_response=True,
     )
+
+
+@backoff.on_exception(
+    wait_gen=backoff.constant,
+    exception=RetryConstantError,
+    max_tries=3,
+    interval=3,
+)
+@backoff.on_exception(
+    wait_gen=backoff.expo,
+    exception=RetryExpoError,
+    jitter=backoff.full_jitter,
+    max_value=100,
+    factor=1.5,
+)
+async def llm_proxy_rerank(endpoint, api_key, payload: dict, model: str):
+    return await _shared_proxy_handler(
+        endpoint=endpoint,
+        api_key=api_key,
+        payload=payload,
+        headers_extra={},
+        stream=False,
+        full_url=endpoint.rstrip("/") + "/rerank",
+        model=model,
+        raw_response=True,
+    )
+
+
+@backoff.on_exception(
+    wait_gen=backoff.constant,
+    exception=RetryConstantError,
+    max_tries=3,
+    interval=3,
+)
+@backoff.on_exception(
+    wait_gen=backoff.expo,
+    exception=RetryExpoError,
+    jitter=backoff.full_jitter,
+    max_value=100,
+    factor=1.5,
+)
+async def llm_proxy_score(endpoint, api_key, payload: dict, model: str):
+    return await _shared_proxy_handler(
+        endpoint=endpoint,
+        api_key=api_key,
+        payload=payload,
+        headers_extra={},
+        stream=False,
+        full_url=endpoint.rstrip("/") + "/score",
+        model=model,
+        raw_response=True,
+    )
+
+
+@backoff.on_exception(
+    wait_gen=backoff.constant,
+    exception=RetryConstantError,
+    max_tries=3,
+    interval=3,
+)
+@backoff.on_exception(
+    wait_gen=backoff.expo,
+    exception=RetryExpoError,
+    jitter=backoff.full_jitter,
+    max_value=100,
+    factor=1.5,
+)
+async def llm_proxy_tokenize(endpoint, api_key, payload: dict, model: str):
+    return await _shared_proxy_handler(
+        endpoint=endpoint,
+        api_key=api_key,
+        payload=payload,
+        headers_extra={},
+        stream=False,
+        full_url=endpoint.rstrip("/") + "/tokenize",
+        model=model,
+        raw_response=True,
+    )
+
+
+@backoff.on_exception(
+    wait_gen=backoff.constant,
+    exception=RetryConstantError,
+    max_tries=3,
+    interval=3,
+)
+@backoff.on_exception(
+    wait_gen=backoff.expo,
+    exception=RetryExpoError,
+    jitter=backoff.full_jitter,
+    max_value=100,
+    factor=1.5,
+)
+async def llm_proxy_detokenize(endpoint, api_key, payload: dict, model: str):
+    return await _shared_proxy_handler(
+        endpoint=endpoint,
+        api_key=api_key,
+        payload=payload,
+        headers_extra={},
+        stream=False,
+        full_url=endpoint.rstrip("/") + "/detokenize",
+        model=model,
+        raw_response=True,
+    )

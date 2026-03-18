@@ -53,6 +53,10 @@ def test_app_routes_registered(client):
         "/v1/statistics",
         "/v1/metrics",
         "/v1/perf",
+        "/v1/rerank",
+        "/v1/score",
+        "/v1/tokenize",
+        "/v1/detokenize",
     ]
     for path in expected:
         assert path in paths, f"Missing route: {path}"
@@ -76,6 +80,36 @@ def test_chat_completions_requires_auth(client):
 def test_responses_requires_auth(client):
     """/v1/responses should reject unauthenticated requests."""
     response = client.post("/v1/responses", json={"model": "test", "input": "hello"})
+    assert response.status_code in (401, 403)
+
+
+def test_rerank_requires_auth(client):
+    """/v1/rerank should reject unauthenticated requests."""
+    response = client.post(
+        "/v1/rerank", json={"model": "test", "query": "q", "documents": []}
+    )
+    assert response.status_code in (401, 403)
+
+
+def test_score_requires_auth(client):
+    """/v1/score should reject unauthenticated requests."""
+    response = client.post(
+        "/v1/score", json={"model": "test", "text_1": "a", "text_2": "b"}
+    )
+    assert response.status_code in (401, 403)
+
+
+def test_tokenize_requires_auth(client):
+    """/v1/tokenize should reject unauthenticated requests."""
+    response = client.post("/v1/tokenize", json={"model": "test", "prompt": "hello"})
+    assert response.status_code in (401, 403)
+
+
+def test_detokenize_requires_auth(client):
+    """/v1/detokenize should reject unauthenticated requests."""
+    response = client.post(
+        "/v1/detokenize", json={"model": "test", "tokens": [1, 2, 3]}
+    )
     assert response.status_code in (401, 403)
 
 
