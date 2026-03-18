@@ -9,7 +9,6 @@ async-lru
 backoff
 langfuse
 openai
-logfire[fastapi]
 sqlmodel
 psycopg2-binary
 pyjwt[crypto]
@@ -17,3 +16,4 @@ pydantic-settings
 redis
 hiredis
 firebase-admin
+alembic

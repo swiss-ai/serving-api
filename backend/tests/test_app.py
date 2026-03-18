@@ -45,6 +45,7 @@ def test_app_routes_registered(client):
     expected = [
         "/v1/chat/completions",
         "/v1/completions",
+        "/v1/responses",
         "/v1/embeddings",
         "/v1/models",
         "/v1/models_detailed",
@@ -68,6 +69,14 @@ def test_chat_completions_requires_auth(client):
     """/v1/chat/completions should reject unauthenticated requests."""
     response = client.post(
         "/v1/chat/completions", json={"model": "test", "messages": []}
+    )
+    assert response.status_code in (401, 403)
+
+
+def test_responses_requires_auth(client):
+    """/v1/responses should reject unauthenticated requests."""
+    response = client.post(
+        "/v1/responses", json={"model": "test", "input": "hello"}
     )
     assert response.status_code in (401, 403)
 

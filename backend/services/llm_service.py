@@ -2,7 +2,7 @@ import json
 import backoff
 import aiohttp
 from typing import Dict, Union
-from backend.protocols import (
+from backend.models.protocols import (
     ModelResponse,
     RetryConstantError,
     RetryExpoError,
@@ -10,7 +10,7 @@ from backend.protocols import (
     LLMRequest,
     LLMCompletionsRequest,
 )
-from backend.metrics import metrics_collector
+from backend.services.metrics_service import metrics_collector
 import time
 
 active_requests = 0
@@ -22,7 +22,6 @@ async def response_generator(response, metrics_ctx=None):
     first_token_time = None
     token_count = 0
 
-    # Unpack metrics context
     start_time = None
     model = None
     node_id = None
@@ -37,7 +36,6 @@ async def response_generator(response, metrics_ctx=None):
         concurrency = metrics_ctx.get("concurrency")
 
     try:
-        # response is now an aiohttp Stream or similar
         async for line in response:
             line = line.strip()
             if not line:
@@ -48,10 +46,8 @@ async def response_generator(response, metrics_ctx=None):
                     continue
                 try:
                     data = json.loads(data_str)
-                    # Accumulate content
                     if "choices" in data and len(data["choices"]) > 0:
                         choice = data["choices"][0]
-                        # Handle Chat Completion (delta)
                         if "delta" in choice and "content" in choice["delta"]:
                             original_content = choice["delta"]["content"]
                             if original_content:
@@ -66,7 +62,6 @@ async def response_generator(response, metrics_ctx=None):
                                 if processed_content:
                                     accumulated_content.append(processed_content)
 
-                        # Handle Legacy Completion (text)
                         elif "text" in choice:
                             original_content = choice["text"]
                             if original_content:
@@ -89,16 +84,14 @@ async def response_generator(response, metrics_ctx=None):
                 except json.JSONDecodeError:
                     continue
     finally:
-        # Record Metrics
         if metrics_ctx and start_time and node_id:
             full_content = "".join(accumulated_content)
             end_time = time.time()
             latency = end_time - start_time
             ttft = (first_token_time - start_time) if first_token_time else latency
 
-            # If we didn't get usage data, estimate from content length
             if token_count == 0 and full_content:
-                token_count = len(full_content) / 4.0  # Crude approximation
+                token_count = len(full_content) / 4.0
 
             throughput = token_count / latency if latency > 0 else 0
 
@@ -112,6 +105,19 @@ async def response_generator(response, metrics_ctx=None):
                 throughput=throughput,
             )
 
+        global active_requests
+        active_requests -= 1
+
+
+async def response_generator_raw(response):
+    """Raw SSE passthrough for the Responses API — no content parsing."""
+    try:
+        async for line in response:
+            line = line.strip()
+            if not line:
+                continue
+            yield line.decode("utf-8") + "\n"
+    finally:
         global active_requests
         active_requests -= 1
 
@@ -137,13 +143,21 @@ class StreamWrapper:
         return self.gen
 
 
+class RawResponse:
+    """Wrapper for raw (non-ModelResponse) JSON responses."""
+    def __init__(self, data: dict, headers: dict = None):
+        self.data = data
+        self.headers = headers or {}
+
+
 async def _execute_http_request(
     session: aiohttp.ClientSession,
     url: str,
     headers: Dict,
     payload: Dict,
     stream: bool,
-) -> Union[ModelResponse, StreamWrapper]:
+    raw_response: bool = False,
+) -> Union[ModelResponse, StreamWrapper, RawResponse]:
     req_cm = session.post(url, json=payload, headers=headers)
     try:
         resp = await req_cm.__aenter__()
@@ -164,7 +178,6 @@ async def _execute_http_request(
         else:
             raise RetryConstantError(f"HTTP {resp.status}: {text}")
 
-    # Capture headers
     response_headers = dict(resp.headers)
     if stream:
 
@@ -183,6 +196,10 @@ async def _execute_http_request(
         finally:
             await req_cm.__aexit__(None, None, None)
             await session.close()
+
+        if raw_response:
+            return RawResponse(data=data, headers=response_headers)
+
         model_response = ModelResponse(**data)
         model_response.headers = response_headers
         return model_response
@@ -196,7 +213,8 @@ async def _shared_proxy_handler(
     stream: bool,
     full_url: str,
     model: str,
-) -> Union[ModelResponse, StreamWrapper]:
+    raw_response: bool = False,
+) -> Union[ModelResponse, StreamWrapper, RawResponse]:
     global active_requests
     active_requests += 1
     start_time = time.time()
@@ -213,6 +231,7 @@ async def _shared_proxy_handler(
             headers=headers,
             payload=payload,
             stream=stream,
+            raw_response=raw_response,
         )
         node_id = (
             resp.headers.get("X-Computing-Node", "unknown")
@@ -230,13 +249,14 @@ async def _shared_proxy_handler(
             }
 
         else:
-            # Non-streaming
             end_time = time.time()
             latency = end_time - start_time
 
             token_count = 0
             if isinstance(resp, ModelResponse) and resp.usage:
                 token_count = resp.usage.completion_tokens
+            elif isinstance(resp, RawResponse) and resp.data.get("usage"):
+                token_count = resp.data["usage"].get("completion_tokens", 0)
 
             throughput = token_count / latency if latency > 0 else 0
 
@@ -245,7 +265,7 @@ async def _shared_proxy_handler(
                 node_id=node_id,
                 dnt_endpoint=dnt_endpoint,
                 concurrency=snapshot_concurrency,
-                ttft=latency,  # TTFT = Latency for non-stream
+                ttft=latency,
                 latency=latency,
                 throughput=throughput,
             )
@@ -344,4 +364,32 @@ async def llm_proxy_embeddings(endpoint, api_key, **kwargs) -> ModelResponse:
         stream=False,
         full_url=endpoint.rstrip("/") + "/embeddings",
         model=kwargs.get("model"),
+    )
+
+
+@backoff.on_exception(
+    wait_gen=backoff.constant,
+    exception=RetryConstantError,
+    max_tries=3,
+    interval=3,
+)
+@backoff.on_exception(
+    wait_gen=backoff.expo,
+    exception=RetryExpoError,
+    jitter=backoff.full_jitter,
+    max_value=100,
+    factor=1.5,
+)
+async def llm_proxy_responses(
+    endpoint, api_key, payload: dict, stream: bool, model: str
+):
+    return await _shared_proxy_handler(
+        endpoint=endpoint,
+        api_key=api_key,
+        payload=payload,
+        headers_extra={},
+        stream=stream,
+        full_url=endpoint.rstrip("/") + "/responses",
+        model=model,
+        raw_response=True,
     )

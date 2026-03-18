@@ -14,7 +14,6 @@ class Settings(BaseSettings):
     auth0_algorithms: str = "RS256"
     auth0_client_id: str = ""
     auth0_client_secret: str = ""
-    logfire_token: str = ""
     database_url: str = ""
     auth_secret: str = ""
     auth_trust_host: bool = False

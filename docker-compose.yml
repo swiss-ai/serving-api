@@ -9,7 +9,6 @@ services:
       - postgres
     environment:
       - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/ai_proxy
-      - LOGFIRE_TOKEN=${LOGFIRE_TOKEN}
       - AUTH0_DOMAIN=${AUTH0_DOMAIN}
       - AUTH0_API_AUDIENCE=${AUTH0_API_AUDIENCE}
       - AUTH0_ISSUER=${AUTH0_ISSUER}
