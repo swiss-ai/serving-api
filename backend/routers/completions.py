@@ -1,7 +1,11 @@
 from fastapi import APIRouter, Request, Depends
 from fastapi.responses import StreamingResponse
 from backend.middleware.auth import require_auth
-from backend.services.llm_service import llm_proxy, llm_proxy_completions, response_generator
+from backend.services.llm_service import (
+    llm_proxy,
+    llm_proxy_completions,
+    response_generator,
+)
 from backend.models.protocols import LLMRequest, LLMCompletionsRequest
 from backend.config import get_settings
 

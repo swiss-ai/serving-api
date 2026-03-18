@@ -1,7 +1,7 @@
 from typing import Optional
 from functools import lru_cache
 from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.security import HTTPAuthorizationCredentials
 from fastapi.concurrency import run_in_threadpool
 from backend.middleware.auth import optional_security
 from backend.services.metrics_service import (

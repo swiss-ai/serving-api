@@ -25,9 +25,7 @@ def get_or_create_apikey(engine, owner_email: str) -> APIKey:
         ).first()
         if api_key is None:
             key = f"sk-rc-{secrets.token_urlsafe(16)}"
-            if any(
-                owner_email.lower().endswith(domain) for domain in SWISS_DOMAINS
-            ):
+            if any(owner_email.lower().endswith(domain) for domain in SWISS_DOMAINS):
                 budget = 1000
             else:
                 budget = -1

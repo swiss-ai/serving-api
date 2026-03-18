@@ -145,6 +145,7 @@ class StreamWrapper:
 
 class RawResponse:
     """Wrapper for raw (non-ModelResponse) JSON responses."""
+
     def __init__(self, data: dict, headers: dict = None):
         self.data = data
         self.headers = headers or {}

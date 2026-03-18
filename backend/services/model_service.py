@@ -16,7 +16,7 @@ def get_all_models(endpoint: str, with_details: bool = False):
             if not service.get("identity_group"):
                 continue
             model_names = [
-                identity[len("model="):]
+                identity[len("model=") :]
                 for identity in service["identity_group"]
                 if identity.startswith("model=")
             ]

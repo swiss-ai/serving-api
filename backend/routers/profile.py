@@ -1,7 +1,10 @@
 from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from backend.services.auth_service import get_profile_from_accesstoken, get_or_create_apikey
+from backend.services.auth_service import (
+    get_profile_from_accesstoken,
+    get_or_create_apikey,
+)
 
 router = APIRouter()
 security = HTTPBearer()
