@@ -20,4 +20,6 @@ test:
 	pytest backend/tests/ -v
 
 run:
-	uvicorn backend.main:app --reload --host 0.0.0.0 --port 8080
+	uvicorn backend.main:app --reload --host 0.0.0.0 --port 8080 & \
+	cd frontend && npm run dev & \
+	wait
