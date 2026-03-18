@@ -6,7 +6,16 @@ from sqlmodel import create_engine
 from backend.config import get_settings
 from backend.services.metrics_service import metrics_collector
 from backend.middleware.logging import AccessLogMiddleware
-from backend.routers import completions, responses, embeddings, models, profile, metrics
+from backend.routers import (
+    completions,
+    responses,
+    embeddings,
+    models,
+    profile,
+    metrics,
+    rerank,
+    tokenization,
+)
 
 settings = get_settings()
 
@@ -42,6 +51,8 @@ app.include_router(embeddings.router)
 app.include_router(models.router)
 app.include_router(profile.router)
 app.include_router(metrics.router)
+app.include_router(rerank.router)
+app.include_router(tokenization.router)
 
 if __name__ == "__main__":
     import uvicorn
