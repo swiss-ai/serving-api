@@ -75,7 +75,6 @@
     @apply transition-all duration-300 ease-out;
     @apply hover:border-slate-300 dark:hover:border-slate-700;
     @apply hover:shadow-lg hover:shadow-slate-200/50 dark:hover:shadow-black/50;
-    @apply active:scale-[0.98];
   }
 
   /* Button Components */

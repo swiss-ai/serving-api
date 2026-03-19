@@ -186,20 +186,44 @@ const apiUrl = process.env.VITE_API_URL || 'https://api.swissai.cscs.ch';
             </div>
           </div>
 
-          <!-- CURL Example -->
+          <!-- Code Examples with Tabs -->
           <div class="space-y-3">
-            <h3 class="text-lg font-semibold text-slate-800 dark:text-slate-200">CURL Example</h3>
-            <p class="text-slate-600 dark:text-slate-400">Use CURL to make requests from the command line:</p>
-            <div class="card p-4 bg-slate-50 dark:bg-slate-800/50">
+            <h3 class="text-lg font-semibold text-slate-800 dark:text-slate-200">Code Examples</h3>
+            <p class="text-slate-600 dark:text-slate-400">Choose your preferred method to interact with the API:</p>
+
+            <!-- Tab Buttons -->
+            <div class="flex border-b border-slate-200 dark:border-slate-700">
+              <button
+                id="tab-curl"
+                class="code-tab px-5 py-2.5 text-sm font-medium border-b-2 border-indigo-600 text-indigo-600 dark:text-indigo-400 dark:border-indigo-400"
+                data-tab="curl"
+              >
+                CURL
+              </button>
+              <button
+                id="tab-python"
+                class="code-tab px-5 py-2.5 text-sm font-medium border-b-2 border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"
+                data-tab="python"
+              >
+                Python (requests)
+              </button>
+              <button
+                id="tab-openai"
+                class="code-tab px-5 py-2.5 text-sm font-medium border-b-2 border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"
+                data-tab="openai"
+              >
+                Python (OpenAI)
+              </button>
+            </div>
+
+            <!-- Tab Content -->
+            <div id="content-curl" class="code-tab-content card p-4 bg-slate-50 dark:bg-slate-800/50">
               <pre class="text-sm text-slate-700 dark:text-slate-300 overflow-x-auto"><code id="curlExample">Loading example...</code></pre>
             </div>
-          </div>
-
-          <!-- Python Example -->
-          <div class="space-y-3">
-            <h3 class="text-lg font-semibold text-slate-800 dark:text-slate-200">Python Example</h3>
-            <p class="text-slate-600 dark:text-slate-400">The endpoint is compatible with OpenAI protocol:</p>
-            <div class="card p-4 bg-slate-50 dark:bg-slate-800/50">
+            <div id="content-python" class="code-tab-content card p-4 bg-slate-50 dark:bg-slate-800/50 hidden">
+              <pre class="text-sm text-slate-700 dark:text-slate-300 overflow-x-auto"><code id="pythonRequestsExample">Loading example...</code></pre>
+            </div>
+            <div id="content-openai" class="code-tab-content card p-4 bg-slate-50 dark:bg-slate-800/50 hidden">
               <pre class="text-sm text-slate-700 dark:text-slate-300 overflow-x-auto"><code id="pythonApiKey">Loading example...</code></pre>
             </div>
           </div>
@@ -229,8 +253,9 @@ const apiUrl = process.env.VITE_API_URL || 'https://api.swissai.cscs.ch';
 
   // Function to initialize code examples with placeholders
   function initializeCodeExamples() {
-    const pythonApiKey = document.getElementById('pythonApiKey');
     const curlExample = document.getElementById('curlExample');
+    const pythonRequestsExample = document.getElementById('pythonRequestsExample');
+    const pythonApiKey = document.getElementById('pythonApiKey');
 
     // Set CURL example
     if (curlExample) {
@@ -250,7 +275,34 @@ const apiUrl = process.env.VITE_API_URL || 'https://api.swissai.cscs.ch';
       curlExample.textContent = curlCode;
     }
 
-    // Set Python example immediately so it's always visible
+    // Set Python requests example
+    if (pythonRequestsExample) {
+      const requestsCode = 'import requests\n' +
+'import os\n' +
+'\n' +
+'response = requests.post(\n' +
+`    "${apiUrl}/v1/chat/completions",\n` +
+'    headers={\n' +
+'        "Authorization": f"Bearer {os.environ.get(\'CSCS_SERVING_API\')}"\n' +
+'    },\n' +
+'    json={\n' +
+'        "model": "swiss-ai/Apertus-8B-Instruct-2509",\n' +
+'        "messages": [\n' +
+'            {\n' +
+'                "role": "user",\n' +
+'                "content": "Who is Pablo Picasso?"\n' +
+'            }\n' +
+'        ],\n' +
+'        "stream": False\n' +
+'    }\n' +
+')\n' +
+'\n' +
+'result = response.json()\n' +
+'print(result["choices"][0]["message"]["content"])';
+      pythonRequestsExample.textContent = requestsCode;
+    }
+
+    // Set Python OpenAI example
     if (pythonApiKey) {
       const pythonCode = 'import openai\n' +
 'import os\n' +
@@ -275,6 +327,30 @@ const apiUrl = process.env.VITE_API_URL || 'https://api.swissai.cscs.ch';
 '        print(chunk.choices[0].delta.content, end="", flush=True)\n';
       pythonApiKey.textContent = pythonCode;
     }
+  }
+
+  // Tab switching logic
+  function initializeTabs() {
+    const tabs = document.querySelectorAll('.code-tab');
+    const contents = document.querySelectorAll('.code-tab-content');
+
+    tabs.forEach(tab => {
+      tab.addEventListener('click', () => {
+        const target = tab.getAttribute('data-tab');
+
+        // Update tab styles
+        tabs.forEach(t => {
+          t.classList.remove('border-indigo-600', 'text-indigo-600', 'dark:text-indigo-400', 'dark:border-indigo-400');
+          t.classList.add('border-transparent', 'text-slate-500', 'dark:text-slate-400');
+        });
+        tab.classList.remove('border-transparent', 'text-slate-500', 'dark:text-slate-400');
+        tab.classList.add('border-indigo-600', 'text-indigo-600', 'dark:text-indigo-400', 'dark:border-indigo-400');
+
+        // Show/hide content
+        contents.forEach(c => c.classList.add('hidden'));
+        document.getElementById(`content-${target}`).classList.remove('hidden');
+      });
+    });
   }
 
   // Function to fetch API key from the server using the access token
@@ -358,8 +434,9 @@ const apiUrl = process.env.VITE_API_URL || 'https://api.swissai.cscs.ch';
   
   // Copy to clipboard functionality
   document.addEventListener('DOMContentLoaded', () => {
-    // Initialize code examples immediately so they're visible even if auth fails
+    // Initialize code examples and tabs immediately so they're visible even if auth fails
     initializeCodeExamples();
+    initializeTabs();
 
     // Fetch API key on page load
     fetchApiKey();
