@@ -38,7 +38,7 @@ class RedisTokenCache:
             )
             # Test connection
             self.redis_client.ping()
-            logger.info(f"Connected to Redis at {self.host}:{self.port}")
+            logger.debug(f"Connected to Redis at {self.host}:{self.port}")
         except Exception as e:
             logger.error(f"Failed to connect to Redis: {e}")
             # Fallback to in-memory set for development/testing
