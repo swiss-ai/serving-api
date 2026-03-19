@@ -1,3 +1,4 @@
+import json
 import logging
 import time
 from fastapi import Request
@@ -9,6 +10,14 @@ access_logger = logging.getLogger("access")
 class AccessLogMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         start = time.time()
+        model = "-"
+        if request.method in ("POST", "PUT", "PATCH"):
+            try:
+                body = await request.body()
+                data = json.loads(body)
+                model = data.get("model", "-")
+            except Exception:
+                pass
         response = await call_next(request)
         duration_ms = (time.time() - start) * 1000
         token = request.headers.get("authorization", "")
@@ -17,10 +26,11 @@ class AccessLogMiddleware(BaseHTTPMiddleware):
         else:
             token = "-"
         access_logger.info(
-            "%s %s %s %d %.0fms",
+            "%s %s %s model=%s %d %.0fms",
             token,
             request.method,
             request.url.path,
+            model,
             response.status_code,
             duration_ms,
         )
