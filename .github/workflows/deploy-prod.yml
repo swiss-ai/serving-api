@@ -1,4 +1,4 @@
-name: Release
+name: Deploy Prod
 
 on:
   release:
@@ -87,3 +87,19 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add serving-api/prod/
           git diff --staged --quiet && echo "No changes to deploy" || (git commit -m "release serving-api ${{ github.event.release.tag_name }}" && git push)
+
+  notify:
+    name: Slack Notification
+    runs-on: ubuntu-latest
+    needs: [validate-tag, docker-backend, docker-frontend, deploy]
+    if: always()
+    steps:
+      - name: Notify Slack
+        uses: slackapi/slack-github-action@v2
+        with:
+          webhook-type: incoming-webhook
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          payload: |
+            {
+              "text": "${{ github.repository }} Release — ${{ contains(needs.*.result, 'failure') && 'FAILED' || 'published' }}\nTag: ${{ github.event.release.tag_name }}\n<${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View run>"
+            }
