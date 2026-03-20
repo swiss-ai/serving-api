@@ -1,12 +1,9 @@
 import json
-import backoff
 import aiohttp
 from typing import Dict, Union
 from backend.models.protocols import (
     ModelResponse,
-    RetryConstantError,
-    RetryExpoError,
-    UnknownLLMError,
+    BackendHTTPError,
     LLMRequest,
     LLMCompletionsRequest,
 )
@@ -122,18 +119,6 @@ async def response_generator_raw(response):
         active_requests -= 1
 
 
-def handle_llm_exception(e: Exception):
-    if isinstance(e, aiohttp.ClientResponseError):
-        if e.status in [408, 429, 500, 502, 503, 504]:
-            raise RetryExpoError(f"HTTP {e.status}: {e.message}") from e
-        else:
-            raise RetryConstantError(f"HTTP {e.status}: {e.message}") from e
-    elif isinstance(e, (aiohttp.ClientError, aiohttp.ServerTimeoutError)):
-        raise RetryConstantError(str(e)) from e
-    else:
-        raise UnknownLLMError from e
-
-
 class StreamWrapper:
     def __init__(self, gen, headers=None):
         self.gen = gen
@@ -173,11 +158,7 @@ async def _execute_http_request(
             text = str(resp.status)
         await req_cm.__aexit__(None, None, None)
         await session.close()
-
-        if resp.status in [429, 500, 502, 503, 504]:
-            raise RetryExpoError(f"HTTP {resp.status}: {text}")
-        else:
-            raise RetryConstantError(f"HTTP {resp.status}: {text}")
+        raise BackendHTTPError(status_code=resp.status, body=text)
 
     response_headers = dict(resp.headers)
     if stream:
@@ -274,26 +255,18 @@ async def _shared_proxy_handler(
 
         return resp
 
-    except Exception as e:
+    except BackendHTTPError:
         active_requests -= 1
         if not session.closed:
             await session.close()
-        handle_llm_exception(e)
+        raise
+    except Exception:
+        active_requests -= 1
+        if not session.closed:
+            await session.close()
+        raise
 
 
-@backoff.on_exception(
-    wait_gen=backoff.constant,
-    exception=RetryConstantError,
-    max_tries=3,
-    interval=3,
-)
-@backoff.on_exception(
-    wait_gen=backoff.expo,
-    exception=RetryExpoError,
-    jitter=backoff.full_jitter,
-    max_value=100,
-    factor=1.5,
-)
 async def llm_proxy(endpoint, api_key, request: LLMRequest) -> ModelResponse:
     return await _shared_proxy_handler(
         endpoint=endpoint,
@@ -306,19 +279,6 @@ async def llm_proxy(endpoint, api_key, request: LLMRequest) -> ModelResponse:
     )
 
 
-@backoff.on_exception(
-    wait_gen=backoff.constant,
-    exception=RetryConstantError,
-    max_tries=3,
-    interval=3,
-)
-@backoff.on_exception(
-    wait_gen=backoff.expo,
-    exception=RetryExpoError,
-    jitter=backoff.full_jitter,
-    max_value=100,
-    factor=1.5,
-)
 async def llm_proxy_completions(
     endpoint, api_key, request: LLMCompletionsRequest
 ) -> ModelResponse:
@@ -333,19 +293,6 @@ async def llm_proxy_completions(
     )
 
 
-@backoff.on_exception(
-    wait_gen=backoff.constant,
-    exception=RetryConstantError,
-    max_tries=3,
-    interval=3,
-)
-@backoff.on_exception(
-    wait_gen=backoff.expo,
-    exception=RetryExpoError,
-    jitter=backoff.full_jitter,
-    max_value=100,
-    factor=1.5,
-)
 async def llm_proxy_embeddings(endpoint, api_key, **kwargs) -> ModelResponse:
     embedding_params = {
         "model": kwargs.get("model"),
@@ -368,19 +315,6 @@ async def llm_proxy_embeddings(endpoint, api_key, **kwargs) -> ModelResponse:
     )
 
 
-@backoff.on_exception(
-    wait_gen=backoff.constant,
-    exception=RetryConstantError,
-    max_tries=3,
-    interval=3,
-)
-@backoff.on_exception(
-    wait_gen=backoff.expo,
-    exception=RetryExpoError,
-    jitter=backoff.full_jitter,
-    max_value=100,
-    factor=1.5,
-)
 async def llm_proxy_responses(
     endpoint, api_key, payload: dict, stream: bool, model: str
 ):
@@ -396,19 +330,6 @@ async def llm_proxy_responses(
     )
 
 
-@backoff.on_exception(
-    wait_gen=backoff.constant,
-    exception=RetryConstantError,
-    max_tries=3,
-    interval=3,
-)
-@backoff.on_exception(
-    wait_gen=backoff.expo,
-    exception=RetryExpoError,
-    jitter=backoff.full_jitter,
-    max_value=100,
-    factor=1.5,
-)
 async def llm_proxy_rerank(endpoint, api_key, payload: dict, model: str):
     return await _shared_proxy_handler(
         endpoint=endpoint,
@@ -422,19 +343,6 @@ async def llm_proxy_rerank(endpoint, api_key, payload: dict, model: str):
     )
 
 
-@backoff.on_exception(
-    wait_gen=backoff.constant,
-    exception=RetryConstantError,
-    max_tries=3,
-    interval=3,
-)
-@backoff.on_exception(
-    wait_gen=backoff.expo,
-    exception=RetryExpoError,
-    jitter=backoff.full_jitter,
-    max_value=100,
-    factor=1.5,
-)
 async def llm_proxy_score(endpoint, api_key, payload: dict, model: str):
     return await _shared_proxy_handler(
         endpoint=endpoint,
@@ -448,19 +356,6 @@ async def llm_proxy_score(endpoint, api_key, payload: dict, model: str):
     )
 
 
-@backoff.on_exception(
-    wait_gen=backoff.constant,
-    exception=RetryConstantError,
-    max_tries=3,
-    interval=3,
-)
-@backoff.on_exception(
-    wait_gen=backoff.expo,
-    exception=RetryExpoError,
-    jitter=backoff.full_jitter,
-    max_value=100,
-    factor=1.5,
-)
 async def llm_proxy_tokenize(endpoint, api_key, payload: dict, model: str):
     return await _shared_proxy_handler(
         endpoint=endpoint,
@@ -474,19 +369,6 @@ async def llm_proxy_tokenize(endpoint, api_key, payload: dict, model: str):
     )
 
 
-@backoff.on_exception(
-    wait_gen=backoff.constant,
-    exception=RetryConstantError,
-    max_tries=3,
-    interval=3,
-)
-@backoff.on_exception(
-    wait_gen=backoff.expo,
-    exception=RetryExpoError,
-    jitter=backoff.full_jitter,
-    max_value=100,
-    factor=1.5,
-)
 async def llm_proxy_detokenize(endpoint, api_key, payload: dict, model: str):
     return await _shared_proxy_handler(
         endpoint=endpoint,

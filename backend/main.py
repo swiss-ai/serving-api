@@ -1,11 +1,14 @@
+import json
 import logging
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import Response
 from sqlmodel import create_engine
 from backend.config import get_settings
 from backend.services.metrics_service import metrics_collector
 from backend.middleware.logging import AccessLogMiddleware
+from backend.models.protocols import BackendHTTPError
 from backend.routers import (
     completions,
     responses,
@@ -44,6 +47,19 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.exception_handler(BackendHTTPError)
+async def backend_http_error_handler(request: Request, exc: BackendHTTPError):
+    try:
+        json.loads(exc.body)
+        media_type = "application/json"
+        content = exc.body
+    except (json.JSONDecodeError, TypeError):
+        media_type = "text/plain"
+        content = exc.body
+    return Response(content=content, status_code=exc.status_code, media_type=media_type)
+
 
 app.include_router(completions.router)
 app.include_router(responses.router)
