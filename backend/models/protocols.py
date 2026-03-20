@@ -297,16 +297,14 @@ class ModelResponse(BaseModel):
         return self.model_dump_json()
 
 
-class RetryConstantError(Exception):
-    pass
+class BackendHTTPError(Exception):
+    """Error from the backend (vllm/sglang) passed through to the client
+    with the original status code and body. No retries — clients handle their own."""
 
-
-class RetryExpoError(Exception):
-    pass
-
-
-class UnknownLLMError(Exception):
-    pass
+    def __init__(self, status_code: int, body: str):
+        self.status_code = status_code
+        self.body = body
+        super().__init__(f"HTTP {status_code}: {body}")
 
 
 class ProviderKeySubmission(BaseModel):
