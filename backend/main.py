@@ -18,6 +18,7 @@ from backend.routers import (
     metrics,
     rerank,
     tokenization,
+    mcp,
 )
 
 settings = get_settings()
@@ -69,6 +70,7 @@ app.include_router(profile.router)
 app.include_router(metrics.router)
 app.include_router(rerank.router)
 app.include_router(tokenization.router)
+app.include_router(mcp.router)
 
 if __name__ == "__main__":
     import uvicorn
