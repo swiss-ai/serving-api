@@ -1,10 +1,18 @@
 import aiohttp
-from fastapi import APIRouter, Request, Depends
-from fastapi.responses import Response, JSONResponse
+from fastapi import APIRouter, Body, Depends
+from fastapi.responses import JSONResponse, Response
 from backend.middleware.auth import require_auth
-from backend.services.mcp_service import mcp_proxy, list_mcp_servers
+from backend.services.mcp_service import list_mcp_servers, mcp_proxy
 
 router = APIRouter()
+
+EXAMPLE_TOOLS_LIST = {"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {}}
+EXAMPLE_TOOL_CALL = {
+    "jsonrpc": "2.0",
+    "id": 2,
+    "method": "tools/call",
+    "params": {"name": "add", "arguments": {"a": 7, "b": 13}},
+}
 
 
 @router.get("/v1/mcp")
@@ -16,10 +24,12 @@ async def get_mcp_servers(token: str = Depends(require_auth)):
 async def mcp_endpoint(
     owner: str,
     repo: str,
-    request: Request,
+    payload: dict = Body(..., examples=[EXAMPLE_TOOLS_LIST, EXAMPLE_TOOL_CALL]),
     token: str = Depends(require_auth),
 ):
-    body = await request.body()
+    import json
+
+    body = json.dumps(payload).encode()
     try:
         data, status = await mcp_proxy(owner, repo, body)
         return Response(
