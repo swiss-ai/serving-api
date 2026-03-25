@@ -8,7 +8,7 @@ router = APIRouter()
 
 
 @router.get("/v1/mcp")
-async def list_mcp_servers(token: str = Depends(require_auth)):
+async def get_mcp_servers(token: str = Depends(require_auth)):
     return {"servers": list_mcp_servers()}
 
 

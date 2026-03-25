@@ -26,7 +26,4 @@ async def mcp_proxy(owner: str, repo: str, body: bytes) -> tuple[bytes, int]:
 
 
 def list_mcp_servers() -> list[dict]:
-    return [
-        {"owner": k.split("/")[0], "repo": k.split("/")[1]}
-        for k in MCP_SERVERS
-    ]
+    return [{"owner": k.split("/")[0], "repo": k.split("/")[1]} for k in MCP_SERVERS]
