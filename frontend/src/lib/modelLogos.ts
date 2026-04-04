@@ -39,7 +39,13 @@ const orgLogos: Record<string, string | null> = {
   'hf': 'https://huggingface.co/front/assets/huggingface_logo-noborder.svg',
   'openai': 'https://cdn-avatars.huggingface.co/v1/production/uploads/68783facef79a05727260de3/UPX5RQxiPGA-ZbBmArIKq.png',
   'Snowflake': 'https://cdn-avatars.huggingface.co/v1/production/uploads/64dc52cf858f8a41c12fc819/O9-MWzRjWzbNP_DQlMb-7.png',
-  'zai-org': 'https://cdn-avatars.huggingface.co/v1/production/uploads/62dc173789b4cf157d36ebee/i_pxzM2ZDo3Ub-BEgIkE9.png'
+  'zai-org': 'https://cdn-avatars.huggingface.co/v1/production/uploads/62dc173789b4cf157d36ebee/i_pxzM2ZDo3Ub-BEgIkE9.png',
+  'moonshotai': "https://cdn-avatars.huggingface.co/v1/production/uploads/641c1e77c3983aa9490f8121/X1yT2rsaIbR9cdYGEVu0X.jpeg",
+  "BAAI": "https://cdn-avatars.huggingface.co/v1/production/uploads/1664511063789-632c234f42c386ebd2710434.png",
+  "MiniMaxAI": "https://cdn-avatars.huggingface.co/v1/production/uploads/676e38ad04af5bec20bc9faf/dUd-LsZEX0H_d4qefO_g6.jpeg",
+  "codellama": "https://cdn-avatars.huggingface.co/v1/production/uploads/5ff5d596f244529b3ec0fb89/d3KMtMG5-XAS2uhbp82Qz.png",
+  "arcee-ai": "https://cdn-avatars.huggingface.co/v1/production/uploads/6435718aaaef013d1aec3b8b/GZPnGkfMn8Ino6JbkL4fJ.png",
+  "cais": "https://cdn-avatars.huggingface.co/v1/production/uploads/5fbfd09ee366524fe8e97cd3/rQf-w-qSxQgwmXAA3YBfe.jpeg"
 };
 
 // Specific model mappings for arena data and custom models

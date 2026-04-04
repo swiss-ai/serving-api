@@ -1,5 +1,6 @@
 <script lang="ts">
   import { getModelLogo } from '../../lib/modelLogos';
+  import { getModelMetricsUrl } from '../../lib/modelMetrics';
 
   interface ModelCardProps {
       entry: {
@@ -17,6 +18,7 @@
   
   // Get the logo URL for this model
   const logoUrl = getModelLogo(entry.data.title);
+  const metricsUrl = getModelMetricsUrl(entry.data.title);
 
   let copied = false;
 
@@ -68,6 +70,18 @@ class="relative group flex flex-nowrap py-3 px-4 pr-10 rounded-lg border border-
           </svg>
         {/if}
       </button>
+      {#if metricsUrl}
+        <a
+          href={metricsUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          on:click|stopPropagation
+          class="metrics-badge"
+          title="View metrics dashboard"
+        >
+          Metrics
+        </a>
+      {/if}
       {#if entry.data.instanceCount > 1}
         <span class="instance-count" title="Number of launched instances for higher throughput">
           x{entry.data.instanceCount}
@@ -102,6 +116,21 @@ class="relative group flex flex-nowrap py-3 px-4 pr-10 rounded-lg border border-
     font-weight: bold;
     padding: 0 6px;
     border-radius: 4px;
+  }
+
+  .metrics-badge {
+    background-color: #16a34a;
+    color: white;
+    font-weight: bold;
+    font-size: 0.75em;
+    padding: 0 6px;
+    border-radius: 4px;
+    text-decoration: none;
+    flex-shrink: 0;
+  }
+
+  .metrics-badge:hover {
+    background-color: #15803d;
   }
 
   @keyframes check-bounce {
