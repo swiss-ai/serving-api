@@ -11,7 +11,7 @@ const modelEngines: Record<string, Engine> = {
   "meta-llama/Llama-3.3-70B-Instruct": "sglang",
   "meta-llama/Llama-Guard-4-12B": "vllm",
   "swiss-ai/Apertus-70B-Instruct-2509": "vllm",
-  "Qwen/Qwen3.5-27B": "sglang",
+  "Qwen/Qwen3.5-27B": "vllm",
 };
 
 /**
