@@ -1,6 +1,6 @@
 <script lang="ts">
   import { getModelLogo } from '../../lib/modelLogos';
-  import { getModelMetricsUrl } from '../../lib/modelMetrics';
+  import { getModelMetricsUrl, getModelTier } from '../../lib/modelMetrics';
 
   interface ModelCardProps {
       entry: {
@@ -19,6 +19,7 @@
   // Get the logo URL for this model
   const logoUrl = getModelLogo(entry.data.title);
   const metricsUrl = getModelMetricsUrl(entry.data.title);
+  const tier = getModelTier(entry.data.title);
 
   let copied = false;
 
@@ -81,11 +82,20 @@ class="relative group flex flex-nowrap py-3 px-4 pr-10 rounded-lg border border-
         >
           Metrics
         </a>
+      {/if}
+      {#if tier === "L2"}
         <span
           class="uptime-badge"
           title="This service is running on CSCS L2 Kubernetes"
         >
           24/7
+        </span>
+      {:else if tier === "slurm"}
+        <span
+          class="slurm-badge"
+          title="Model-launch Slurm job"
+        >
+          Slurm
         </span>
       {/if}
       {#if entry.data.instanceCount > 1}
@@ -141,6 +151,17 @@ class="relative group flex flex-nowrap py-3 px-4 pr-10 rounded-lg border border-
 
   .uptime-badge {
     background-color: #2563eb;
+    color: white;
+    font-weight: bold;
+    font-size: 0.75em;
+    padding: 0 6px;
+    border-radius: 4px;
+    flex-shrink: 0;
+    cursor: help;
+  }
+
+  .slurm-badge {
+    background-color: #9333ea;
     color: white;
     font-weight: bold;
     font-size: 0.75em;
