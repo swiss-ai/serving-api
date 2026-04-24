@@ -15,11 +15,12 @@
       };
   }
   export let entry: ModelCardProps["entry"];
-  
-  // Get the logo URL for this model
+  export let chatAppUrl = "https://chat.swissai.cscs.ch";
+
   const logoUrl = getModelLogo(entry.data.title);
   const metricsUrl = getModelMetricsUrl(entry.data.title);
   const tier = getModelTier(entry.data.title);
+  const chatUrl = `${chatAppUrl.replace(/\/$/, "")}/?models=${encodeURIComponent(entry.data.title)}`;
 
   let copied = false;
 
@@ -39,7 +40,9 @@
 </script>
 
 <a
-href=https://huggingface.co/{entry.data.title}
+href={chatUrl}
+target="_blank"
+rel="noopener noreferrer"
 class="relative group flex flex-nowrap py-3 px-4 pr-10 rounded-lg border border-black/15 dark:border-white/20 hover:bg-black/5 dark:hover:bg-white/5 hover:text-black dark:hover:text-white transition-colors duration-300 ease-in-out"
 >
 <div class="flex items-center gap-3 min-w-0">
@@ -170,6 +173,7 @@ class="relative group flex flex-nowrap py-3 px-4 pr-10 rounded-lg border border-
     flex-shrink: 0;
     cursor: help;
   }
+
 
   @keyframes check-bounce {
     0% {
