@@ -4,6 +4,8 @@
     import { getApiUrl } from "../../lib/config";
     import { getModelTier } from "../../lib/modelMetrics";
 
+    export let chatAppUrl;
+
     let models = [];
     let modelCount = 0;
     let loading = true;
@@ -116,7 +118,7 @@
     {:else}
     <div class="model-list space-y-2">
         {#each filteredModels as model (model.data.title)}
-            <ModelCard entry={model} />
+            <ModelCard entry={model} {chatAppUrl} />
         {/each}
         {#if filteredModels.length === 0}
             <div class="text-center text-slate-500 dark:text-slate-400 py-6">
