@@ -15,7 +15,7 @@
       };
   }
   export let entry: ModelCardProps["entry"];
-  export let chatAppUrl = "https://chat.swissai.cscs.ch";
+  export let chatAppUrl: string;
 
   const logoUrl = getModelLogo(entry.data.title);
   const metricsUrl = getModelMetricsUrl(entry.data.title);

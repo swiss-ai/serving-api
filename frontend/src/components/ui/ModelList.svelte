@@ -4,7 +4,7 @@
     import { getApiUrl } from "../../lib/config";
     import { getModelTier } from "../../lib/modelMetrics";
 
-    export let chatAppUrl = "https://chat.swissai.cscs.ch";
+    export let chatAppUrl;
 
     let models = [];
     let modelCount = 0;
