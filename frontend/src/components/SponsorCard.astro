@@ -10,12 +10,12 @@ interface Props {
 const { name, logo, url, width = 158, height = 48 } = Astro.props;
 ---
 
-<div class="col-span-2 max-h-12 w-full object-contain lg:col-span-2">
+<div class="w-full h-full flex items-center justify-center">
   {url ? (
-    <a href={url} target="_blank" rel="noopener noreferrer">
-      <img src={logo} alt={name} width={width} height={height} class="w-full h-full object-contain" />
+    <a href={url} target="_blank" rel="noopener noreferrer" class="w-full h-full flex items-center justify-center">
+      <img src={logo} alt={name} width={width} height={height} class="max-h-16 max-w-full object-contain" />
     </a>
   ) : (
-    <img src={logo} alt={name} width={width} height={height} class="w-full h-full object-contain" />
+    <img src={logo} alt={name} width={width} height={height} class="max-h-16 max-w-full object-contain" />
   )}
 </div> 

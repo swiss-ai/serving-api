@@ -1,5 +1,5 @@
 ---
-title: "Launch Models with model-launch"
+title: "Launch Models with model-launch 🚀"
 description: "Framework-agnostic SLURM job submission for distributed inference"
 date: "December 22 2025"
 ---
