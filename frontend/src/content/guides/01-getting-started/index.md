@@ -1,10 +1,10 @@
 ---
-title: "Getting Started with SP and Local Serving"
-description: "Run models locally with Scratchpad and Ollama"
+title: "[ARCHIVED] Getting Started with SP and Local Serving"
+description: "[ARCHIVED] Run models locally with Scratchpad and Ollama"
 date: "Mar 18 2024"
 ---
 
-# Getting Started with SP and Local Serving
+# [ARCHIVED] Getting Started with SP and Local Serving
 
 ## Run your Model Locally
 
