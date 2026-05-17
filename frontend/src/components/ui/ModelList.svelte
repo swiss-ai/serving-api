@@ -41,7 +41,7 @@
                 }
                 const model = modelsMap.get(modelId);
                 // Fall back to peer_id when worker_group_id is missing
-                // (older OCF binary) so each peer becomes its own replica.
+                // (older OpenTela binary) so each peer becomes its own replica.
                 const wg = m.worker_group_id || m.peer_id || `legacy-${model.replicas.size}`;
                 if (!model.replicas.has(wg)) {
                     model.replicas.set(wg, {

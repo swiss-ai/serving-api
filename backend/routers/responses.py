@@ -17,7 +17,7 @@ async def create_response(
     stream = data.get("stream", False)
 
     response = await llm_proxy_responses(
-        endpoint=settings.ocf_head_addr + "/v1/service/llm/v1/",
+        endpoint=settings.otela_head_addr + "/v1/service/llm/v1/",
         api_key=token,
         payload=data,
         stream=stream,

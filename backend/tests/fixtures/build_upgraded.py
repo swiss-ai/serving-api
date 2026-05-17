@@ -2,7 +2,8 @@
 """Build dnt_table_upgraded.json from dnt_table_prod.json.
 
 Adds the new Peer fields (hostname, version, status, labels) as if the
-v0.0.6 OCF binary plus the model-launch --label changes had been deployed:
+v0.0.6 OpenTela binary plus the model-launch --label changes had been
+deployed:
 
 - Every peer gets a synthetic SLURM job id (= its own worker_group_id).
 - Each peer's metadata reflects realistic launched_by / framework values.
@@ -76,7 +77,7 @@ def main() -> None:
             "served_model_name": model_name,
             "started_at": "2026-05-15T18:00:00Z",
         }
-        # Drop empty entries so the JSON looks closer to what OCF emits.
+        # Drop empty entries so the JSON looks closer to what OpenTela emits.
         peer["labels"] = {k: v for k, v in peer["labels"].items() if v}
 
         upgraded[pid_key] = peer

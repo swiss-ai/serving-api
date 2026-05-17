@@ -28,9 +28,9 @@ spec:
           - "148.187.108.173"
         ports:
           - containerPort: 8092
-            name: ocf-http-port
+            name: otela-http-port
           - containerPort: 43905
-            name: ocf-p2p-port
+            name: otela-p2p-port
         resources:
           requests:
             memory: "8Gi"
@@ -39,11 +39,11 @@ spec:
             memory: "16Gi"
             cpu: "8"
         volumeMounts:
-          - name: test-ocf-key-id
+          - name: test-otela-key-id
             mountPath: /root/.ocfcore/keys
             readOnly: true
       volumes:
-        - name: test-ocf-key-id
+        - name: test-otela-key-id
           secret:
             secretName: test-dispatcher-id-key
 ---
@@ -59,9 +59,9 @@ spec:
     - protocol: TCP
       port: 8092
       targetPort: 8092
-      name: ocf-http-port
+      name: otela-http-port
     - protocol: TCP
       port: 43905
       targetPort: 43905
-      name: ocf-p2p-port
+      name: otela-p2p-port
   type: LoadBalancer

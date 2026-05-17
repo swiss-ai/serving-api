@@ -63,7 +63,7 @@ def test_app_routes_registered(client):
 
 
 def test_models_endpoint_no_auth(client):
-    """/v1/models should return 200 even when OCF is unreachable."""
+    """/v1/models should return 200 even when OpenTela is unreachable."""
     response = client.get("/v1/models")
     assert response.status_code == 200
     assert response.json()["object"] == "list"

@@ -25,7 +25,7 @@ Frontend and backend API proxy for SwissAI LLM serving. For examples on how to l
                  │
                  ▼
         ┌─────────────────┐
-        │       OCF       │  OpenTela P2P routing → model=apertus-...
+        │     OpenTela    │  P2P routing → model=apertus-...
         └────────┬────────┘
                  │
                  ▼
@@ -42,7 +42,7 @@ frontend/        # web UI (Astro + Svelte)
 meta/            # example Dockerfiles, example k8s manifests, build scripts
 ```
 
-OCF (Open Compute Framework) now renamed to OpenTela upstream is maintained at [eth-easl/OpenTela](https://github.com/eth-easl/OpenTela). We maintain a fork at [swiss-ai/OpenTela](https://github.com/swiss-ai/opentela) to control deployments to dev+prod.
+OpenTela (formerly OCF / "Open Compute Framework") is maintained upstream at [eth-easl/OpenTela](https://github.com/eth-easl/OpenTela). We maintain a fork at [swiss-ai/OpenTela](https://github.com/swiss-ai/opentela) to control deployments to dev+prod.
 
 ## Dev Quick Start
 

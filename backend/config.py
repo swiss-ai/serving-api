@@ -17,7 +17,11 @@ class Settings(BaseSettings):
     database_url: str = ""
     auth_secret: str = ""
     auth_trust_host: bool = False
-    ocf_head_addr: str = ""
+    otela_head_addr: str = ""
+    # When set, /v1/models* reads this JSON file instead of calling
+    # $otela_head_addr/v1/dnt/table. Used for UI iteration against synthesised
+    # upgraded payloads (see backend/tests/fixtures/build_upgraded.py).
+    otela_fixture_path: str = ""
     langfuse_host: str = ""
     langfuse_public_key: str = ""
     langfuse_secret_key: str = ""

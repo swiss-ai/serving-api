@@ -1,12 +1,16 @@
+import json
+import pathlib
+
 import requests
+
 from backend.config import parse_hardware_info
 
 
 def _peer_metadata(node_info: dict) -> dict:
     """Pull the surfaced launch-time fields off a DNT peer entry.
 
-    Older OCF binaries (<v0.0.6) don't emit hostname/status/labels — we
-    return whatever's present and let consumers treat missing keys as
+    Older OpenTela binaries (<v0.0.6) don't emit hostname/status/labels —
+    we return whatever's present and let consumers treat missing keys as
     'unknown'. labels.worker_group_id is what the frontend groups by to
     count replicas of a single model.
     """
@@ -27,6 +31,14 @@ def _peer_metadata(node_info: dict) -> dict:
     }
 
 
+def _load_dnt(endpoint: str) -> dict:
+    """Fetch DNT data. If endpoint points at a local file (no scheme), read
+    it as JSON — that's the fixture-mode dev path. Otherwise HTTP-GET it."""
+    if endpoint and not endpoint.startswith(("http://", "https://")):
+        return json.loads(pathlib.Path(endpoint).read_text())
+    return requests.get(endpoint).json()
+
+
 def get_all_models(endpoint: str, with_details: bool = False):
     """Return one entry per (peer, model) pair served on the network.
 
@@ -36,7 +48,7 @@ def get_all_models(endpoint: str, with_details: bool = False):
     metrics-only followers all share the same worker_group_id).
     """
     try:
-        data = requests.get(endpoint).json()
+        data = _load_dnt(endpoint)
     except Exception:
         return []
     models = []

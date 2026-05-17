@@ -14,7 +14,7 @@ async def tokenize(
 ):
     data = await request.json()
     response = await llm_proxy_tokenize(
-        endpoint=settings.ocf_head_addr + "/v1/service/llm/v1/",
+        endpoint=settings.otela_head_addr + "/v1/service/llm/v1/",
         api_key=token,
         payload=data,
         model=data.get("model", "unknown"),
@@ -29,7 +29,7 @@ async def detokenize(
 ):
     data = await request.json()
     response = await llm_proxy_detokenize(
-        endpoint=settings.ocf_head_addr + "/v1/service/llm/v1/",
+        endpoint=settings.otela_head_addr + "/v1/service/llm/v1/",
         api_key=token,
         payload=data,
         model=data.get("model", "unknown"),

@@ -75,7 +75,7 @@ async def chat_completion(
     )
 
     response = await llm_proxy(
-        endpoint=settings.ocf_head_addr + "/v1/service/llm/v1/",
+        endpoint=settings.otela_head_addr + "/v1/service/llm/v1/",
         api_key=token,
         request=llm_request,
     )
@@ -125,7 +125,7 @@ async def completion(
     )
 
     response = await llm_proxy_completions(
-        endpoint=settings.ocf_head_addr + "/v1/service/llm/v1/",
+        endpoint=settings.otela_head_addr + "/v1/service/llm/v1/",
         api_key=token,
         request=llm_request,
     )

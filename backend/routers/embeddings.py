@@ -26,7 +26,7 @@ async def embeddings(
     data["app_title"] = app_title
 
     response = await llm_proxy_embeddings(
-        endpoint=settings.ocf_head_addr + "/v1/service/llm/v1/",
+        endpoint=settings.otela_head_addr + "/v1/service/llm/v1/",
         api_key=token,
         **data,
     )
