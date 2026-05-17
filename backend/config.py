@@ -1,5 +1,7 @@
-from pydantic_settings import BaseSettings
 from functools import lru_cache
+
+from pydantic import AliasChoices, Field
+from pydantic_settings import BaseSettings
 
 
 @lru_cache()
@@ -17,11 +19,20 @@ class Settings(BaseSettings):
     database_url: str = ""
     auth_secret: str = ""
     auth_trust_host: bool = False
-    otela_head_addr: str = ""
+    # Accept the historical OCF_* env var names in addition to the canonical
+    # OTELA_* ones so existing deployments keep working through the rename.
+    # Python attribute access stays `settings.otela_*`.
+    otela_head_addr: str = Field(
+        default="",
+        validation_alias=AliasChoices("otela_head_addr", "ocf_head_addr"),
+    )
     # When set, /v1/models* reads this JSON file instead of calling
     # $otela_head_addr/v1/dnt/table. Used for UI iteration against synthesised
     # upgraded payloads (see backend/tests/fixtures/build_upgraded.py).
-    otela_fixture_path: str = ""
+    otela_fixture_path: str = Field(
+        default="",
+        validation_alias=AliasChoices("otela_fixture_path", "ocf_fixture_path"),
+    )
     langfuse_host: str = ""
     langfuse_public_key: str = ""
     langfuse_secret_key: str = ""
@@ -32,6 +43,7 @@ class Settings(BaseSettings):
 
     class Config:
         env_file = ".env"
+        populate_by_name = True
 
 
 def parse_hardware_info(hardware_info):

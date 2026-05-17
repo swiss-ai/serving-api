@@ -129,6 +129,32 @@ def test_follower_without_worker_group_id_skipped():
     assert out == []
 
 
+def test_legacy_ocf_env_vars_still_work(monkeypatch):
+    """OCF_HEAD_ADDR and OCF_FIXTURE_PATH must keep working through the
+    rename to OTELA_*. Deployments can migrate on their own schedule."""
+    from backend.config import Settings
+
+    monkeypatch.setenv("OCF_HEAD_ADDR", "http://legacy:8092")
+    monkeypatch.setenv("OCF_FIXTURE_PATH", "/legacy/fixture.json")
+    monkeypatch.delenv("OTELA_HEAD_ADDR", raising=False)
+    monkeypatch.delenv("OTELA_FIXTURE_PATH", raising=False)
+    s = Settings()
+    assert s.otela_head_addr == "http://legacy:8092"
+    assert s.otela_fixture_path == "/legacy/fixture.json"
+
+
+def test_canonical_otela_env_vars_win_over_legacy(monkeypatch):
+    """When both are set, the canonical OTELA_* names win so a partial
+    migration (one renamed, one not) doesn't silently keep the legacy
+    value in force."""
+    from backend.config import Settings
+
+    monkeypatch.setenv("OCF_HEAD_ADDR", "http://legacy:8092")
+    monkeypatch.setenv("OTELA_HEAD_ADDR", "http://canonical:8092")
+    s = Settings()
+    assert s.otela_head_addr == "http://canonical:8092"
+
+
 def test_request_failure_returns_empty():
     with patch("backend.services.model_service.requests.get") as mock_get:
         mock_get.side_effect = Exception("boom")
