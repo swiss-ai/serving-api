@@ -1,4 +1,4 @@
-.PHONY: install install-dev format check test run db-up db-down migrate _ensure-env _ensure-frontend-env
+.PHONY: install install-dev format check test run dummy-run db-up db-down migrate _ensure-env _ensure-frontend-env
 
 UV_EXTRA ?=
 
@@ -77,6 +77,15 @@ migrate: _ensure-env db-up
 	alembic upgrade head
 
 run: _ensure-env _ensure-frontend-env db-up migrate
+	uvicorn backend.main:app --reload --host 0.0.0.0 --port 8080 & \
+	cd frontend && npm run dev & \
+	wait
+
+# Same as `run` but forces the model list to come from the synthesised
+# upgraded fixture instead of the live OpenTela endpoint. Useful for
+# iterating on the model-card UI without depending on prod state.
+dummy-run: _ensure-env _ensure-frontend-env db-up migrate
+	OTELA_FIXTURE_PATH=$(PWD)/backend/tests/fixtures/dnt_table_upgraded.json \
 	uvicorn backend.main:app --reload --host 0.0.0.0 --port 8080 & \
 	cd frontend && npm run dev & \
 	wait
