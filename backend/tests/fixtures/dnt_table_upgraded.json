@@ -62,10 +62,13 @@
       "launched_by": "rosmith",
       "slurm_job_id": "2256000",
       "slurm_partition": "normal",
+      "slurm_reservation": "SD-69241-apertus-1-5-0",
       "worker_group_id": "2256000",
       "framework": "sglang",
+      "framework_args": "--model-path /capstor/store/cscs/swissai/infra01/hf_models/models/swiss-ai/Apertus-70B-Instruct-2509 --tensor-parallel-size 4 --max-model-len 65536 --port 8080",
       "served_model_name": "swiss-ai/Apertus-70B-Instruct-2509",
-      "started_at": "2026-05-15T18:00:00Z"
+      "started_at": "2026-05-17T07:00:00Z",
+      "expires_at": "2026-05-17T19:00:00Z"
     }
   },
   "/QmPZuZMWhcX2f8EbqRi9HAfrx4ZCiXVfT3c1jifNabwkRL": {
@@ -133,8 +136,10 @@
       "slurm_partition": "normal",
       "worker_group_id": "2256001",
       "framework": "sglang",
+      "framework_args": "--model-path /capstor/store/cscs/swissai/infra01/hf_models/models/google/gemma-4-31B-it --tensor-parallel-size 4 --port 8080",
       "served_model_name": "google/gemma-4-31B-it-TsOA",
-      "started_at": "2026-05-15T18:00:00Z"
+      "started_at": "2026-05-17T07:30:00Z",
+      "expires_at": "2026-05-17T13:30:00Z"
     }
   },
   "/QmQ1JHLDJe7KhnD48S9TgaEPG3p2az1kq4dMoKUdBssRDq": {
@@ -202,8 +207,10 @@
       "slurm_partition": "normal",
       "worker_group_id": "2256002",
       "framework": "vllm",
+      "framework_args": "--model /capstor/store/cscs/swissai/infra01/hf_models/models/Qwen/Qwen3.5-397B-A17B --tensor-parallel-size 4 --max-model-len 32768 --gpu-memory-utilization 0.85 --port 8080",
       "served_model_name": "Qwen/Qwen3.5-397B-A17B-VoMF",
-      "started_at": "2026-05-15T18:00:00Z"
+      "started_at": "2026-05-17T08:00:00Z",
+      "expires_at": "2026-05-17T14:00:00Z"
     }
   },
   "/QmQFqgsty9RjE8DCMMH7QY4pCPwEhCdief1gjku44ALbNN": {
@@ -271,8 +278,10 @@
       "slurm_partition": "normal",
       "worker_group_id": "2256003",
       "framework": "sglang",
+      "framework_args": "--model-path /capstor/store/cscs/swissai/infra01/hf_models/models/openai/gpt-oss-120b --tensor-parallel-size 4 --port 8080 --reasoning-parser openai-oss",
       "served_model_name": "openai/gpt-oss-120b-Vsdo",
-      "started_at": "2026-05-15T18:00:00Z"
+      "started_at": "2026-05-17T08:30:00Z",
+      "expires_at": "2026-05-17T20:30:00Z"
     }
   },
   "/QmQxjzdBtpjRWwXP991ow1LezbSBSAtJP4cnBW7635YEyW": {
@@ -322,10 +331,13 @@
       "launched_by": "xyao",
       "slurm_job_id": "2256001",
       "slurm_partition": "normal",
+      "slurm_reservation": "SD-69241-apertus-1-5-0",
       "worker_group_id": "2256001",
       "framework": "sglang",
+      "framework_args": "--model-path /capstor/store/cscs/swissai/infra01/hf_models/models/google/gemma-4-31B-it --tensor-parallel-size 4 --port 8080",
       "served_model_name": "google/gemma-4-31B-it-TsOA",
-      "started_at": "2026-05-15T18:00:00Z"
+      "started_at": "2026-05-17T07:30:00Z",
+      "expires_at": "2026-05-17T13:30:00Z"
     }
   },
   "/QmRPfyCPgcL2n9Tob6vKeNoQMX39e3fBS4JWNw7Cpz9Wa5": {
@@ -393,8 +405,10 @@
       "slurm_partition": "normal",
       "worker_group_id": "2256005",
       "framework": "vllm",
+      "framework_args": "--model /capstor/store/cscs/swissai/infra01/hf_models/models/Qwen/Qwen3-32B --tensor-parallel-size 4 --port 8080",
       "served_model_name": "Qwen/Qwen3-32B-kgCt",
-      "started_at": "2026-05-15T18:00:00Z"
+      "started_at": "2026-05-17T09:30:00Z",
+      "expires_at": "2026-05-17T15:30:00Z"
     }
   },
   "/QmRYSXoAfVk1ZsqmduBrsDd1Zcx541KMA9wtT3Mnsau9tn": {
@@ -462,8 +476,10 @@
       "slurm_partition": "normal",
       "worker_group_id": "2256006",
       "framework": "sglang",
+      "framework_args": "--model-path /capstor/store/cscs/swissai/infra01/hf_models/models/openai/gpt-oss-120b --tensor-parallel-size 4 --port 8080 --reasoning-parser openai-oss",
       "served_model_name": "openai/gpt-oss-120b-Vsdo",
-      "started_at": "2026-05-15T18:00:00Z"
+      "started_at": "2026-05-17T10:00:00Z",
+      "expires_at": "2026-05-17T22:00:00Z"
     }
   },
   "/QmRgcwJAjsYRLTnBMJvk8ARYa9tNmBjHvPZ9dsLfrq1MTP": {
@@ -531,8 +547,10 @@
       "slurm_partition": "normal",
       "worker_group_id": "2256007",
       "framework": "vllm",
+      "framework_args": "--model /capstor/store/cscs/swissai/infra01/hf_models/models/Qwen/Qwen3-32B --tensor-parallel-size 4 --port 8080",
       "served_model_name": "Qwen/Qwen3-32B-kgCt",
-      "started_at": "2026-05-15T18:00:00Z"
+      "started_at": "2026-05-17T10:30:00Z",
+      "expires_at": "2026-05-17T11:30:00Z"
     }
   },
   "/QmRzLCghn5BSCAmoqzTmBopB2Nh9jyApsibMBc7VU1pREG": {
@@ -598,10 +616,13 @@
       "launched_by": "isternfel",
       "slurm_job_id": "2256008",
       "slurm_partition": "normal",
+      "slurm_reservation": "SD-69241-apertus-1-5-0",
       "worker_group_id": "2256008",
       "framework": "vllm",
+      "framework_args": "--model /capstor/store/cscs/swissai/infra01/hf_models/models/Qwen/Qwen3-32B --tensor-parallel-size 4 --port 8080",
       "served_model_name": "Qwen/Qwen3-32B-kgCt",
-      "started_at": "2026-05-15T18:00:00Z"
+      "started_at": "2026-05-17T11:00:00Z",
+      "expires_at": "2026-05-17T17:00:00Z"
     }
   },
   "/QmSpTkK6cemTaVWugFjThfr4P17m5ZeQjso2adT8FWkD7G": {
@@ -669,8 +690,10 @@
       "slurm_partition": "normal",
       "worker_group_id": "2256009",
       "framework": "vllm",
+      "framework_args": "--model /capstor/store/cscs/swissai/infra01/hf_models/models/Qwen/Qwen3-32B --tensor-parallel-size 4 --port 8080",
       "served_model_name": "Qwen/Qwen3-32B-kgCt",
-      "started_at": "2026-05-15T18:00:00Z"
+      "started_at": "2026-05-17T11:30:00Z",
+      "expires_at": "2026-05-17T23:30:00Z"
     }
   },
   "/QmSssGsuXMcN61G6ejHCwhJjbbLLukqNNs4KGiAcYZ4vPT": {
@@ -738,8 +761,10 @@
       "slurm_partition": "normal",
       "worker_group_id": "2256010",
       "framework": "sglang",
+      "framework_args": "--model-path /capstor/store/cscs/swissai/infra01/hf_models/models/openai/gpt-oss-120b --tensor-parallel-size 4 --port 8080 --reasoning-parser openai-oss",
       "served_model_name": "openai/gpt-oss-120b-Vsdo",
-      "started_at": "2026-05-15T18:00:00Z"
+      "started_at": "2026-05-17T12:00:00Z",
+      "expires_at": "2026-05-17T18:00:00Z"
     }
   },
   "/QmSy3ee3TMXRE2PPc1VTRQyWWDj94ieahAWsJn3PF2c6em": {
@@ -807,8 +832,10 @@
       "slurm_partition": "normal",
       "worker_group_id": "2256011",
       "framework": "sglang",
+      "framework_args": "--model-path /capstor/store/cscs/swissai/infra01/hf_models/models/openai/gpt-oss-120b --tensor-parallel-size 4 --port 8080 --reasoning-parser openai-oss",
       "served_model_name": "openai/gpt-oss-120b-Vsdo",
-      "started_at": "2026-05-15T18:00:00Z"
+      "started_at": "2026-05-17T12:30:00Z",
+      "expires_at": "2026-05-17T18:30:00Z"
     }
   },
   "/QmTUY7a8RYRFnhxMgQ2pNm4V9tKQDzQBpMc6dWQ9isysDZ": {
@@ -874,10 +901,13 @@
       "launched_by": "aahadinia",
       "slurm_job_id": "2256012",
       "slurm_partition": "normal",
+      "slurm_reservation": "SD-69241-apertus-1-5-0",
       "worker_group_id": "2256012",
       "framework": "sglang",
+      "framework_args": "--model-path /capstor/store/cscs/swissai/infra01/hf_models/models/openai/gpt-oss-120b --tensor-parallel-size 4 --port 8080 --reasoning-parser openai-oss",
       "served_model_name": "openai/gpt-oss-120b-Vsdo",
-      "started_at": "2026-05-15T18:00:00Z"
+      "started_at": "2026-05-17T07:05:00Z",
+      "expires_at": "2026-05-17T19:05:00Z"
     }
   },
   "/QmTVFAoyUwxkBgUJtydmUNkA1sYF2j29St5Lz5JtW4zKKm": {
@@ -945,8 +975,10 @@
       "slurm_partition": "normal",
       "worker_group_id": "2256013",
       "framework": "sglang",
+      "framework_args": "--model-path /capstor/store/cscs/swissai/infra01/hf_models/models/openai/gpt-oss-120b --tensor-parallel-size 4 --port 8080 --reasoning-parser openai-oss",
       "served_model_name": "openai/gpt-oss-120b-Vsdo",
-      "started_at": "2026-05-15T18:00:00Z"
+      "started_at": "2026-05-17T07:35:00Z",
+      "expires_at": "2026-05-17T13:35:00Z"
     }
   },
   "/QmTidAAZgMyXAiBwsbqxi4MZQjgwiuzjw4JwNu4VJtXXmS": {
@@ -1014,8 +1046,10 @@
       "slurm_partition": "normal",
       "worker_group_id": "2256014",
       "framework": "sglang",
+      "framework_args": "--model-path /capstor/store/cscs/swissai/infra01/hf_models/models/google/gemma-4-31B-it --tensor-parallel-size 4 --port 8080",
       "served_model_name": "google/gemma-4-31B-it-TsOA",
-      "started_at": "2026-05-15T18:00:00Z"
+      "started_at": "2026-05-17T08:05:00Z",
+      "expires_at": "2026-05-17T09:05:00Z"
     }
   },
   "/QmUBhMF1Gg19ZbUrmBCCWdprt3XMLiXftZebuUnnaGeUJ8": {
@@ -1083,8 +1117,10 @@
       "slurm_partition": "normal",
       "worker_group_id": "2256015",
       "framework": "sglang",
+      "framework_args": "--model-path /capstor/store/cscs/swissai/infra01/hf_models/models/openai/gpt-oss-120b --tensor-parallel-size 4 --port 8080 --reasoning-parser openai-oss",
       "served_model_name": "openai/gpt-oss-120b-Vsdo",
-      "started_at": "2026-05-15T18:00:00Z"
+      "started_at": "2026-05-17T08:35:00Z",
+      "expires_at": "2026-05-17T20:35:00Z"
     }
   },
   "/QmUCz7yLJt84xHyZySK6LMQDDXNQW6qfVz7TWc3UDLt6j7": {
@@ -1150,10 +1186,13 @@
       "launched_by": "xyao",
       "slurm_job_id": "2256016",
       "slurm_partition": "normal",
+      "slurm_reservation": "SD-69241-apertus-1-5-0",
       "worker_group_id": "2256016",
       "framework": "sglang",
+      "framework_args": "--model-path /capstor/store/cscs/swissai/infra01/hf_models/models/openai/gpt-oss-120b --tensor-parallel-size 4 --port 8080 --reasoning-parser openai-oss",
       "served_model_name": "openai/gpt-oss-120b-Vsdo",
-      "started_at": "2026-05-15T18:00:00Z"
+      "started_at": "2026-05-17T09:05:00Z",
+      "expires_at": "2026-05-17T15:05:00Z"
     }
   },
   "/QmV44xF8bg51ZVrWSAstzms12i8Dt3f1oHV7qXyQiQnhTn": {
@@ -1221,8 +1260,10 @@
       "slurm_partition": "normal",
       "worker_group_id": "2256017",
       "framework": "sglang",
+      "framework_args": "--model-path /capstor/store/cscs/swissai/infra01/hf_models/models/google/gemma-4-31B-it --tensor-parallel-size 4 --port 8080",
       "served_model_name": "google/gemma-4-31B-it-TsOA",
-      "started_at": "2026-05-15T18:00:00Z"
+      "started_at": "2026-05-17T09:35:00Z",
+      "expires_at": "2026-05-17T15:35:00Z"
     }
   },
   "/QmVKgxLCrKx35THcpaGbAMyweAcN8WuSRqbbrcUtRQgJur": {
@@ -1290,8 +1331,10 @@
       "slurm_partition": "normal",
       "worker_group_id": "2256018",
       "framework": "sglang",
+      "framework_args": "--model-path /capstor/store/cscs/swissai/infra01/hf_models/models/openai/gpt-oss-120b --tensor-parallel-size 4 --port 8080 --reasoning-parser openai-oss",
       "served_model_name": "openai/gpt-oss-120b-Vsdo",
-      "started_at": "2026-05-15T18:00:00Z"
+      "started_at": "2026-05-17T10:05:00Z",
+      "expires_at": "2026-05-17T22:05:00Z"
     }
   },
   "/QmVyfUwaMw1HD9YvJ6spi2mrDyrsC5fYnTgTqKcGpraVob": {
@@ -1359,8 +1402,10 @@
       "slurm_partition": "normal",
       "worker_group_id": "2256019",
       "framework": "vllm",
+      "framework_args": "--model /capstor/store/cscs/swissai/infra01/hf_models/models/meta-llama/Llama-3.3-70B-Instruct --tensor-parallel-size 4 --max-model-len 8192 --port 8080",
       "served_model_name": "meta-llama/Llama-3.3-70B-Instruct",
-      "started_at": "2026-05-15T18:00:00Z"
+      "started_at": "2026-05-17T10:35:00Z",
+      "expires_at": "2026-05-17T16:35:00Z"
     }
   },
   "/QmWH14wTNJsHJEnpRXGAozEj89Ja1Hy2nsY9RhEATgVXD2": {
@@ -1426,10 +1471,13 @@
       "launched_by": "rosmith",
       "slurm_job_id": "2256020",
       "slurm_partition": "normal",
+      "slurm_reservation": "SD-69241-apertus-1-5-0",
       "worker_group_id": "2256020",
       "framework": "sglang",
+      "framework_args": "--model-path /capstor/store/cscs/swissai/infra01/hf_models/models/openai/gpt-oss-120b --tensor-parallel-size 4 --port 8080 --reasoning-parser openai-oss",
       "served_model_name": "openai/gpt-oss-120b-Vsdo",
-      "started_at": "2026-05-15T18:00:00Z"
+      "started_at": "2026-05-17T11:05:00Z",
+      "expires_at": "2026-05-17T17:05:00Z"
     }
   },
   "/QmWUY2amw5ZG2triPc5mVjySsowxxz9zp8GZpb5mJ267S8": {
@@ -1497,8 +1545,10 @@
       "slurm_partition": "normal",
       "worker_group_id": "2256021",
       "framework": "sglang",
+      "framework_args": "--model-path /capstor/store/cscs/swissai/infra01/hf_models/models/google/gemma-4-31B-it --tensor-parallel-size 4 --port 8080",
       "served_model_name": "google/gemma-4-31B-it-TsOA",
-      "started_at": "2026-05-15T18:00:00Z"
+      "started_at": "2026-05-17T11:35:00Z",
+      "expires_at": "2026-05-17T23:35:00Z"
     }
   },
   "/QmXY2pbA48gJ7HcSnBQMV6VSaBMiK3jWXRyNVUbxRtZJRW": {
@@ -1566,8 +1616,10 @@
       "slurm_partition": "normal",
       "worker_group_id": "2256022",
       "framework": "sglang",
+      "framework_args": "--model-path /capstor/store/cscs/swissai/infra01/hf_models/models/openai/gpt-oss-120b --tensor-parallel-size 4 --port 8080 --reasoning-parser openai-oss",
       "served_model_name": "openai/gpt-oss-120b-Vsdo",
-      "started_at": "2026-05-15T18:00:00Z"
+      "started_at": "2026-05-17T12:05:00Z",
+      "expires_at": "2026-05-17T18:05:00Z"
     }
   },
   "/QmYFsphqm4gNgpgAdjwa6ZaCFPwJxaVHFwJ9P7cLSkTqZe": {
@@ -1635,8 +1687,10 @@
       "slurm_partition": "normal",
       "worker_group_id": "2256023",
       "framework": "sglang",
+      "framework_args": "--model-path /capstor/store/cscs/swissai/infra01/hf_models/models/google/gemma-4-31B-it --tensor-parallel-size 4 --port 8080",
       "served_model_name": "google/gemma-4-31B-it-TsOA",
-      "started_at": "2026-05-15T18:00:00Z"
+      "started_at": "2026-05-17T12:35:00Z",
+      "expires_at": "2026-05-17T18:35:00Z"
     }
   },
   "/QmYaMDbbw8WRY7RDcFuFHWDtmA9smyPeBcVNfCW4XC5mVV": {
@@ -1702,10 +1756,13 @@
       "launched_by": "yiswang",
       "slurm_job_id": "2256024",
       "slurm_partition": "normal",
+      "slurm_reservation": "SD-69241-apertus-1-5-0",
       "worker_group_id": "2256024",
       "framework": "vllm",
+      "framework_args": "--model /capstor/store/cscs/swissai/infra01/hf_models/models/Qwen/Qwen3-32B --tensor-parallel-size 4 --port 8080",
       "served_model_name": "Qwen/Qwen3-32B-kgCt",
-      "started_at": "2026-05-15T18:00:00Z"
+      "started_at": "2026-05-17T07:10:00Z",
+      "expires_at": "2026-05-17T19:10:00Z"
     }
   },
   "/QmZ2DSBRFUdoD2vxt4WBNjSnAZZNB211BQGA3N1P7WnkYa": {
@@ -1773,8 +1830,10 @@
       "slurm_partition": "normal",
       "worker_group_id": "2256025",
       "framework": "vllm",
+      "framework_args": "--model /capstor/store/cscs/swissai/infra01/hf_models/models/Qwen/Qwen3.5-397B-A17B --tensor-parallel-size 4 --max-model-len 32768 --gpu-memory-utilization 0.85 --port 8080",
       "served_model_name": "Qwen/Qwen3.5-397B-A17B-VoMF",
-      "started_at": "2026-05-15T18:00:00Z"
+      "started_at": "2026-05-17T07:40:00Z",
+      "expires_at": "2026-05-17T13:40:00Z"
     }
   },
   "/QmZAJMsbmnfz2KoYbzDC7NC4SLJfzUu5y3Wiz4stXhxE6y": {
@@ -1842,8 +1901,10 @@
       "slurm_partition": "normal",
       "worker_group_id": "2256026",
       "framework": "vllm",
+      "framework_args": "--model /capstor/store/cscs/swissai/infra01/hf_models/models/Qwen/Qwen3.5-397B-A17B --tensor-parallel-size 4 --max-model-len 32768 --gpu-memory-utilization 0.85 --port 8080",
       "served_model_name": "Qwen/Qwen3.5-397B-A17B-VoMF",
-      "started_at": "2026-05-15T18:00:00Z"
+      "started_at": "2026-05-17T08:10:00Z",
+      "expires_at": "2026-05-17T14:10:00Z"
     }
   },
   "/QmZKtLQ4Hmtu3LEphS2hn7jciRyHa4TYAPjpkfsYmZkgZr": {
@@ -1911,8 +1972,10 @@
       "slurm_partition": "normal",
       "worker_group_id": "2256027",
       "framework": "sglang",
+      "framework_args": "--model-path /capstor/store/cscs/swissai/infra01/hf_models/models/openai/gpt-oss-120b --tensor-parallel-size 4 --port 8080 --reasoning-parser openai-oss",
       "served_model_name": "openai/gpt-oss-120b-Vsdo",
-      "started_at": "2026-05-15T18:00:00Z"
+      "started_at": "2026-05-17T08:40:00Z",
+      "expires_at": "2026-05-17T20:40:00Z"
     }
   },
   "/QmZZTz4iU4Cs46bPDFjVdG4Ws4ErvL5C3jNmpV7dwj1Xb4": {
@@ -1978,10 +2041,13 @@
       "launched_by": "isternfel",
       "slurm_job_id": "2256028",
       "slurm_partition": "normal",
+      "slurm_reservation": "SD-69241-apertus-1-5-0",
       "worker_group_id": "2256028",
       "framework": "sglang",
+      "framework_args": "--model-path /capstor/store/cscs/swissai/infra01/hf_models/models/openai/gpt-oss-120b --tensor-parallel-size 4 --port 8080 --reasoning-parser openai-oss",
       "served_model_name": "openai/gpt-oss-120b-Vsdo",
-      "started_at": "2026-05-15T18:00:00Z"
+      "started_at": "2026-05-17T09:10:00Z",
+      "expires_at": "2026-05-17T10:10:00Z"
     }
   },
   "/QmZkb4QBua1DbmPiKz7eMpQVdceqpNxSfsjzPuJBVyDT9U": {
@@ -2049,8 +2115,10 @@
       "slurm_partition": "normal",
       "worker_group_id": "2256029",
       "framework": "vllm",
+      "framework_args": "--model /capstor/store/cscs/swissai/infra01/hf_models/models/Qwen/Qwen3.5-397B-A17B --tensor-parallel-size 4 --max-model-len 32768 --gpu-memory-utilization 0.85 --port 8080",
       "served_model_name": "Qwen/Qwen3.5-397B-A17B-VoMF",
-      "started_at": "2026-05-15T18:00:00Z"
+      "started_at": "2026-05-17T09:40:00Z",
+      "expires_at": "2026-05-17T15:40:00Z"
     }
   },
   "/Qma4wwUVNRfNsz4JB26z26LJyNzwhZ6YWSVeXhKAkckJY7": {
@@ -2118,8 +2186,10 @@
       "slurm_partition": "normal",
       "worker_group_id": "2256030",
       "framework": "vllm",
+      "framework_args": "--model /capstor/store/cscs/swissai/infra01/hf_models/models/Qwen/Qwen3-Next-80B-A3B-Instruct --tensor-parallel-size 4 --port 8080",
       "served_model_name": "Qwen/Qwen3-Next-80B-A3B-Instruct-yiswang",
-      "started_at": "2026-05-15T18:00:00Z"
+      "started_at": "2026-05-17T10:10:00Z",
+      "expires_at": "2026-05-17T22:10:00Z"
     }
   },
   "/QmaEQoJVdvv2nRV3HUsH6dzjxoCy6mYBkCxGh37AaLNeMp": {
@@ -2187,8 +2257,10 @@
       "slurm_partition": "normal",
       "worker_group_id": "2256031",
       "framework": "vllm",
+      "framework_args": "--model /capstor/store/cscs/swissai/infra01/hf_models/models/Qwen/Qwen3.5-397B-A17B --tensor-parallel-size 4 --max-model-len 32768 --gpu-memory-utilization 0.85 --port 8080",
       "served_model_name": "Qwen/Qwen3.5-397B-A17B-VoMF",
-      "started_at": "2026-05-15T18:00:00Z"
+      "started_at": "2026-05-17T10:40:00Z",
+      "expires_at": "2026-05-17T16:40:00Z"
     }
   },
   "/QmaLdTc28YRJn5uMrUt5kKnuWQzT2giA6dE9ZRkeG7pHVC": {
@@ -2254,10 +2326,13 @@
       "launched_by": "aahadinia",
       "slurm_job_id": "2256032",
       "slurm_partition": "normal",
+      "slurm_reservation": "SD-69241-apertus-1-5-0",
       "worker_group_id": "2256032",
       "framework": "vllm",
+      "framework_args": "--model /capstor/store/cscs/swissai/infra01/hf_models/models/Qwen/Qwen3.5-397B-A17B --tensor-parallel-size 4 --max-model-len 32768 --gpu-memory-utilization 0.85 --port 8080",
       "served_model_name": "Qwen/Qwen3.5-397B-A17B-IYuQ",
-      "started_at": "2026-05-15T18:00:00Z"
+      "started_at": "2026-05-17T11:10:00Z",
+      "expires_at": "2026-05-17T17:10:00Z"
     }
   },
   "/Qmaf4Ahny2u9yYyHLZtv5THxZaV2fWFKFicq7bJryvDYtk": {
@@ -2325,8 +2400,10 @@
       "slurm_partition": "normal",
       "worker_group_id": "2256033",
       "framework": "sglang",
+      "framework_args": "--model-path /capstor/store/cscs/swissai/infra01/hf_models/models/openai/gpt-oss-120b --tensor-parallel-size 4 --port 8080 --reasoning-parser openai-oss",
       "served_model_name": "openai/gpt-oss-120b-Vsdo",
-      "started_at": "2026-05-15T18:00:00Z"
+      "started_at": "2026-05-17T11:40:00Z",
+      "expires_at": "2026-05-17T23:40:00Z"
     }
   },
   "/QmatBYkA34rU7Xp7MZGfQWCnF8jKqvivfuseSw89teB2GK": {
@@ -2394,8 +2471,10 @@
       "slurm_partition": "normal",
       "worker_group_id": "2256034",
       "framework": "vllm",
+      "framework_args": "--model /capstor/store/cscs/swissai/infra01/hf_models/models/Qwen/Qwen3.5-397B-A17B --tensor-parallel-size 4 --max-model-len 32768 --gpu-memory-utilization 0.85 --port 8080",
       "served_model_name": "Qwen/Qwen3.5-397B-A17B-IYuQ",
-      "started_at": "2026-05-15T18:00:00Z"
+      "started_at": "2026-05-17T12:10:00Z",
+      "expires_at": "2026-05-17T18:10:00Z"
     }
   },
   "/QmatXigW2oBdFezZQ3jdVzF3kyq6DD38vuPZvLcVo8Jbmu": {
@@ -2463,8 +2542,10 @@
       "slurm_partition": "normal",
       "worker_group_id": "2256035",
       "framework": "vllm",
+      "framework_args": "--model /capstor/store/cscs/swissai/infra01/hf_models/models/Qwen/Qwen3.5-397B-A17B --tensor-parallel-size 4 --max-model-len 32768 --gpu-memory-utilization 0.85 --port 8080",
       "served_model_name": "Qwen/Qwen3.5-397B-A17B-IYuQ",
-      "started_at": "2026-05-15T18:00:00Z"
+      "started_at": "2026-05-17T12:40:00Z",
+      "expires_at": "2026-05-17T13:40:00Z"
     }
   },
   "/QmbChDqsb1od2fyQ5V98kWjckswmXfVJGtutPdqpkXv3jy": {
@@ -2515,10 +2596,13 @@
       "launched_by": "xyao",
       "slurm_job_id": "2256036",
       "slurm_partition": "normal",
+      "slurm_reservation": "SD-69241-apertus-1-5-0",
       "worker_group_id": "2256036",
       "framework": "vllm",
+      "framework_args": "--model /capstor/store/cscs/swissai/infra01/hf_models/models/Snowflake/snowflake-arctic-embed-l-v2.0 --task embed --port 8080",
       "served_model_name": "Snowflake/snowflake-arctic-embed-l-v2.0",
-      "started_at": "2026-05-15T18:00:00Z"
+      "started_at": "2026-05-17T07:15:00Z",
+      "expires_at": "2026-05-17T19:15:00Z"
     }
   },
   "/QmbRVvFzCmZhEXiTENtvDvNab8wREqEo4byVKDw83TTHeH": {
@@ -2586,8 +2670,10 @@
       "slurm_partition": "normal",
       "worker_group_id": "2256037",
       "framework": "vllm",
+      "framework_args": "--model /capstor/store/cscs/swissai/infra01/hf_models/models/Qwen/Qwen3.5-397B-A17B --tensor-parallel-size 4 --max-model-len 32768 --gpu-memory-utilization 0.85 --port 8080",
       "served_model_name": "Qwen/Qwen3.5-397B-A17B-IYuQ",
-      "started_at": "2026-05-15T18:00:00Z"
+      "started_at": "2026-05-17T07:45:00Z",
+      "expires_at": "2026-05-17T13:45:00Z"
     }
   },
   "/QmbRoB5rRsDTnSaVQsG72ZJtvdVvERx9Nv3B5p2AGGDw2f": {
@@ -2655,8 +2741,10 @@
       "slurm_partition": "normal",
       "worker_group_id": "2256038",
       "framework": "vllm",
+      "framework_args": "--model /capstor/store/cscs/swissai/infra01/hf_models/models/Qwen/Qwen3-32B --tensor-parallel-size 4 --port 8080",
       "served_model_name": "Qwen/Qwen3-32B-kgCt",
-      "started_at": "2026-05-15T18:00:00Z"
+      "started_at": "2026-05-17T08:15:00Z",
+      "expires_at": "2026-05-17T14:15:00Z"
     }
   },
   "/QmbUKJkCfotDzbFE5uoTsXD4GRyPHjzZC1f2yAGLoeBMn9": {
@@ -2686,7 +2774,8 @@
       "slurm_job_id": "2256039",
       "slurm_partition": "normal",
       "worker_group_id": "2256039",
-      "started_at": "2026-05-15T18:00:00Z"
+      "started_at": "2026-05-17T08:45:00Z",
+      "expires_at": "2026-05-17T20:45:00Z"
     }
   },
   "/QmbiBQSUfDeXTdkPHfa6cyySRNJWSXspRbNwjCMJC6juVL": {
@@ -2752,10 +2841,13 @@
       "launched_by": "rosmith",
       "slurm_job_id": "2256040",
       "slurm_partition": "normal",
+      "slurm_reservation": "SD-69241-apertus-1-5-0",
       "worker_group_id": "2256040",
       "framework": "sglang",
+      "framework_args": "--model-path /capstor/store/cscs/swissai/infra01/hf_models/models/openai/gpt-oss-120b --tensor-parallel-size 4 --port 8080 --reasoning-parser openai-oss",
       "served_model_name": "openai/gpt-oss-120b-Vsdo",
-      "started_at": "2026-05-15T18:00:00Z"
+      "started_at": "2026-05-17T09:15:00Z",
+      "expires_at": "2026-05-17T15:15:00Z"
     }
   },
   "/QmbjQk58JdgKcygFU85ztiqCF4MRqe6K6RAT9D7SEeUzyd": {
@@ -2806,7 +2898,8 @@
       "slurm_job_id": "2256041",
       "slurm_partition": "normal",
       "worker_group_id": "2256041",
-      "started_at": "2026-05-15T18:00:00Z"
+      "started_at": "2026-05-17T09:45:00Z",
+      "expires_at": "2026-05-17T15:45:00Z"
     }
   },
   "/Qmc7Lhr1FRE4vh7Mk7VJAgPoEGJU8fYM82tdZsuKn8Bu4A": {
@@ -2859,8 +2952,10 @@
       "slurm_partition": "normal",
       "worker_group_id": "2256042",
       "framework": "sglang",
+      "framework_args": "--model-path /capstor/store/cscs/swissai/infra01/hf_models/models/zai-org/GLM-4.7-Flash --port 8080",
       "served_model_name": "zai-org/GLM-4.7-Flash",
-      "started_at": "2026-05-15T18:00:00Z"
+      "started_at": "2026-05-17T10:15:00Z",
+      "expires_at": "2026-05-17T22:15:00Z"
     }
   },
   "/QmcNUTEmgWq9u51XaQ3NVdQmUGb5AXcTq31b81HRajuF8B": {
@@ -2918,8 +3013,10 @@
       "slurm_partition": "normal",
       "worker_group_id": "2256043",
       "framework": "vllm",
+      "framework_args": "--model /capstor/store/cscs/swissai/infra01/hf_models/models/Qwen/Qwen3.5-27B --tensor-parallel-size 2 --port 8080",
       "served_model_name": "Qwen/Qwen3.5-27B",
-      "started_at": "2026-05-15T18:00:00Z"
+      "started_at": "2026-05-17T10:45:00Z",
+      "expires_at": "2026-05-17T16:45:00Z"
     }
   },
   "/QmcRV1QhEcmGEbxer4DwpswD27wf3g86cjzYdRiWprj7KG": {
@@ -2985,10 +3082,13 @@
       "launched_by": "yiswang",
       "slurm_job_id": "2256044",
       "slurm_partition": "normal",
+      "slurm_reservation": "SD-69241-apertus-1-5-0",
       "worker_group_id": "2256044",
       "framework": "sglang",
+      "framework_args": "--model-path /capstor/store/cscs/swissai/infra01/hf_models/models/openai/gpt-oss-120b --tensor-parallel-size 4 --port 8080 --reasoning-parser openai-oss",
       "served_model_name": "openai/gpt-oss-120b-Vsdo",
-      "started_at": "2026-05-15T18:00:00Z"
+      "started_at": "2026-05-17T11:15:00Z",
+      "expires_at": "2026-05-17T17:15:00Z"
     }
   },
   "/QmduMdBLdY6vDX3P1Wbrbv5QvPEGXQKnJrWb5WQMRADGRT": {
@@ -3056,8 +3156,10 @@
       "slurm_partition": "normal",
       "worker_group_id": "2256045",
       "framework": "sglang",
+      "framework_args": "--model-path /capstor/store/cscs/swissai/infra01/hf_models/models/openai/gpt-oss-120b --tensor-parallel-size 4 --port 8080 --reasoning-parser openai-oss",
       "served_model_name": "openai/gpt-oss-120b-Vsdo",
-      "started_at": "2026-05-15T18:00:00Z"
+      "started_at": "2026-05-17T11:45:00Z",
+      "expires_at": "2026-05-17T23:45:00Z"
     }
   },
   "/QmdvyPbnCXYz9SrHtN1RTZC8zfu17BgiuaNhy5Dxkjkdx3": {
@@ -3125,8 +3227,10 @@
       "slurm_partition": "normal",
       "worker_group_id": "2256046",
       "framework": "vllm",
+      "framework_args": "--model /capstor/store/cscs/swissai/infra01/hf_models/models/Qwen/Qwen3.5-397B-A17B --tensor-parallel-size 4 --max-model-len 32768 --gpu-memory-utilization 0.85 --port 8080",
       "served_model_name": "Qwen/Qwen3.5-397B-A17B-IYuQ",
-      "started_at": "2026-05-15T18:00:00Z"
+      "started_at": "2026-05-17T12:15:00Z",
+      "expires_at": "2026-05-17T18:15:00Z"
     }
   },
   "/QmeHwokMDRGBQkJaAcJ2kqUPgVVfb3pAspwznmGtfG3SrQ": {
@@ -3194,8 +3298,10 @@
       "slurm_partition": "normal",
       "worker_group_id": "2256047",
       "framework": "sglang",
+      "framework_args": "--model-path /capstor/store/cscs/swissai/infra01/hf_models/models/google/gemma-4-31B-it --tensor-parallel-size 4 --port 8080",
       "served_model_name": "google/gemma-4-31B-it-TsOA",
-      "started_at": "2026-05-15T18:00:00Z"
+      "started_at": "2026-05-17T12:45:00Z",
+      "expires_at": "2026-05-17T18:45:00Z"
     }
   },
   "/QmfCUkV2TZaSzeVCaXQ1VaxsPJaweujarmpvgdBALd4qzp": {
@@ -3246,10 +3352,13 @@
       "launched_by": "isternfel",
       "slurm_job_id": "2256048",
       "slurm_partition": "normal",
+      "slurm_reservation": "SD-69241-apertus-1-5-0",
       "worker_group_id": "2256048",
       "framework": "sglang",
+      "framework_args": "--model-path /capstor/store/cscs/swissai/infra01/hf_models/models/swiss-ai/Apertus-8B-Instruct-2509 --port 8080 --enable-metrics",
       "served_model_name": "swiss-ai/Apertus-8B-Instruct-2509",
-      "started_at": "2026-05-15T18:00:00Z"
+      "started_at": "2026-05-17T07:20:00Z",
+      "expires_at": "2026-05-17T19:20:00Z"
     }
   },
   "/QmfEhbkxvqWJ5uPCyEtLLizjnnEJ5SHMrGn36wDwhNezJY": {
@@ -3317,8 +3426,10 @@
       "slurm_partition": "normal",
       "worker_group_id": "2256049",
       "framework": "vllm",
+      "framework_args": "--model /capstor/store/cscs/swissai/infra01/hf_models/models/Qwen/Qwen3-32B --tensor-parallel-size 4 --port 8080",
       "served_model_name": "Qwen/Qwen3-32B-kgCt",
-      "started_at": "2026-05-15T18:00:00Z"
+      "started_at": "2026-05-17T07:50:00Z",
+      "expires_at": "2026-05-17T08:50:00Z"
     }
   }
 }

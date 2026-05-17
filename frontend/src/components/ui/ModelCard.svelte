@@ -186,35 +186,54 @@
 
       <!-- Per-replica detail blocks -->
       {#each entry.data.replicas as replica, idx (replica.worker_group_id)}
+        {@const head = replica.head}
+        {@const hasLabels = !!(head.launched_by || head.slurm_job_id || head.started_at || head.framework || head.version || head.status)}
+        {@const peerLine = (p) => {
+          const hn = p.hostname;
+          const pid = p.peer_id;
+          if (hn && pid) return `${hn} (${pid})`;
+          return hn || pid || "unknown";
+        }}
+        {@const rows = [
+          ["model", entry.data.title],
+          ["launched_by", head.launched_by],
+          ["slurm_job_id", head.slurm_job_id],
+          ["started_at", head.started_at],
+          ["framework", head.framework],
+          ["version", head.version],
+          // worker_group_id is omitted when it's a synthesised legacy-N fallback —
+          // it's just noise in that case.
+          ["worker_group_id", replica.worker_group_id.startsWith("legacy-") ? "" : replica.worker_group_id],
+          ["head", peerLine(head)],
+          ...replica.followers.map((f, i) => [`follower_${i + 1}`, peerLine(f)]),
+        ].filter(([, v]) => v && v !== "unknown" || v === peerLine(head) || (typeof v === "string" && v.includes("(")))}
         <div class="border border-black/10 dark:border-white/15 rounded-md p-3 bg-black/[0.02] dark:bg-white/[0.03]">
           <div class="text-xs text-slate-500 dark:text-slate-400 mb-2 flex items-center gap-2">
             <span class="font-semibold">Replica {idx + 1}{entry.data.replicaCount > 1 ? ` / ${entry.data.replicaCount}` : ""}</span>
             <span>·</span>
             <span>{topologyString(replica)}</span>
-            {#if replica.head.status}
-              <span class="status-pill" data-status={replica.head.status}>{replica.head.status}</span>
+            {#if head.status}
+              <span class="status-pill" data-status={head.status}>{head.status}</span>
             {/if}
           </div>
 
-          <!-- Launch metadata: monospace, key/value rendered as one block -->
-          <pre class="code-block">{[
-            ["model", entry.data.title],
-            ["launched_by", replica.head.launched_by || "?"],
-            ["slurm_job_id", replica.head.slurm_job_id || "?"],
-            ["started_at", replica.head.started_at || "?"],
-            ["framework", replica.head.framework || "?"],
-            ["version", replica.head.version || "?"],
-            ["worker_group_id", replica.worker_group_id],
-            ["head", `${replica.head.hostname || "?"} (${replica.head.peer_id || "?"})`],
-            ...replica.followers.map((f, i) => [
-              `follower_${i + 1}`,
-              `${f.hostname || "?"} (${f.peer_id || "?"})`,
-            ]),
-          ].map(([k, v]) => `${k.padEnd(18)} ${v}`).join("\n")}</pre>
+          <!-- Launch metadata: monospace, key/value rendered as one block.
+               Empty fields hidden so the legacy / pre-v0.0.6 case shows
+               just what's actually known (peer ids + model). -->
+          <pre class="code-block">{rows
+            .filter(([, v]) => v)
+            .map(([k, v]) => `${k.padEnd(18)} ${v}`)
+            .join("\n")}</pre>
+
+          {#if !hasLabels}
+            <p class="text-xs text-amber-700 dark:text-amber-400 mt-2">
+              Launch metadata (launched_by, slurm_job_id, framework, started_at…) requires OpenTela v0.0.6+ on the serving node.
+            </p>
+          {/if}
 
           <!-- Topology / extra labels block: framework_args, etc. -->
-          {#if replica.head.labels && Object.keys(replica.head.labels).length > 0}
-            {@const extra = Object.entries(replica.head.labels).filter(([k]) =>
+          {#if head.labels && Object.keys(head.labels).length > 0}
+            {@const extra = Object.entries(head.labels).filter(([k]) =>
               !["launched_by","slurm_job_id","worker_group_id","framework","started_at","slurm_partition","served_model_name"].includes(k)
             )}
             {#if extra.length > 0}
