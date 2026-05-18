@@ -10,7 +10,10 @@ type Props = {
 };
 
 const { title, description } = Astro.props;
-const apiUrl = process.env.VITE_API_URL || 'https://api.swissai.svc.cscs.ch';
+// process.env wins so a deployed container can override at runtime (no
+// rebuild); import.meta.env covers the `astro dev` / `make dummy-run` path
+// where dotenv loads frontend/.env into Vite's env but NOT into process.env.
+const apiUrl = process.env.VITE_API_URL || import.meta.env.VITE_API_URL || 'https://api.swissai.svc.cscs.ch';
 ---
 
 <!doctype html>
