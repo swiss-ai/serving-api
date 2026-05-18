@@ -26,7 +26,7 @@ const articles = (await getCollection("articles"))
 
 const session = import.meta.env.DEV ? null : await getSession(Astro.request);
 const isSessionValid = session && session.user;
-const chatAppUrl = process.env.CHAT_APP_URL || "https://chat.swissai.cscs.ch";
+const chatAppUrl = process.env.CHAT_APP_URL || "https://chat.swissai.svc.cscs.ch";
 
 const contributors = [
   {

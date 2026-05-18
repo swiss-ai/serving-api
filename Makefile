@@ -28,21 +28,14 @@ test:
 
 _ensure-env:
 	@if [ ! -f .env ]; then \
-		echo "DATABASE_URL=$(DATABASE_URL)" > .env; \
-		echo "wrote default .env (DATABASE_URL -> local docker postgres on :$(PG_PORT))"; \
+		cp .env.example .env; \
+		echo "copied .env.example -> .env"; \
 	fi
 
 _ensure-frontend-env:
 	@if [ ! -f frontend/.env ]; then \
-		secret=$$(openssl rand -hex 32); \
-		{ \
-			echo "AUTH_SECRET=$$secret"; \
-			echo "AUTH_TRUST_HOST=true"; \
-			echo "AUTH0_CLIENT_ID="; \
-			echo "AUTH0_CLIENT_SECRET="; \
-			echo "AUTH0_ISSUER="; \
-		} > frontend/.env; \
-		echo "wrote default frontend/.env (AUTH_SECRET generated; fill in AUTH0_* to enable login)"; \
+		cp frontend/.env.example frontend/.env; \
+		echo "copied frontend/.env.example -> frontend/.env (fill in AUTH0_* to enable login)"; \
 	fi
 
 db-up:

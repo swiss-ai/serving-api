@@ -112,11 +112,9 @@
         <h2 class="text-3xl font-bold text-slate-900 dark:text-white mb-4">
             Available Models
             {#if !loading && !error}
-                <span style="display:inline-flex;align-items:center;justify-content:center;font-size:0.65em;font-weight:bold;line-height:1;padding:0.15em 0.5em;border-radius:4px;background-color:#6366f1;color:#fff;vertical-align:middle;margin-left:0.3em">{modelCount}</span>
+                <span style="display:inline-flex;align-items:center;justify-content:center;font-size:0.65em;font-weight:bold;line-height:1;min-width:2em;padding:0.15em 0.5em;border-radius:4px;background-color:#6366f1;color:#fff;vertical-align:middle;margin-left:0.3em">{modelCount}</span>
                 {#if replicaCount !== modelCount}
-                    <span class="ml-2 text-base font-normal text-slate-500 dark:text-slate-400" title="Total replicas (separately-launched instances) across all models">
-                        , Replicas
-                        <span style="display:inline-flex;align-items:center;justify-content:center;font-size:0.75em;font-weight:bold;line-height:1;padding:0.15em 0.5em;border-radius:4px;background-color:#64748b;color:#fff;vertical-align:middle;margin-left:0.25em">{replicaCount}</span>
+                    <span class="ml-2" title="Total replicas (separately-launched instances) across all models"><span style="display:inline-flex;align-items:center;justify-content:center;font-size:0.65em;font-weight:bold;line-height:1;min-width:2em;padding:0.15em 0.5em;border-radius:4px;background-color:red;color:#fff;vertical-align:middle;margin-left:0.3em">{replicaCount}</span>
                     </span>
                 {/if}
             {/if}

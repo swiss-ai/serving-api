@@ -5,12 +5,13 @@
   interface Peer {
     peer_id?: string;
     hostname?: string;
-    version?: string;
     status?: string;
     device?: string;
     launched_by?: string;
     slurm_job_id?: string;
     started_at?: string;
+    expires_at?: string;
+    otela_version?: string;
     framework?: string;
     worker_group_id?: string;
     labels?: Record<string, string>;
@@ -54,6 +55,24 @@
   // same launcher/framework, but we render them per-replica below anyway.
   $: firstHead = entry.data.replicas[0]?.head ?? {};
   $: framework = firstHead.framework || "";
+
+  // "2026-05-17T07:00:00Z" → "2026-05-17T07:00:00Z (11 hours ago)".
+  // Returns the iso untouched if it doesn't parse — keeps the row useful even
+  // if OpenTela emits something we don't understand.
+  function withRelative(iso: string | undefined): string {
+    if (!iso) return "";
+    const t = new Date(iso).getTime();
+    if (isNaN(t)) return iso;
+    const diffMs = t - Date.now();
+    const abs = Math.abs(diffMs);
+    const rtf = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
+    let rel: string;
+    if (abs < 60_000) rel = rtf.format(Math.round(diffMs / 1000), "second");
+    else if (abs < 3_600_000) rel = rtf.format(Math.round(diffMs / 60_000), "minute");
+    else if (abs < 86_400_000) rel = rtf.format(Math.round(diffMs / 3_600_000), "hour");
+    else rel = rtf.format(Math.round(diffMs / 86_400_000), "day");
+    return `${iso} (${rel})`;
+  }
 
   // Multi-node topology string: "2 nodes × 4xGH200" for an 8-GPU TP replica.
   function topologyString(r: Replica): string {
@@ -187,7 +206,7 @@
       <!-- Per-replica detail blocks -->
       {#each entry.data.replicas as replica, idx (replica.worker_group_id)}
         {@const head = replica.head}
-        {@const hasLabels = !!(head.launched_by || head.slurm_job_id || head.started_at || head.framework || head.version || head.status)}
+        {@const hasLabels = !!(head.launched_by || head.slurm_job_id || head.started_at || head.expires_at || head.framework || head.otela_version || head.status)}
         {@const peerLine = (p) => {
           const hn = p.hostname;
           const pid = p.peer_id;
@@ -198,9 +217,10 @@
           ["model", entry.data.title],
           ["launched_by", head.launched_by],
           ["slurm_job_id", head.slurm_job_id],
-          ["started_at", head.started_at],
+          ["started_at", withRelative(head.started_at)],
+          ["expires_at", withRelative(head.expires_at)],
           ["framework", head.framework],
-          ["version", head.version],
+          ["otela_version", head.otela_version],
           // worker_group_id is omitted when it's a synthesised legacy-N fallback —
           // it's just noise in that case.
           ["worker_group_id", replica.worker_group_id.startsWith("legacy-") ? "" : replica.worker_group_id],
@@ -227,14 +247,14 @@
 
           {#if !hasLabels}
             <p class="text-xs text-amber-700 dark:text-amber-400 mt-2">
-              Launch metadata (launched_by, slurm_job_id, framework, started_at…) requires OpenTela v0.0.6+ on the serving node.
+              Launch metadata (launched_by, slurm_job_id, framework, started_at, expires_at…) requires OpenTela v0.0.6+ on the serving node.
             </p>
           {/if}
 
           <!-- Topology / extra labels block: framework_args, etc. -->
           {#if head.labels && Object.keys(head.labels).length > 0}
             {@const extra = Object.entries(head.labels).filter(([k]) =>
-              !["launched_by","slurm_job_id","worker_group_id","framework","started_at","slurm_partition","served_model_name"].includes(k)
+              !["launched_by","slurm_job_id","worker_group_id","framework","started_at","expires_at","slurm_partition","served_model_name"].includes(k)
             )}
             {#if extra.length > 0}
               <div class="text-xs text-slate-500 dark:text-slate-400 mt-2 mb-1">Extra labels</div>

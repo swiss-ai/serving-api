@@ -18,7 +18,7 @@ def _peer_metadata(node_info: dict) -> dict:
     return {
         "peer_id": node_info.get("id", ""),
         "hostname": node_info.get("hostname", ""),
-        "version": node_info.get("version", ""),
+        "otela_version": node_info.get("version", ""),
         "status": node_info.get("status", ""),
         "labels": labels,
         # Convenience pulls — frontends can just read these directly
@@ -28,6 +28,7 @@ def _peer_metadata(node_info: dict) -> dict:
         "slurm_job_id": labels.get("slurm_job_id", ""),
         "framework": labels.get("framework", ""),
         "started_at": labels.get("started_at", ""),
+        "expires_at": labels.get("expires_at", ""),
     }
 
 
