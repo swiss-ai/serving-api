@@ -135,7 +135,11 @@ def test_pending_peer_without_served_model_name_label_falls_back_to_empty_id():
     id to attribute it; otherwise it's dropped."""
     peer = {
         **PEER_NEW_BINARY_FOLLOWER,
-        "labels": {k: v for k, v in PEER_NEW_BINARY_FOLLOWER["labels"].items() if k != "served_model_name"},
+        "labels": {
+            k: v
+            for k, v in PEER_NEW_BINARY_FOLLOWER["labels"].items()
+            if k != "served_model_name"
+        },
     }
     with patch("backend.services.model_service.requests.get") as mock_get:
         mock_get.return_value = _dnt_response({"/QmPending": peer})
