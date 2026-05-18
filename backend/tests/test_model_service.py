@@ -116,7 +116,11 @@ def test_metrics_only_follower_groups_with_head_via_worker_group_id():
     assert by_id["QmHead"]["id"] == "swiss-ai/Apertus-8B"
     assert by_id["QmFollower"]["id"] == ""
     # Shared worker_group_id lets the frontend group them.
-    assert by_id["QmHead"]["worker_group_id"] == by_id["QmFollower"]["worker_group_id"] == "12345"
+    assert (
+        by_id["QmHead"]["worker_group_id"]
+        == by_id["QmFollower"]["worker_group_id"]
+        == "12345"
+    )
 
 
 def test_follower_without_worker_group_id_skipped():
@@ -197,7 +201,9 @@ def test_upgraded_payload_groups_multinode_replica():
     frontend can aggregate them into one logical replica."""
     with patch("backend.services.model_service.requests.get") as mock_get:
         mock_get.return_value = type(
-            "R", (), {"json": lambda self=None: _load_fixture("dnt_table_upgraded.json")}
+            "R",
+            (),
+            {"json": lambda self=None: _load_fixture("dnt_table_upgraded.json")},
         )()
         out = get_all_models("http://x/v1/dnt/table", with_details=True)
     # Find the shared-wg cluster

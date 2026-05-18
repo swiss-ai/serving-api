@@ -185,7 +185,9 @@ def main() -> None:
             upgraded[follower_key]["service"] = []
             upgraded[follower_key]["status"] = "ready"
             multi_node_assigned = True
-            print(f"multi-node demo: {model} → head={head_key}, follower={follower_key}, wg={shared}")
+            print(
+                f"multi-node demo: {model} → head={head_key}, follower={follower_key}, wg={shared}"
+            )
             break
     assert multi_node_assigned, "No model has >=2 peers; cannot demo multi-node"
 
