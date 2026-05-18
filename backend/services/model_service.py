@@ -63,8 +63,13 @@ def get_all_models(endpoint: str, with_details: bool = False):
             # worker_group_id and show it as part of a launching/follower set.
             if not meta["worker_group_id"]:
                 continue
+            # Fall back to the served_model_name label so the frontend can
+            # group PENDING peers under their eventual model card during boot.
+            # Without this, the brief PENDING window is invisible because the
+            # peer has no advertised service yet and nothing else maps its
+            # worker_group_id back to a model id.
             entry = {
-                "id": "",  # no model yet
+                "id": meta["labels"].get("served_model_name", ""),
                 "object": "model",
                 "created": "0x",
                 "owner": "0x",
