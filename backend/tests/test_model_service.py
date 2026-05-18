@@ -53,6 +53,7 @@ PEER_NEW_BINARY_FOLLOWER = {
         "slurm_job_id": "12345",
         "worker_group_id": "12345",
         "framework": "sglang",
+        "served_model_name": "swiss-ai/Apertus-8B",
         "started_at": "2026-05-15T18:00:00Z",
     },
     "hardware": {"gpus": [{"name": "GH200"}] * 4},
@@ -100,9 +101,11 @@ def test_new_binary_head_carries_labels():
 
 
 def test_metrics_only_follower_groups_with_head_via_worker_group_id():
-    """A multi-node replica's follower has no `service` but does carry
-    worker_group_id. It should appear in the output with id='' so the
-    frontend can attribute it to the same replica as the head."""
+    """A peer with no advertised `service` (multi-node follower, or a head
+    still in PENDING during boot) should fall back to its served_model_name
+    label so the frontend can render the model card during the brief window
+    before the service is published. Without the fallback, the peer's id
+    stays empty and the frontend silently drops it."""
     with patch("backend.services.model_service.requests.get") as mock_get:
         mock_get.return_value = _dnt_response(
             {
@@ -114,13 +117,32 @@ def test_metrics_only_follower_groups_with_head_via_worker_group_id():
     assert len(out) == 2
     by_id = {e["peer_id"]: e for e in out}
     assert by_id["QmHead"]["id"] == "swiss-ai/Apertus-8B"
-    assert by_id["QmFollower"]["id"] == ""
-    # Shared worker_group_id lets the frontend group them.
+    # Follower inherits id from the served_model_name label — same model card.
+    assert by_id["QmFollower"]["id"] == "swiss-ai/Apertus-8B"
+    assert by_id["QmFollower"]["status"] == "pending"
+    # Shared worker_group_id lets the frontend group them within the model.
     assert (
         by_id["QmHead"]["worker_group_id"]
         == by_id["QmFollower"]["worker_group_id"]
         == "12345"
     )
+
+
+def test_pending_peer_without_served_model_name_label_falls_back_to_empty_id():
+    """Defensive: if a peer is mid-boot from an older binary that doesn't
+    emit served_model_name, we still surface it via worker_group_id with
+    id=''. The frontend then needs another peer in the same group with an
+    id to attribute it; otherwise it's dropped."""
+    peer = {
+        **PEER_NEW_BINARY_FOLLOWER,
+        "labels": {k: v for k, v in PEER_NEW_BINARY_FOLLOWER["labels"].items() if k != "served_model_name"},
+    }
+    with patch("backend.services.model_service.requests.get") as mock_get:
+        mock_get.return_value = _dnt_response({"/QmPending": peer})
+        out = get_all_models("http://x/v1/dnt/table", with_details=True)
+    assert len(out) == 1
+    assert out[0]["id"] == ""
+    assert out[0]["worker_group_id"] == "12345"
 
 
 def test_follower_without_worker_group_id_skipped():
@@ -196,9 +218,10 @@ def test_real_prod_payload_returns_models():
 
 def test_upgraded_payload_groups_multinode_replica():
     """Simulated v0.0.6 deployment: the gemma 'multi-node demo' pair share a
-    worker_group_id. One has a service, the other is metrics-only with id=''.
-    Backend returns both entries with the shared worker_group_id so the
-    frontend can aggregate them into one logical replica."""
+    worker_group_id. Both peers carry the served_model_name label, so both
+    resolve to the same model id even though only one advertises a service.
+    Backend returns both entries with the shared worker_group_id + model id
+    so the frontend can aggregate them into one logical replica."""
     with patch("backend.services.model_service.requests.get") as mock_get:
         mock_get.return_value = type(
             "R",
@@ -212,7 +235,8 @@ def test_upgraded_payload_groups_multinode_replica():
         by_wg.setdefault(e["worker_group_id"], []).append(e)
     multi = [v for v in by_wg.values() if len(v) > 1]
     assert multi, "fixture should contain at least one multi-peer worker group"
-    # At least one peer in the multi-peer group should be metrics-only (id='').
     pair = multi[0]
-    assert any(e["id"] == "" for e in pair), pair
-    assert any(e["id"] != "" for e in pair), pair
+    # Both peers in the group share the same non-empty model id.
+    ids = {e["id"] for e in pair}
+    assert ids != {""}, pair
+    assert len(ids) == 1, f"peers in one worker group should share one model id: {ids}"
