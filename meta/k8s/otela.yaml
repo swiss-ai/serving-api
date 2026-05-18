@@ -26,9 +26,9 @@ spec:
           - "148.187.108.172"
         ports:
           - containerPort: 8092
-            name: ocf-http-port
+            name: otela-http-port
           - containerPort: 43905
-            name: ocf-p2p-port
+            name: otela-p2p-port
         resources:
           requests:
             memory: "8Gi"
@@ -57,9 +57,9 @@ spec:
     - protocol: TCP
       port: 8092
       targetPort: 8092
-      name: ocf-http-port
+      name: otela-http-port
     - protocol: TCP
       port: 43905
       targetPort: 43905
-      name: ocf-p2p-port
+      name: otela-p2p-port
   type: LoadBalancer

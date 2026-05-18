@@ -1,0 +1,2844 @@
+{
+    "/QmPBTq7XuewwbkrdU3c9hdCuZ4XCJMm7wMKeU91xu2hcvG": {
+        "id": "QmPBTq7XuewwbkrdU3c9hdCuZ4XCJMm7wMKeU91xu2hcvG",
+        "latency": 0,
+        "privileged": false,
+        "owner": "",
+        "current_offering": null,
+        "role": null,
+        "status": "",
+        "available_offering": null,
+        "service": [
+            {
+                "name": "llm",
+                "hardware": {
+                    "gpus": null,
+                    "host_memory": 0,
+                    "host_memory_bandwidth": 0,
+                    "host_memory_used": 0
+                },
+                "status": "connected",
+                "host": "localhost",
+                "port": "8080",
+                "identity_group": [
+                    "model=swiss-ai/Apertus-70B-Instruct-2509"
+                ]
+            }
+        ],
+        "last_seen": 1779027016,
+        "version": "",
+        "public_address": "",
+        "hardware": {
+            "gpus": [
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 89753
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 89755
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 89755
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 89755
+                }
+            ],
+            "host_memory": 0,
+            "host_memory_bandwidth": 0,
+            "host_memory_used": 0
+        },
+        "connected": true,
+        "load": null
+    },
+    "/QmPZuZMWhcX2f8EbqRi9HAfrx4ZCiXVfT3c1jifNabwkRL": {
+        "id": "QmPZuZMWhcX2f8EbqRi9HAfrx4ZCiXVfT3c1jifNabwkRL",
+        "latency": 0,
+        "privileged": false,
+        "owner": "",
+        "current_offering": null,
+        "role": null,
+        "status": "",
+        "available_offering": null,
+        "service": [
+            {
+                "name": "llm",
+                "hardware": {
+                    "gpus": null,
+                    "host_memory": 0,
+                    "host_memory_bandwidth": 0,
+                    "host_memory_used": 0
+                },
+                "status": "connected",
+                "host": "localhost",
+                "port": "8080",
+                "identity_group": [
+                    "model=google/gemma-4-31B-it-TsOA"
+                ]
+            }
+        ],
+        "last_seen": 1779027004,
+        "version": "",
+        "public_address": "",
+        "hardware": {
+            "gpus": [
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 18555
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 18555
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 18555
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 18555
+                }
+            ],
+            "host_memory": 0,
+            "host_memory_bandwidth": 0,
+            "host_memory_used": 0
+        },
+        "connected": true,
+        "load": null
+    },
+    "/QmQ1JHLDJe7KhnD48S9TgaEPG3p2az1kq4dMoKUdBssRDq": {
+        "id": "QmQ1JHLDJe7KhnD48S9TgaEPG3p2az1kq4dMoKUdBssRDq",
+        "latency": 0,
+        "privileged": false,
+        "owner": "",
+        "current_offering": null,
+        "role": null,
+        "status": "",
+        "available_offering": null,
+        "service": [
+            {
+                "name": "llm",
+                "hardware": {
+                    "gpus": null,
+                    "host_memory": 0,
+                    "host_memory_bandwidth": 0,
+                    "host_memory_used": 0
+                },
+                "status": "connected",
+                "host": "localhost",
+                "port": "8080",
+                "identity_group": [
+                    "model=Qwen/Qwen3.5-397B-A17B-VoMF"
+                ]
+            }
+        ],
+        "last_seen": 1779027011,
+        "version": "",
+        "public_address": "",
+        "hardware": {
+            "gpus": [
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 82827
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 82153
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 82153
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 82025
+                }
+            ],
+            "host_memory": 0,
+            "host_memory_bandwidth": 0,
+            "host_memory_used": 0
+        },
+        "connected": true,
+        "load": null
+    },
+    "/QmQFqgsty9RjE8DCMMH7QY4pCPwEhCdief1gjku44ALbNN": {
+        "id": "QmQFqgsty9RjE8DCMMH7QY4pCPwEhCdief1gjku44ALbNN",
+        "latency": 0,
+        "privileged": false,
+        "owner": "",
+        "current_offering": null,
+        "role": null,
+        "status": "",
+        "available_offering": null,
+        "service": [
+            {
+                "name": "llm",
+                "hardware": {
+                    "gpus": null,
+                    "host_memory": 0,
+                    "host_memory_bandwidth": 0,
+                    "host_memory_used": 0
+                },
+                "status": "connected",
+                "host": "localhost",
+                "port": "8080",
+                "identity_group": [
+                    "model=openai/gpt-oss-120b-Vsdo"
+                ]
+            }
+        ],
+        "last_seen": 1779027011,
+        "version": "",
+        "public_address": "",
+        "hardware": {
+            "gpus": [
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 84657
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 3
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 3
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 3
+                }
+            ],
+            "host_memory": 0,
+            "host_memory_bandwidth": 0,
+            "host_memory_used": 0
+        },
+        "connected": true,
+        "load": null
+    },
+    "/QmQxjzdBtpjRWwXP991ow1LezbSBSAtJP4cnBW7635YEyW": {
+        "id": "QmQxjzdBtpjRWwXP991ow1LezbSBSAtJP4cnBW7635YEyW",
+        "latency": 0,
+        "privileged": false,
+        "owner": "",
+        "current_offering": null,
+        "role": null,
+        "status": "",
+        "available_offering": null,
+        "service": [
+            {
+                "name": "llm",
+                "hardware": {
+                    "gpus": null,
+                    "host_memory": 0,
+                    "host_memory_bandwidth": 0,
+                    "host_memory_used": 0
+                },
+                "status": "connected",
+                "host": "localhost",
+                "port": "8080",
+                "identity_group": [
+                    "model=google/gemma-4-31B-it-TsOA"
+                ]
+            }
+        ],
+        "last_seen": 1779027020,
+        "version": "",
+        "public_address": "",
+        "hardware": {
+            "gpus": [
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 18866
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 18866
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 18866
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 18864
+                }
+            ],
+            "host_memory": 0,
+            "host_memory_bandwidth": 0,
+            "host_memory_used": 0
+        },
+        "connected": true,
+        "load": null
+    },
+    "/QmRPfyCPgcL2n9Tob6vKeNoQMX39e3fBS4JWNw7Cpz9Wa5": {
+        "id": "QmRPfyCPgcL2n9Tob6vKeNoQMX39e3fBS4JWNw7Cpz9Wa5",
+        "latency": 0,
+        "privileged": false,
+        "owner": "",
+        "current_offering": null,
+        "role": null,
+        "status": "",
+        "available_offering": null,
+        "service": [
+            {
+                "name": "llm",
+                "hardware": {
+                    "gpus": null,
+                    "host_memory": 0,
+                    "host_memory_bandwidth": 0,
+                    "host_memory_used": 0
+                },
+                "status": "connected",
+                "host": "localhost",
+                "port": "8080",
+                "identity_group": [
+                    "model=Qwen/Qwen3-32B-kgCt"
+                ]
+            }
+        ],
+        "last_seen": 1779027004,
+        "version": "",
+        "public_address": "",
+        "hardware": {
+            "gpus": [
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 86385
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 86593
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 86591
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 86384
+                }
+            ],
+            "host_memory": 0,
+            "host_memory_bandwidth": 0,
+            "host_memory_used": 0
+        },
+        "connected": true,
+        "load": null
+    },
+    "/QmRYSXoAfVk1ZsqmduBrsDd1Zcx541KMA9wtT3Mnsau9tn": {
+        "id": "QmRYSXoAfVk1ZsqmduBrsDd1Zcx541KMA9wtT3Mnsau9tn",
+        "latency": 0,
+        "privileged": false,
+        "owner": "",
+        "current_offering": null,
+        "role": null,
+        "status": "",
+        "available_offering": null,
+        "service": [
+            {
+                "name": "llm",
+                "hardware": {
+                    "gpus": null,
+                    "host_memory": 0,
+                    "host_memory_bandwidth": 0,
+                    "host_memory_used": 0
+                },
+                "status": "connected",
+                "host": "localhost",
+                "port": "8080",
+                "identity_group": [
+                    "model=openai/gpt-oss-120b-Vsdo"
+                ]
+            }
+        ],
+        "last_seen": 1779027021,
+        "version": "",
+        "public_address": "",
+        "hardware": {
+            "gpus": [
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 84576
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 11
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 8
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 6
+                }
+            ],
+            "host_memory": 0,
+            "host_memory_bandwidth": 0,
+            "host_memory_used": 0
+        },
+        "connected": true,
+        "load": null
+    },
+    "/QmRgcwJAjsYRLTnBMJvk8ARYa9tNmBjHvPZ9dsLfrq1MTP": {
+        "id": "QmRgcwJAjsYRLTnBMJvk8ARYa9tNmBjHvPZ9dsLfrq1MTP",
+        "latency": 0,
+        "privileged": false,
+        "owner": "",
+        "current_offering": null,
+        "role": null,
+        "status": "",
+        "available_offering": null,
+        "service": [
+            {
+                "name": "llm",
+                "hardware": {
+                    "gpus": null,
+                    "host_memory": 0,
+                    "host_memory_bandwidth": 0,
+                    "host_memory_used": 0
+                },
+                "status": "connected",
+                "host": "localhost",
+                "port": "8080",
+                "identity_group": [
+                    "model=Qwen/Qwen3-32B-kgCt"
+                ]
+            }
+        ],
+        "last_seen": 1779027004,
+        "version": "",
+        "public_address": "",
+        "hardware": {
+            "gpus": [
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 86394
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 86593
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 86605
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 86392
+                }
+            ],
+            "host_memory": 0,
+            "host_memory_bandwidth": 0,
+            "host_memory_used": 0
+        },
+        "connected": true,
+        "load": null
+    },
+    "/QmRzLCghn5BSCAmoqzTmBopB2Nh9jyApsibMBc7VU1pREG": {
+        "id": "QmRzLCghn5BSCAmoqzTmBopB2Nh9jyApsibMBc7VU1pREG",
+        "latency": 0,
+        "privileged": false,
+        "owner": "",
+        "current_offering": null,
+        "role": null,
+        "status": "",
+        "available_offering": null,
+        "service": [
+            {
+                "name": "llm",
+                "hardware": {
+                    "gpus": null,
+                    "host_memory": 0,
+                    "host_memory_bandwidth": 0,
+                    "host_memory_used": 0
+                },
+                "status": "connected",
+                "host": "localhost",
+                "port": "8080",
+                "identity_group": [
+                    "model=Qwen/Qwen3-32B-kgCt"
+                ]
+            }
+        ],
+        "last_seen": 1779027011,
+        "version": "",
+        "public_address": "",
+        "hardware": {
+            "gpus": [
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 86383
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 86594
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 86593
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 86385
+                }
+            ],
+            "host_memory": 0,
+            "host_memory_bandwidth": 0,
+            "host_memory_used": 0
+        },
+        "connected": true,
+        "load": null
+    },
+    "/QmSpTkK6cemTaVWugFjThfr4P17m5ZeQjso2adT8FWkD7G": {
+        "id": "QmSpTkK6cemTaVWugFjThfr4P17m5ZeQjso2adT8FWkD7G",
+        "latency": 0,
+        "privileged": false,
+        "owner": "",
+        "current_offering": null,
+        "role": null,
+        "status": "",
+        "available_offering": null,
+        "service": [
+            {
+                "name": "llm",
+                "hardware": {
+                    "gpus": null,
+                    "host_memory": 0,
+                    "host_memory_bandwidth": 0,
+                    "host_memory_used": 0
+                },
+                "status": "connected",
+                "host": "localhost",
+                "port": "8080",
+                "identity_group": [
+                    "model=Qwen/Qwen3-32B-kgCt"
+                ]
+            }
+        ],
+        "last_seen": 1779027004,
+        "version": "",
+        "public_address": "",
+        "hardware": {
+            "gpus": [
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 86385
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 86590
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 86592
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 86384
+                }
+            ],
+            "host_memory": 0,
+            "host_memory_bandwidth": 0,
+            "host_memory_used": 0
+        },
+        "connected": true,
+        "load": null
+    },
+    "/QmSssGsuXMcN61G6ejHCwhJjbbLLukqNNs4KGiAcYZ4vPT": {
+        "id": "QmSssGsuXMcN61G6ejHCwhJjbbLLukqNNs4KGiAcYZ4vPT",
+        "latency": 0,
+        "privileged": false,
+        "owner": "",
+        "current_offering": null,
+        "role": null,
+        "status": "",
+        "available_offering": null,
+        "service": [
+            {
+                "name": "llm",
+                "hardware": {
+                    "gpus": null,
+                    "host_memory": 0,
+                    "host_memory_bandwidth": 0,
+                    "host_memory_used": 0
+                },
+                "status": "connected",
+                "host": "localhost",
+                "port": "8080",
+                "identity_group": [
+                    "model=openai/gpt-oss-120b-Vsdo"
+                ]
+            }
+        ],
+        "last_seen": 1779027003,
+        "version": "",
+        "public_address": "",
+        "hardware": {
+            "gpus": [
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 84563
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 3
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 3
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 3
+                }
+            ],
+            "host_memory": 0,
+            "host_memory_bandwidth": 0,
+            "host_memory_used": 0
+        },
+        "connected": true,
+        "load": null
+    },
+    "/QmSy3ee3TMXRE2PPc1VTRQyWWDj94ieahAWsJn3PF2c6em": {
+        "id": "QmSy3ee3TMXRE2PPc1VTRQyWWDj94ieahAWsJn3PF2c6em",
+        "latency": 0,
+        "privileged": false,
+        "owner": "",
+        "current_offering": null,
+        "role": null,
+        "status": "",
+        "available_offering": null,
+        "service": [
+            {
+                "name": "llm",
+                "hardware": {
+                    "gpus": null,
+                    "host_memory": 0,
+                    "host_memory_bandwidth": 0,
+                    "host_memory_used": 0
+                },
+                "status": "connected",
+                "host": "localhost",
+                "port": "8080",
+                "identity_group": [
+                    "model=openai/gpt-oss-120b-Vsdo"
+                ]
+            }
+        ],
+        "last_seen": 1779027015,
+        "version": "",
+        "public_address": "",
+        "hardware": {
+            "gpus": [
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 84586
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 5
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 11
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 18
+                }
+            ],
+            "host_memory": 0,
+            "host_memory_bandwidth": 0,
+            "host_memory_used": 0
+        },
+        "connected": true,
+        "load": null
+    },
+    "/QmTUY7a8RYRFnhxMgQ2pNm4V9tKQDzQBpMc6dWQ9isysDZ": {
+        "id": "QmTUY7a8RYRFnhxMgQ2pNm4V9tKQDzQBpMc6dWQ9isysDZ",
+        "latency": 0,
+        "privileged": false,
+        "owner": "",
+        "current_offering": null,
+        "role": null,
+        "status": "",
+        "available_offering": null,
+        "service": [
+            {
+                "name": "llm",
+                "hardware": {
+                    "gpus": null,
+                    "host_memory": 0,
+                    "host_memory_bandwidth": 0,
+                    "host_memory_used": 0
+                },
+                "status": "connected",
+                "host": "localhost",
+                "port": "8080",
+                "identity_group": [
+                    "model=openai/gpt-oss-120b-Vsdo"
+                ]
+            }
+        ],
+        "last_seen": 1779027003,
+        "version": "",
+        "public_address": "",
+        "hardware": {
+            "gpus": [
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 84579
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 3
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 3
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 3
+                }
+            ],
+            "host_memory": 0,
+            "host_memory_bandwidth": 0,
+            "host_memory_used": 0
+        },
+        "connected": true,
+        "load": null
+    },
+    "/QmTVFAoyUwxkBgUJtydmUNkA1sYF2j29St5Lz5JtW4zKKm": {
+        "id": "QmTVFAoyUwxkBgUJtydmUNkA1sYF2j29St5Lz5JtW4zKKm",
+        "latency": 0,
+        "privileged": false,
+        "owner": "",
+        "current_offering": null,
+        "role": null,
+        "status": "",
+        "available_offering": null,
+        "service": [
+            {
+                "name": "llm",
+                "hardware": {
+                    "gpus": null,
+                    "host_memory": 0,
+                    "host_memory_bandwidth": 0,
+                    "host_memory_used": 0
+                },
+                "status": "connected",
+                "host": "localhost",
+                "port": "8080",
+                "identity_group": [
+                    "model=openai/gpt-oss-120b-Vsdo"
+                ]
+            }
+        ],
+        "last_seen": 1779027010,
+        "version": "",
+        "public_address": "",
+        "hardware": {
+            "gpus": [
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 84573
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 4
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 7
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 4
+                }
+            ],
+            "host_memory": 0,
+            "host_memory_bandwidth": 0,
+            "host_memory_used": 0
+        },
+        "connected": true,
+        "load": null
+    },
+    "/QmTidAAZgMyXAiBwsbqxi4MZQjgwiuzjw4JwNu4VJtXXmS": {
+        "id": "QmTidAAZgMyXAiBwsbqxi4MZQjgwiuzjw4JwNu4VJtXXmS",
+        "latency": 0,
+        "privileged": false,
+        "owner": "",
+        "current_offering": null,
+        "role": null,
+        "status": "",
+        "available_offering": null,
+        "service": [
+            {
+                "name": "llm",
+                "hardware": {
+                    "gpus": null,
+                    "host_memory": 0,
+                    "host_memory_bandwidth": 0,
+                    "host_memory_used": 0
+                },
+                "status": "connected",
+                "host": "localhost",
+                "port": "8080",
+                "identity_group": [
+                    "model=google/gemma-4-31B-it-TsOA"
+                ]
+            }
+        ],
+        "last_seen": 1779027004,
+        "version": "",
+        "public_address": "",
+        "hardware": {
+            "gpus": [
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 18559
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 18573
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 18569
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 18570
+                }
+            ],
+            "host_memory": 0,
+            "host_memory_bandwidth": 0,
+            "host_memory_used": 0
+        },
+        "connected": true,
+        "load": null
+    },
+    "/QmUBhMF1Gg19ZbUrmBCCWdprt3XMLiXftZebuUnnaGeUJ8": {
+        "id": "QmUBhMF1Gg19ZbUrmBCCWdprt3XMLiXftZebuUnnaGeUJ8",
+        "latency": 0,
+        "privileged": false,
+        "owner": "",
+        "current_offering": null,
+        "role": null,
+        "status": "",
+        "available_offering": null,
+        "service": [
+            {
+                "name": "llm",
+                "hardware": {
+                    "gpus": null,
+                    "host_memory": 0,
+                    "host_memory_bandwidth": 0,
+                    "host_memory_used": 0
+                },
+                "status": "connected",
+                "host": "localhost",
+                "port": "8080",
+                "identity_group": [
+                    "model=openai/gpt-oss-120b-Vsdo"
+                ]
+            }
+        ],
+        "last_seen": 1779027020,
+        "version": "",
+        "public_address": "",
+        "hardware": {
+            "gpus": [
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 84623
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 3
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 3
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 3
+                }
+            ],
+            "host_memory": 0,
+            "host_memory_bandwidth": 0,
+            "host_memory_used": 0
+        },
+        "connected": true,
+        "load": null
+    },
+    "/QmUCz7yLJt84xHyZySK6LMQDDXNQW6qfVz7TWc3UDLt6j7": {
+        "id": "QmUCz7yLJt84xHyZySK6LMQDDXNQW6qfVz7TWc3UDLt6j7",
+        "latency": 0,
+        "privileged": false,
+        "owner": "",
+        "current_offering": null,
+        "role": null,
+        "status": "",
+        "available_offering": null,
+        "service": [
+            {
+                "name": "llm",
+                "hardware": {
+                    "gpus": null,
+                    "host_memory": 0,
+                    "host_memory_bandwidth": 0,
+                    "host_memory_used": 0
+                },
+                "status": "connected",
+                "host": "localhost",
+                "port": "8080",
+                "identity_group": [
+                    "model=openai/gpt-oss-120b-Vsdo"
+                ]
+            }
+        ],
+        "last_seen": 1779027015,
+        "version": "",
+        "public_address": "",
+        "hardware": {
+            "gpus": [
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 84595
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 3
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 3
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 3
+                }
+            ],
+            "host_memory": 0,
+            "host_memory_bandwidth": 0,
+            "host_memory_used": 0
+        },
+        "connected": true,
+        "load": null
+    },
+    "/QmV44xF8bg51ZVrWSAstzms12i8Dt3f1oHV7qXyQiQnhTn": {
+        "id": "QmV44xF8bg51ZVrWSAstzms12i8Dt3f1oHV7qXyQiQnhTn",
+        "latency": 0,
+        "privileged": false,
+        "owner": "",
+        "current_offering": null,
+        "role": null,
+        "status": "",
+        "available_offering": null,
+        "service": [
+            {
+                "name": "llm",
+                "hardware": {
+                    "gpus": null,
+                    "host_memory": 0,
+                    "host_memory_bandwidth": 0,
+                    "host_memory_used": 0
+                },
+                "status": "connected",
+                "host": "localhost",
+                "port": "8080",
+                "identity_group": [
+                    "model=google/gemma-4-31B-it-TsOA"
+                ]
+            }
+        ],
+        "last_seen": 1779027004,
+        "version": "",
+        "public_address": "",
+        "hardware": {
+            "gpus": [
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 18866
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 18865
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 18866
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 18864
+                }
+            ],
+            "host_memory": 0,
+            "host_memory_bandwidth": 0,
+            "host_memory_used": 0
+        },
+        "connected": true,
+        "load": null
+    },
+    "/QmVKgxLCrKx35THcpaGbAMyweAcN8WuSRqbbrcUtRQgJur": {
+        "id": "QmVKgxLCrKx35THcpaGbAMyweAcN8WuSRqbbrcUtRQgJur",
+        "latency": 0,
+        "privileged": false,
+        "owner": "",
+        "current_offering": null,
+        "role": null,
+        "status": "",
+        "available_offering": null,
+        "service": [
+            {
+                "name": "llm",
+                "hardware": {
+                    "gpus": null,
+                    "host_memory": 0,
+                    "host_memory_bandwidth": 0,
+                    "host_memory_used": 0
+                },
+                "status": "connected",
+                "host": "localhost",
+                "port": "8080",
+                "identity_group": [
+                    "model=openai/gpt-oss-120b-Vsdo"
+                ]
+            }
+        ],
+        "last_seen": 1779027020,
+        "version": "",
+        "public_address": "",
+        "hardware": {
+            "gpus": [
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 84564
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 14
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 4
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 5
+                }
+            ],
+            "host_memory": 0,
+            "host_memory_bandwidth": 0,
+            "host_memory_used": 0
+        },
+        "connected": true,
+        "load": null
+    },
+    "/QmVyfUwaMw1HD9YvJ6spi2mrDyrsC5fYnTgTqKcGpraVob": {
+        "id": "QmVyfUwaMw1HD9YvJ6spi2mrDyrsC5fYnTgTqKcGpraVob",
+        "latency": 0,
+        "privileged": false,
+        "owner": "",
+        "current_offering": null,
+        "role": null,
+        "status": "",
+        "available_offering": null,
+        "service": [
+            {
+                "name": "llm",
+                "hardware": {
+                    "gpus": null,
+                    "host_memory": 0,
+                    "host_memory_bandwidth": 0,
+                    "host_memory_used": 0
+                },
+                "status": "connected",
+                "host": "localhost",
+                "port": "8080",
+                "identity_group": [
+                    "model=meta-llama/Llama-3.3-70B-Instruct"
+                ]
+            }
+        ],
+        "last_seen": 1779027006,
+        "version": "",
+        "public_address": "",
+        "hardware": {
+            "gpus": [
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 89539
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 89747
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 89747
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 89539
+                }
+            ],
+            "host_memory": 0,
+            "host_memory_bandwidth": 0,
+            "host_memory_used": 0
+        },
+        "connected": true,
+        "load": null
+    },
+    "/QmWH14wTNJsHJEnpRXGAozEj89Ja1Hy2nsY9RhEATgVXD2": {
+        "id": "QmWH14wTNJsHJEnpRXGAozEj89Ja1Hy2nsY9RhEATgVXD2",
+        "latency": 0,
+        "privileged": false,
+        "owner": "",
+        "current_offering": null,
+        "role": null,
+        "status": "",
+        "available_offering": null,
+        "service": [
+            {
+                "name": "llm",
+                "hardware": {
+                    "gpus": null,
+                    "host_memory": 0,
+                    "host_memory_bandwidth": 0,
+                    "host_memory_used": 0
+                },
+                "status": "connected",
+                "host": "localhost",
+                "port": "8080",
+                "identity_group": [
+                    "model=openai/gpt-oss-120b-Vsdo"
+                ]
+            }
+        ],
+        "last_seen": 1779027003,
+        "version": "",
+        "public_address": "",
+        "hardware": {
+            "gpus": [
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 84612
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 8
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 6
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 5
+                }
+            ],
+            "host_memory": 0,
+            "host_memory_bandwidth": 0,
+            "host_memory_used": 0
+        },
+        "connected": true,
+        "load": null
+    },
+    "/QmWUY2amw5ZG2triPc5mVjySsowxxz9zp8GZpb5mJ267S8": {
+        "id": "QmWUY2amw5ZG2triPc5mVjySsowxxz9zp8GZpb5mJ267S8",
+        "latency": 0,
+        "privileged": false,
+        "owner": "",
+        "current_offering": null,
+        "role": null,
+        "status": "",
+        "available_offering": null,
+        "service": [
+            {
+                "name": "llm",
+                "hardware": {
+                    "gpus": null,
+                    "host_memory": 0,
+                    "host_memory_bandwidth": 0,
+                    "host_memory_used": 0
+                },
+                "status": "connected",
+                "host": "localhost",
+                "port": "8080",
+                "identity_group": [
+                    "model=google/gemma-4-31B-it-TsOA"
+                ]
+            }
+        ],
+        "last_seen": 1779027004,
+        "version": "",
+        "public_address": "",
+        "hardware": {
+            "gpus": [
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 18865
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 18865
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 18865
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 18864
+                }
+            ],
+            "host_memory": 0,
+            "host_memory_bandwidth": 0,
+            "host_memory_used": 0
+        },
+        "connected": true,
+        "load": null
+    },
+    "/QmXY2pbA48gJ7HcSnBQMV6VSaBMiK3jWXRyNVUbxRtZJRW": {
+        "id": "QmXY2pbA48gJ7HcSnBQMV6VSaBMiK3jWXRyNVUbxRtZJRW",
+        "latency": 0,
+        "privileged": false,
+        "owner": "",
+        "current_offering": null,
+        "role": null,
+        "status": "",
+        "available_offering": null,
+        "service": [
+            {
+                "name": "llm",
+                "hardware": {
+                    "gpus": null,
+                    "host_memory": 0,
+                    "host_memory_bandwidth": 0,
+                    "host_memory_used": 0
+                },
+                "status": "connected",
+                "host": "localhost",
+                "port": "8080",
+                "identity_group": [
+                    "model=openai/gpt-oss-120b-Vsdo"
+                ]
+            }
+        ],
+        "last_seen": 1779027011,
+        "version": "",
+        "public_address": "",
+        "hardware": {
+            "gpus": [
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 84622
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 16
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 13
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 6
+                }
+            ],
+            "host_memory": 0,
+            "host_memory_bandwidth": 0,
+            "host_memory_used": 0
+        },
+        "connected": true,
+        "load": null
+    },
+    "/QmYFsphqm4gNgpgAdjwa6ZaCFPwJxaVHFwJ9P7cLSkTqZe": {
+        "id": "QmYFsphqm4gNgpgAdjwa6ZaCFPwJxaVHFwJ9P7cLSkTqZe",
+        "latency": 0,
+        "privileged": false,
+        "owner": "",
+        "current_offering": null,
+        "role": null,
+        "status": "",
+        "available_offering": null,
+        "service": [
+            {
+                "name": "llm",
+                "hardware": {
+                    "gpus": null,
+                    "host_memory": 0,
+                    "host_memory_bandwidth": 0,
+                    "host_memory_used": 0
+                },
+                "status": "connected",
+                "host": "localhost",
+                "port": "8080",
+                "identity_group": [
+                    "model=google/gemma-4-31B-it-TsOA"
+                ]
+            }
+        ],
+        "last_seen": 1779027015,
+        "version": "",
+        "public_address": "",
+        "hardware": {
+            "gpus": [
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 18866
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 18866
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 18865
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 18864
+                }
+            ],
+            "host_memory": 0,
+            "host_memory_bandwidth": 0,
+            "host_memory_used": 0
+        },
+        "connected": true,
+        "load": null
+    },
+    "/QmYaMDbbw8WRY7RDcFuFHWDtmA9smyPeBcVNfCW4XC5mVV": {
+        "id": "QmYaMDbbw8WRY7RDcFuFHWDtmA9smyPeBcVNfCW4XC5mVV",
+        "latency": 0,
+        "privileged": false,
+        "owner": "",
+        "current_offering": null,
+        "role": null,
+        "status": "",
+        "available_offering": null,
+        "service": [
+            {
+                "name": "llm",
+                "hardware": {
+                    "gpus": null,
+                    "host_memory": 0,
+                    "host_memory_bandwidth": 0,
+                    "host_memory_used": 0
+                },
+                "status": "connected",
+                "host": "localhost",
+                "port": "8080",
+                "identity_group": [
+                    "model=Qwen/Qwen3-32B-kgCt"
+                ]
+            }
+        ],
+        "last_seen": 1779027020,
+        "version": "",
+        "public_address": "",
+        "hardware": {
+            "gpus": [
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 85692
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 85900
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 85900
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 85690
+                }
+            ],
+            "host_memory": 0,
+            "host_memory_bandwidth": 0,
+            "host_memory_used": 0
+        },
+        "connected": true,
+        "load": null
+    },
+    "/QmZ2DSBRFUdoD2vxt4WBNjSnAZZNB211BQGA3N1P7WnkYa": {
+        "id": "QmZ2DSBRFUdoD2vxt4WBNjSnAZZNB211BQGA3N1P7WnkYa",
+        "latency": 0,
+        "privileged": false,
+        "owner": "",
+        "current_offering": null,
+        "role": null,
+        "status": "",
+        "available_offering": null,
+        "service": [
+            {
+                "name": "llm",
+                "hardware": {
+                    "gpus": null,
+                    "host_memory": 0,
+                    "host_memory_bandwidth": 0,
+                    "host_memory_used": 0
+                },
+                "status": "connected",
+                "host": "localhost",
+                "port": "8080",
+                "identity_group": [
+                    "model=Qwen/Qwen3.5-397B-A17B-VoMF"
+                ]
+            }
+        ],
+        "last_seen": 1779027015,
+        "version": "",
+        "public_address": "",
+        "hardware": {
+            "gpus": [
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 82817
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 82134
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 82142
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 82014
+                }
+            ],
+            "host_memory": 0,
+            "host_memory_bandwidth": 0,
+            "host_memory_used": 0
+        },
+        "connected": true,
+        "load": null
+    },
+    "/QmZAJMsbmnfz2KoYbzDC7NC4SLJfzUu5y3Wiz4stXhxE6y": {
+        "id": "QmZAJMsbmnfz2KoYbzDC7NC4SLJfzUu5y3Wiz4stXhxE6y",
+        "latency": 0,
+        "privileged": false,
+        "owner": "",
+        "current_offering": null,
+        "role": null,
+        "status": "",
+        "available_offering": null,
+        "service": [
+            {
+                "name": "llm",
+                "hardware": {
+                    "gpus": null,
+                    "host_memory": 0,
+                    "host_memory_bandwidth": 0,
+                    "host_memory_used": 0
+                },
+                "status": "connected",
+                "host": "localhost",
+                "port": "8080",
+                "identity_group": [
+                    "model=Qwen/Qwen3.5-397B-A17B-VoMF"
+                ]
+            }
+        ],
+        "last_seen": 1779027002,
+        "version": "",
+        "public_address": "",
+        "hardware": {
+            "gpus": [
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 82827
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 82144
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 82152
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 82024
+                }
+            ],
+            "host_memory": 0,
+            "host_memory_bandwidth": 0,
+            "host_memory_used": 0
+        },
+        "connected": true,
+        "load": null
+    },
+    "/QmZKtLQ4Hmtu3LEphS2hn7jciRyHa4TYAPjpkfsYmZkgZr": {
+        "id": "QmZKtLQ4Hmtu3LEphS2hn7jciRyHa4TYAPjpkfsYmZkgZr",
+        "latency": 0,
+        "privileged": false,
+        "owner": "",
+        "current_offering": null,
+        "role": null,
+        "status": "",
+        "available_offering": null,
+        "service": [
+            {
+                "name": "llm",
+                "hardware": {
+                    "gpus": null,
+                    "host_memory": 0,
+                    "host_memory_bandwidth": 0,
+                    "host_memory_used": 0
+                },
+                "status": "connected",
+                "host": "localhost",
+                "port": "8080",
+                "identity_group": [
+                    "model=openai/gpt-oss-120b-Vsdo"
+                ]
+            }
+        ],
+        "last_seen": 1779027004,
+        "version": "",
+        "public_address": "",
+        "hardware": {
+            "gpus": [
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 84644
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 4
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 12
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 5
+                }
+            ],
+            "host_memory": 0,
+            "host_memory_bandwidth": 0,
+            "host_memory_used": 0
+        },
+        "connected": true,
+        "load": null
+    },
+    "/QmZZTz4iU4Cs46bPDFjVdG4Ws4ErvL5C3jNmpV7dwj1Xb4": {
+        "id": "QmZZTz4iU4Cs46bPDFjVdG4Ws4ErvL5C3jNmpV7dwj1Xb4",
+        "latency": 0,
+        "privileged": false,
+        "owner": "",
+        "current_offering": null,
+        "role": null,
+        "status": "",
+        "available_offering": null,
+        "service": [
+            {
+                "name": "llm",
+                "hardware": {
+                    "gpus": null,
+                    "host_memory": 0,
+                    "host_memory_bandwidth": 0,
+                    "host_memory_used": 0
+                },
+                "status": "connected",
+                "host": "localhost",
+                "port": "8080",
+                "identity_group": [
+                    "model=openai/gpt-oss-120b-Vsdo"
+                ]
+            }
+        ],
+        "last_seen": 1779027005,
+        "version": "",
+        "public_address": "",
+        "hardware": {
+            "gpus": [
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 84547
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 3
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 3
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 3
+                }
+            ],
+            "host_memory": 0,
+            "host_memory_bandwidth": 0,
+            "host_memory_used": 0
+        },
+        "connected": true,
+        "load": null
+    },
+    "/QmZkb4QBua1DbmPiKz7eMpQVdceqpNxSfsjzPuJBVyDT9U": {
+        "id": "QmZkb4QBua1DbmPiKz7eMpQVdceqpNxSfsjzPuJBVyDT9U",
+        "latency": 0,
+        "privileged": false,
+        "owner": "",
+        "current_offering": null,
+        "role": null,
+        "status": "",
+        "available_offering": null,
+        "service": [
+            {
+                "name": "llm",
+                "hardware": {
+                    "gpus": null,
+                    "host_memory": 0,
+                    "host_memory_bandwidth": 0,
+                    "host_memory_used": 0
+                },
+                "status": "connected",
+                "host": "localhost",
+                "port": "8080",
+                "identity_group": [
+                    "model=Qwen/Qwen3.5-397B-A17B-VoMF"
+                ]
+            }
+        ],
+        "last_seen": 1779027006,
+        "version": "",
+        "public_address": "",
+        "hardware": {
+            "gpus": [
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 82829
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 82146
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 82154
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 82026
+                }
+            ],
+            "host_memory": 0,
+            "host_memory_bandwidth": 0,
+            "host_memory_used": 0
+        },
+        "connected": true,
+        "load": null
+    },
+    "/Qma4wwUVNRfNsz4JB26z26LJyNzwhZ6YWSVeXhKAkckJY7": {
+        "id": "Qma4wwUVNRfNsz4JB26z26LJyNzwhZ6YWSVeXhKAkckJY7",
+        "latency": 0,
+        "privileged": false,
+        "owner": "",
+        "current_offering": null,
+        "role": null,
+        "status": "",
+        "available_offering": null,
+        "service": [
+            {
+                "name": "llm",
+                "hardware": {
+                    "gpus": null,
+                    "host_memory": 0,
+                    "host_memory_bandwidth": 0,
+                    "host_memory_used": 0
+                },
+                "status": "connected",
+                "host": "localhost",
+                "port": "8080",
+                "identity_group": [
+                    "model=Qwen/Qwen3-Next-80B-A3B-Instruct-yiswang"
+                ]
+            }
+        ],
+        "last_seen": 1779027006,
+        "version": "",
+        "public_address": "",
+        "hardware": {
+            "gpus": [
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 3
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 3
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 3
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 3
+                }
+            ],
+            "host_memory": 0,
+            "host_memory_bandwidth": 0,
+            "host_memory_used": 0
+        },
+        "connected": true,
+        "load": null
+    },
+    "/QmaEQoJVdvv2nRV3HUsH6dzjxoCy6mYBkCxGh37AaLNeMp": {
+        "id": "QmaEQoJVdvv2nRV3HUsH6dzjxoCy6mYBkCxGh37AaLNeMp",
+        "latency": 0,
+        "privileged": false,
+        "owner": "",
+        "current_offering": null,
+        "role": null,
+        "status": "",
+        "available_offering": null,
+        "service": [
+            {
+                "name": "llm",
+                "hardware": {
+                    "gpus": null,
+                    "host_memory": 0,
+                    "host_memory_bandwidth": 0,
+                    "host_memory_used": 0
+                },
+                "status": "connected",
+                "host": "localhost",
+                "port": "8080",
+                "identity_group": [
+                    "model=Qwen/Qwen3.5-397B-A17B-VoMF"
+                ]
+            }
+        ],
+        "last_seen": 1779027020,
+        "version": "",
+        "public_address": "",
+        "hardware": {
+            "gpus": [
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 82829
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 82146
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 82154
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 82026
+                }
+            ],
+            "host_memory": 0,
+            "host_memory_bandwidth": 0,
+            "host_memory_used": 0
+        },
+        "connected": true,
+        "load": null
+    },
+    "/QmaLdTc28YRJn5uMrUt5kKnuWQzT2giA6dE9ZRkeG7pHVC": {
+        "id": "QmaLdTc28YRJn5uMrUt5kKnuWQzT2giA6dE9ZRkeG7pHVC",
+        "latency": 0,
+        "privileged": false,
+        "owner": "",
+        "current_offering": null,
+        "role": null,
+        "status": "",
+        "available_offering": null,
+        "service": [
+            {
+                "name": "llm",
+                "hardware": {
+                    "gpus": null,
+                    "host_memory": 0,
+                    "host_memory_bandwidth": 0,
+                    "host_memory_used": 0
+                },
+                "status": "connected",
+                "host": "localhost",
+                "port": "8080",
+                "identity_group": [
+                    "model=Qwen/Qwen3.5-397B-A17B-IYuQ"
+                ]
+            }
+        ],
+        "last_seen": 1779027006,
+        "version": "",
+        "public_address": "",
+        "hardware": {
+            "gpus": [
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 3
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 17
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 10
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 6
+                }
+            ],
+            "host_memory": 0,
+            "host_memory_bandwidth": 0,
+            "host_memory_used": 0
+        },
+        "connected": true,
+        "load": null
+    },
+    "/Qmaf4Ahny2u9yYyHLZtv5THxZaV2fWFKFicq7bJryvDYtk": {
+        "id": "Qmaf4Ahny2u9yYyHLZtv5THxZaV2fWFKFicq7bJryvDYtk",
+        "latency": 0,
+        "privileged": false,
+        "owner": "",
+        "current_offering": null,
+        "role": null,
+        "status": "",
+        "available_offering": null,
+        "service": [
+            {
+                "name": "llm",
+                "hardware": {
+                    "gpus": null,
+                    "host_memory": 0,
+                    "host_memory_bandwidth": 0,
+                    "host_memory_used": 0
+                },
+                "status": "connected",
+                "host": "localhost",
+                "port": "8080",
+                "identity_group": [
+                    "model=openai/gpt-oss-120b-Vsdo"
+                ]
+            }
+        ],
+        "last_seen": 1779027003,
+        "version": "",
+        "public_address": "",
+        "hardware": {
+            "gpus": [
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 84598
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 4
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 6
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 4
+                }
+            ],
+            "host_memory": 0,
+            "host_memory_bandwidth": 0,
+            "host_memory_used": 0
+        },
+        "connected": true,
+        "load": null
+    },
+    "/QmatBYkA34rU7Xp7MZGfQWCnF8jKqvivfuseSw89teB2GK": {
+        "id": "QmatBYkA34rU7Xp7MZGfQWCnF8jKqvivfuseSw89teB2GK",
+        "latency": 0,
+        "privileged": false,
+        "owner": "",
+        "current_offering": null,
+        "role": null,
+        "status": "",
+        "available_offering": null,
+        "service": [
+            {
+                "name": "llm",
+                "hardware": {
+                    "gpus": null,
+                    "host_memory": 0,
+                    "host_memory_bandwidth": 0,
+                    "host_memory_used": 0
+                },
+                "status": "connected",
+                "host": "localhost",
+                "port": "8080",
+                "identity_group": [
+                    "model=Qwen/Qwen3.5-397B-A17B-IYuQ"
+                ]
+            }
+        ],
+        "last_seen": 1779027020,
+        "version": "",
+        "public_address": "",
+        "hardware": {
+            "gpus": [
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 3
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 3
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 3
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 3
+                }
+            ],
+            "host_memory": 0,
+            "host_memory_bandwidth": 0,
+            "host_memory_used": 0
+        },
+        "connected": true,
+        "load": null
+    },
+    "/QmatXigW2oBdFezZQ3jdVzF3kyq6DD38vuPZvLcVo8Jbmu": {
+        "id": "QmatXigW2oBdFezZQ3jdVzF3kyq6DD38vuPZvLcVo8Jbmu",
+        "latency": 0,
+        "privileged": false,
+        "owner": "",
+        "current_offering": null,
+        "role": null,
+        "status": "",
+        "available_offering": null,
+        "service": [
+            {
+                "name": "llm",
+                "hardware": {
+                    "gpus": null,
+                    "host_memory": 0,
+                    "host_memory_bandwidth": 0,
+                    "host_memory_used": 0
+                },
+                "status": "connected",
+                "host": "localhost",
+                "port": "8080",
+                "identity_group": [
+                    "model=Qwen/Qwen3.5-397B-A17B-IYuQ"
+                ]
+            }
+        ],
+        "last_seen": 1779027020,
+        "version": "",
+        "public_address": "",
+        "hardware": {
+            "gpus": [
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 12
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 7
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 18
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 9
+                }
+            ],
+            "host_memory": 0,
+            "host_memory_bandwidth": 0,
+            "host_memory_used": 0
+        },
+        "connected": true,
+        "load": null
+    },
+    "/QmbChDqsb1od2fyQ5V98kWjckswmXfVJGtutPdqpkXv3jy": {
+        "id": "QmbChDqsb1od2fyQ5V98kWjckswmXfVJGtutPdqpkXv3jy",
+        "latency": 0,
+        "privileged": false,
+        "owner": "",
+        "current_offering": null,
+        "role": null,
+        "status": "",
+        "available_offering": null,
+        "service": [
+            {
+                "name": "llm",
+                "hardware": {
+                    "gpus": null,
+                    "host_memory": 0,
+                    "host_memory_bandwidth": 0,
+                    "host_memory_used": 0
+                },
+                "status": "connected",
+                "host": "localhost",
+                "port": "8080",
+                "identity_group": [
+                    "model=Snowflake/snowflake-arctic-embed-l-v2.0"
+                ]
+            }
+        ],
+        "last_seen": 1779027015,
+        "version": "",
+        "public_address": "",
+        "hardware": {
+            "gpus": [
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 2649
+                }
+            ],
+            "host_memory": 0,
+            "host_memory_bandwidth": 0,
+            "host_memory_used": 0
+        },
+        "connected": true,
+        "load": null
+    },
+    "/QmbRVvFzCmZhEXiTENtvDvNab8wREqEo4byVKDw83TTHeH": {
+        "id": "QmbRVvFzCmZhEXiTENtvDvNab8wREqEo4byVKDw83TTHeH",
+        "latency": 0,
+        "privileged": false,
+        "owner": "",
+        "current_offering": null,
+        "role": null,
+        "status": "",
+        "available_offering": null,
+        "service": [
+            {
+                "name": "llm",
+                "hardware": {
+                    "gpus": null,
+                    "host_memory": 0,
+                    "host_memory_bandwidth": 0,
+                    "host_memory_used": 0
+                },
+                "status": "connected",
+                "host": "localhost",
+                "port": "8080",
+                "identity_group": [
+                    "model=Qwen/Qwen3.5-397B-A17B-IYuQ"
+                ]
+            }
+        ],
+        "last_seen": 1779027020,
+        "version": "",
+        "public_address": "",
+        "hardware": {
+            "gpus": [
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 3
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 3
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 4
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 3
+                }
+            ],
+            "host_memory": 0,
+            "host_memory_bandwidth": 0,
+            "host_memory_used": 0
+        },
+        "connected": true,
+        "load": null
+    },
+    "/QmbRoB5rRsDTnSaVQsG72ZJtvdVvERx9Nv3B5p2AGGDw2f": {
+        "id": "QmbRoB5rRsDTnSaVQsG72ZJtvdVvERx9Nv3B5p2AGGDw2f",
+        "latency": 0,
+        "privileged": false,
+        "owner": "",
+        "current_offering": null,
+        "role": null,
+        "status": "",
+        "available_offering": null,
+        "service": [
+            {
+                "name": "llm",
+                "hardware": {
+                    "gpus": null,
+                    "host_memory": 0,
+                    "host_memory_bandwidth": 0,
+                    "host_memory_used": 0
+                },
+                "status": "connected",
+                "host": "localhost",
+                "port": "8080",
+                "identity_group": [
+                    "model=Qwen/Qwen3-32B-kgCt"
+                ]
+            }
+        ],
+        "last_seen": 1779027015,
+        "version": "",
+        "public_address": "",
+        "hardware": {
+            "gpus": [
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 86383
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 86591
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 86590
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 86384
+                }
+            ],
+            "host_memory": 0,
+            "host_memory_bandwidth": 0,
+            "host_memory_used": 0
+        },
+        "connected": true,
+        "load": null
+    },
+    "/QmbUKJkCfotDzbFE5uoTsXD4GRyPHjzZC1f2yAGLoeBMn9": {
+        "id": "QmbUKJkCfotDzbFE5uoTsXD4GRyPHjzZC1f2yAGLoeBMn9",
+        "latency": 0,
+        "privileged": false,
+        "owner": "",
+        "current_offering": null,
+        "role": null,
+        "status": "",
+        "available_offering": null,
+        "service": null,
+        "last_seen": 1779027021,
+        "version": "",
+        "public_address": "148.187.108.178",
+        "hardware": {
+            "gpus": null,
+            "host_memory": 0,
+            "host_memory_bandwidth": 0,
+            "host_memory_used": 0
+        },
+        "connected": true,
+        "load": null
+    },
+    "/QmbiBQSUfDeXTdkPHfa6cyySRNJWSXspRbNwjCMJC6juVL": {
+        "id": "QmbiBQSUfDeXTdkPHfa6cyySRNJWSXspRbNwjCMJC6juVL",
+        "latency": 0,
+        "privileged": false,
+        "owner": "",
+        "current_offering": null,
+        "role": null,
+        "status": "",
+        "available_offering": null,
+        "service": [
+            {
+                "name": "llm",
+                "hardware": {
+                    "gpus": null,
+                    "host_memory": 0,
+                    "host_memory_bandwidth": 0,
+                    "host_memory_used": 0
+                },
+                "status": "connected",
+                "host": "localhost",
+                "port": "8080",
+                "identity_group": [
+                    "model=openai/gpt-oss-120b-Vsdo"
+                ]
+            }
+        ],
+        "last_seen": 1779027015,
+        "version": "",
+        "public_address": "",
+        "hardware": {
+            "gpus": [
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 84582
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 3
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 3
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 3
+                }
+            ],
+            "host_memory": 0,
+            "host_memory_bandwidth": 0,
+            "host_memory_used": 0
+        },
+        "connected": true,
+        "load": null
+    },
+    "/QmbjQk58JdgKcygFU85ztiqCF4MRqe6K6RAT9D7SEeUzyd": {
+        "id": "QmbjQk58JdgKcygFU85ztiqCF4MRqe6K6RAT9D7SEeUzyd",
+        "latency": 0,
+        "privileged": false,
+        "owner": "",
+        "current_offering": null,
+        "role": null,
+        "status": "",
+        "available_offering": null,
+        "service": [],
+        "last_seen": 1779027015,
+        "version": "",
+        "public_address": "",
+        "hardware": {
+            "gpus": [
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 12
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 9
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 9
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 7
+                }
+            ],
+            "host_memory": 0,
+            "host_memory_bandwidth": 0,
+            "host_memory_used": 0
+        },
+        "connected": true,
+        "load": null
+    },
+    "/Qmc7Lhr1FRE4vh7Mk7VJAgPoEGJU8fYM82tdZsuKn8Bu4A": {
+        "id": "Qmc7Lhr1FRE4vh7Mk7VJAgPoEGJU8fYM82tdZsuKn8Bu4A",
+        "latency": 0,
+        "privileged": false,
+        "owner": "",
+        "current_offering": null,
+        "role": null,
+        "status": "",
+        "available_offering": null,
+        "service": [
+            {
+                "name": "llm",
+                "hardware": {
+                    "gpus": null,
+                    "host_memory": 0,
+                    "host_memory_bandwidth": 0,
+                    "host_memory_used": 0
+                },
+                "status": "connected",
+                "host": "localhost",
+                "port": "8080",
+                "identity_group": [
+                    "model=zai-org/GLM-4.7-Flash"
+                ]
+            }
+        ],
+        "last_seen": 1779027020,
+        "version": "",
+        "public_address": "",
+        "hardware": {
+            "gpus": [
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 94835
+                }
+            ],
+            "host_memory": 0,
+            "host_memory_bandwidth": 0,
+            "host_memory_used": 0
+        },
+        "connected": true,
+        "load": null
+    },
+    "/QmcNUTEmgWq9u51XaQ3NVdQmUGb5AXcTq31b81HRajuF8B": {
+        "id": "QmcNUTEmgWq9u51XaQ3NVdQmUGb5AXcTq31b81HRajuF8B",
+        "latency": 0,
+        "privileged": false,
+        "owner": "",
+        "current_offering": null,
+        "role": null,
+        "status": "",
+        "available_offering": null,
+        "service": [
+            {
+                "name": "llm",
+                "hardware": {
+                    "gpus": null,
+                    "host_memory": 0,
+                    "host_memory_bandwidth": 0,
+                    "host_memory_used": 0
+                },
+                "status": "connected",
+                "host": "localhost",
+                "port": "8080",
+                "identity_group": [
+                    "model=Qwen/Qwen3.5-27B"
+                ]
+            }
+        ],
+        "last_seen": 1779027010,
+        "version": "",
+        "public_address": "",
+        "hardware": {
+            "gpus": [
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 90935
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 90409
+                }
+            ],
+            "host_memory": 0,
+            "host_memory_bandwidth": 0,
+            "host_memory_used": 0
+        },
+        "connected": true,
+        "load": null
+    },
+    "/QmcRV1QhEcmGEbxer4DwpswD27wf3g86cjzYdRiWprj7KG": {
+        "id": "QmcRV1QhEcmGEbxer4DwpswD27wf3g86cjzYdRiWprj7KG",
+        "latency": 0,
+        "privileged": false,
+        "owner": "",
+        "current_offering": null,
+        "role": null,
+        "status": "",
+        "available_offering": null,
+        "service": [
+            {
+                "name": "llm",
+                "hardware": {
+                    "gpus": null,
+                    "host_memory": 0,
+                    "host_memory_bandwidth": 0,
+                    "host_memory_used": 0
+                },
+                "status": "connected",
+                "host": "localhost",
+                "port": "8080",
+                "identity_group": [
+                    "model=openai/gpt-oss-120b-Vsdo"
+                ]
+            }
+        ],
+        "last_seen": 1779027010,
+        "version": "",
+        "public_address": "",
+        "hardware": {
+            "gpus": [
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 84605
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 3
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 3
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 3
+                }
+            ],
+            "host_memory": 0,
+            "host_memory_bandwidth": 0,
+            "host_memory_used": 0
+        },
+        "connected": true,
+        "load": null
+    },
+    "/QmduMdBLdY6vDX3P1Wbrbv5QvPEGXQKnJrWb5WQMRADGRT": {
+        "id": "QmduMdBLdY6vDX3P1Wbrbv5QvPEGXQKnJrWb5WQMRADGRT",
+        "latency": 0,
+        "privileged": false,
+        "owner": "",
+        "current_offering": null,
+        "role": null,
+        "status": "",
+        "available_offering": null,
+        "service": [
+            {
+                "name": "llm",
+                "hardware": {
+                    "gpus": null,
+                    "host_memory": 0,
+                    "host_memory_bandwidth": 0,
+                    "host_memory_used": 0
+                },
+                "status": "connected",
+                "host": "localhost",
+                "port": "8080",
+                "identity_group": [
+                    "model=openai/gpt-oss-120b-Vsdo"
+                ]
+            }
+        ],
+        "last_seen": 1779027003,
+        "version": "",
+        "public_address": "",
+        "hardware": {
+            "gpus": [
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 84605
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 3
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 3
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 3
+                }
+            ],
+            "host_memory": 0,
+            "host_memory_bandwidth": 0,
+            "host_memory_used": 0
+        },
+        "connected": true,
+        "load": null
+    },
+    "/QmdvyPbnCXYz9SrHtN1RTZC8zfu17BgiuaNhy5Dxkjkdx3": {
+        "id": "QmdvyPbnCXYz9SrHtN1RTZC8zfu17BgiuaNhy5Dxkjkdx3",
+        "latency": 0,
+        "privileged": false,
+        "owner": "",
+        "current_offering": null,
+        "role": null,
+        "status": "",
+        "available_offering": null,
+        "service": [
+            {
+                "name": "llm",
+                "hardware": {
+                    "gpus": null,
+                    "host_memory": 0,
+                    "host_memory_bandwidth": 0,
+                    "host_memory_used": 0
+                },
+                "status": "connected",
+                "host": "localhost",
+                "port": "8080",
+                "identity_group": [
+                    "model=Qwen/Qwen3.5-397B-A17B-IYuQ"
+                ]
+            }
+        ],
+        "last_seen": 1779027021,
+        "version": "",
+        "public_address": "",
+        "hardware": {
+            "gpus": [
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 3
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 3
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 2
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 3
+                }
+            ],
+            "host_memory": 0,
+            "host_memory_bandwidth": 0,
+            "host_memory_used": 0
+        },
+        "connected": true,
+        "load": null
+    },
+    "/QmeHwokMDRGBQkJaAcJ2kqUPgVVfb3pAspwznmGtfG3SrQ": {
+        "id": "QmeHwokMDRGBQkJaAcJ2kqUPgVVfb3pAspwznmGtfG3SrQ",
+        "latency": 0,
+        "privileged": false,
+        "owner": "",
+        "current_offering": null,
+        "role": null,
+        "status": "",
+        "available_offering": null,
+        "service": [
+            {
+                "name": "llm",
+                "hardware": {
+                    "gpus": null,
+                    "host_memory": 0,
+                    "host_memory_bandwidth": 0,
+                    "host_memory_used": 0
+                },
+                "status": "connected",
+                "host": "localhost",
+                "port": "8080",
+                "identity_group": [
+                    "model=google/gemma-4-31B-it-TsOA"
+                ]
+            }
+        ],
+        "last_seen": 1779027004,
+        "version": "",
+        "public_address": "",
+        "hardware": {
+            "gpus": [
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 18864
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 18865
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 19117
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 18865
+                }
+            ],
+            "host_memory": 0,
+            "host_memory_bandwidth": 0,
+            "host_memory_used": 0
+        },
+        "connected": true,
+        "load": null
+    },
+    "/QmfCUkV2TZaSzeVCaXQ1VaxsPJaweujarmpvgdBALd4qzp": {
+        "id": "QmfCUkV2TZaSzeVCaXQ1VaxsPJaweujarmpvgdBALd4qzp",
+        "latency": 0,
+        "privileged": false,
+        "owner": "",
+        "current_offering": null,
+        "role": null,
+        "status": "",
+        "available_offering": null,
+        "service": [
+            {
+                "name": "llm",
+                "hardware": {
+                    "gpus": null,
+                    "host_memory": 0,
+                    "host_memory_bandwidth": 0,
+                    "host_memory_used": 0
+                },
+                "status": "connected",
+                "host": "localhost",
+                "port": "8080",
+                "identity_group": [
+                    "model=swiss-ai/Apertus-8B-Instruct-2509"
+                ]
+            }
+        ],
+        "last_seen": 1779027015,
+        "version": "",
+        "public_address": "",
+        "hardware": {
+            "gpus": [
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 88607
+                }
+            ],
+            "host_memory": 0,
+            "host_memory_bandwidth": 0,
+            "host_memory_used": 0
+        },
+        "connected": true,
+        "load": null
+    },
+    "/QmfEhbkxvqWJ5uPCyEtLLizjnnEJ5SHMrGn36wDwhNezJY": {
+        "id": "QmfEhbkxvqWJ5uPCyEtLLizjnnEJ5SHMrGn36wDwhNezJY",
+        "latency": 0,
+        "privileged": false,
+        "owner": "",
+        "current_offering": null,
+        "role": null,
+        "status": "",
+        "available_offering": null,
+        "service": [
+            {
+                "name": "llm",
+                "hardware": {
+                    "gpus": null,
+                    "host_memory": 0,
+                    "host_memory_bandwidth": 0,
+                    "host_memory_used": 0
+                },
+                "status": "connected",
+                "host": "localhost",
+                "port": "8080",
+                "identity_group": [
+                    "model=Qwen/Qwen3-32B-kgCt"
+                ]
+            }
+        ],
+        "last_seen": 1779027021,
+        "version": "",
+        "public_address": "",
+        "hardware": {
+            "gpus": [
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 86384
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 86592
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 86591
+                },
+                {
+                    "name": "NVIDIA GH200 120GB",
+                    "total_memory": 97871,
+                    "used_memory": 86384
+                }
+            ],
+            "host_memory": 0,
+            "host_memory_bandwidth": 0,
+            "host_memory_used": 0
+        },
+        "connected": true,
+        "load": null
+    }
+}

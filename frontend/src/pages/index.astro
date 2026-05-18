@@ -24,9 +24,9 @@ const articles = (await getCollection("articles"))
   .sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf())
   .slice(0,SITE.NUM_PROJECTS_ON_HOMEPAGE);
 
-const session = await getSession(Astro.request);
+const session = import.meta.env.DEV ? null : await getSession(Astro.request);
 const isSessionValid = session && session.user;
-const chatAppUrl = process.env.CHAT_APP_URL || "https://chat.swissai.cscs.ch";
+const chatAppUrl = process.env.CHAT_APP_URL || "https://chat.swissai.svc.cscs.ch";
 
 const contributors = [
   {
