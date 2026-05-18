@@ -28,7 +28,7 @@ if (isDev) {
 
 // API key will be fetched client-side to avoid exposing it in the HTML
 let apiKey = "Loading...";
-const apiUrl = process.env.VITE_API_URL || 'https://api.swissai.svc.cscs.ch';
+const apiUrl = process.env.VITE_API_URL || import.meta.env.VITE_API_URL || 'https://api.swissai.svc.cscs.ch';
 ---
 
 <PageLayout title="API Key" description="Your personal API key for accessing Research Computer services">
