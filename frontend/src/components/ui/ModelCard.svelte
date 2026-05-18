@@ -81,6 +81,17 @@
     return `${r.nodesPerReplica} nodes × ${dev}`;
   }
 
+  // Header summary across all replicas of this model. If every replica has
+  // the same per-replica topology (almost always true: a model is launched
+  // with one shape), show it once. Otherwise admit ambiguity rather than
+  // pick one to display.
+  function topologySummary(replicas: Replica[]): string {
+    if (replicas.length === 0) return "unknown";
+    const distinct = new Set(replicas.map(topologyString));
+    if (distinct.size === 1) return [...distinct][0];
+    return "Various";
+  }
+
   async function copyModelName(e: Event) {
     e.preventDefault();
     e.stopPropagation();
@@ -143,18 +154,6 @@
             </svg>
           {/if}
         </button>
-        {#if metricsUrl}
-          <a
-            href={metricsUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            on:click|stopPropagation
-            class="metrics-badge"
-            title="View metrics dashboard"
-          >
-            Metrics
-          </a>
-        {/if}
         {#if tier === "L2"}
           <span class="uptime-badge" title="This service is running on CSCS L2 Kubernetes">24/7</span>
         {:else if tier === "slurm"}
@@ -166,7 +165,7 @@
           </span>
         {/if}
       </div>
-      <div class="text-sm">on {entry.data.devices.join(', ') || 'unknown'}</div>
+      <div class="text-sm">on {topologySummary(entry.data.replicas)}</div>
     </div>
 
     <!-- Chevron indicating expand state -->
@@ -188,20 +187,36 @@
       on:keydown|stopPropagation
       role="region"
     >
-      <!-- Open in OpenWebUI button (what clicking the card used to do) -->
-      <a
-        href={chatUrl}
-        target="_blank"
-        rel="noopener noreferrer"
-        class="inline-flex items-center gap-2 px-4 py-2 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium transition-colors"
-      >
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
-          <polyline points="15 3 21 3 21 9"></polyline>
-          <line x1="10" y1="14" x2="21" y2="3"></line>
-        </svg>
-        Open in OpenWebUI
-      </a>
+      <!-- Action buttons (what clicking the card used to do, plus metrics) -->
+      <div class="flex flex-wrap gap-2">
+        <a
+          href={chatUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          class="inline-flex items-center gap-2 px-4 py-2 rounded-md bg-black hover:bg-neutral-800 text-white text-sm font-medium transition-colors"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+            <polyline points="15 3 21 3 21 9"></polyline>
+            <line x1="10" y1="14" x2="21" y2="3"></line>
+          </svg>
+          Open in OpenWebUI
+        </a>
+        {#if metricsUrl}
+          <a
+            href={metricsUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            class="inline-flex items-center gap-2 px-4 py-2 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium transition-colors"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 3v18h18"></path>
+              <path d="M7 15l4-4 4 4 5-5"></path>
+            </svg>
+            Metrics Dashboard
+          </a>
+        {/if}
+      </div>
 
       <!-- Per-replica detail blocks -->
       {#each entry.data.replicas as replica, idx (replica.worker_group_id)}
@@ -274,21 +289,6 @@
     font-weight: bold;
     padding: 0 6px;
     border-radius: 4px;
-  }
-
-  .metrics-badge {
-    background-color: #16a34a;
-    color: white;
-    font-weight: bold;
-    font-size: 0.75em;
-    padding: 0 6px;
-    border-radius: 4px;
-    text-decoration: none;
-    flex-shrink: 0;
-  }
-
-  .metrics-badge:hover {
-    background-color: #15803d;
   }
 
   .uptime-badge {

@@ -78,7 +78,7 @@ run: _ensure-env _ensure-frontend-env db-up migrate
 # upgraded fixture instead of the live OpenTela endpoint. Useful for
 # iterating on the model-card UI without depending on prod state.
 dummy-run: _ensure-env _ensure-frontend-env db-up migrate
-	OTELA_FIXTURE_PATH=$(PWD)/backend/tests/fixtures/dnt_table_upgraded.json \
+	OTELA_FIXTURE_PATH=$(PWD)/backend/tests/fixtures/dnt_table_dev_live.json \
 	uvicorn backend.main:app --reload --host 0.0.0.0 --port 8080 & \
 	cd frontend && npm run dev & \
 	wait
