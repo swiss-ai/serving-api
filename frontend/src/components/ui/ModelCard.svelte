@@ -272,8 +272,9 @@
               !["launched_by","slurm_job_id","worker_group_id","framework","started_at","expires_at","slurm_partition","served_model_name"].includes(k)
             )}
             {#if extra.length > 0}
+              {@const pad = Math.max(...extra.map(([k]) => k.length)) + 1}
               <div class="text-xs text-slate-500 dark:text-slate-400 mt-2 mb-1">Extra labels</div>
-              <pre class="code-block">{extra.map(([k, v]) => `${k.padEnd(18)} ${v}`).join("\n")}</pre>
+              <pre class="code-block">{extra.map(([k, v]) => `${k.padEnd(pad)} ${v}`).join("\n")}</pre>
             {/if}
           {/if}
         </div>
