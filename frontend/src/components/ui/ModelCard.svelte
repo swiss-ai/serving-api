@@ -187,8 +187,8 @@
       on:keydown|stopPropagation
       role="region"
     >
-      <!-- Action buttons: Chat (primary) + Metrics, right-aligned. -->
-      <div class="flex flex-wrap justify-end gap-2">
+      <!-- Action buttons: Chat (primary) + Metrics, left-aligned. -->
+      <div class="flex flex-wrap gap-2">
         <a
           href={chatUrl}
           target="_blank"
