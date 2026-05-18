@@ -188,7 +188,7 @@
       role="region"
     >
       <!-- Action buttons (what clicking the card used to do, plus metrics) -->
-      <div class="flex flex-wrap gap-2">
+      <div class="flex flex-wrap justify-end gap-2">
         <a
           href={chatUrl}
           target="_blank"
