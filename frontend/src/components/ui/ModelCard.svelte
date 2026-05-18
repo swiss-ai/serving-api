@@ -83,13 +83,21 @@
 
   // Header summary across all replicas of this model. If every replica has
   // the same per-replica topology (almost always true: a model is launched
-  // with one shape), show it once. Otherwise admit ambiguity rather than
-  // pick one to display.
+  // with one shape), show it with the replica multiplier prefixed when
+  // there's more than one. Otherwise admit ambiguity rather than pick one
+  // to display.
+  //
+  //   1 replica, 1 node              → "4x NVIDIA GH200 120GB"
+  //   1 replica, 4 nodes             → "4 nodes × 4x NVIDIA GH200 120GB"
+  //   2 replicas, 4 nodes each       → "2 replicas × 4 nodes × 4x NVIDIA GH200 120GB"
+  //   replicas with differing shapes → "Various"
   function topologySummary(replicas: Replica[]): string {
     if (replicas.length === 0) return "unknown";
     const distinct = new Set(replicas.map(topologyString));
-    if (distinct.size === 1) return [...distinct][0];
-    return "Various";
+    if (distinct.size !== 1) return "Various";
+    const perReplica = [...distinct][0];
+    if (replicas.length === 1) return perReplica;
+    return `${replicas.length} replicas × ${perReplica}`;
   }
 
   async function copyModelName(e: Event) {
