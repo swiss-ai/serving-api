@@ -1,0 +1,719 @@
+{
+  "/QmNzFBmcoTD1qqu1dHLnwPDzAErUQs5aBCpCv6GiVb5jGH": {
+    "available_offering": null,
+    "connected": true,
+    "current_offering": null,
+    "hardware": {
+      "gpus": [
+        {
+          "name": "NVIDIA GH200 120GB",
+          "total_memory": 97871,
+          "used_memory": 7
+        },
+        {
+          "name": "NVIDIA GH200 120GB",
+          "total_memory": 97871,
+          "used_memory": 6
+        },
+        {
+          "name": "NVIDIA GH200 120GB",
+          "total_memory": 97871,
+          "used_memory": 14
+        },
+        {
+          "name": "NVIDIA GH200 120GB",
+          "total_memory": 97871,
+          "used_memory": 6
+        }
+      ],
+      "host_memory": 0,
+      "host_memory_bandwidth": 0,
+      "host_memory_used": 0
+    },
+    "hostname": "nid005420",
+    "id": "QmNzFBmcoTD1qqu1dHLnwPDzAErUQs5aBCpCv6GiVb5jGH",
+    "labels": {
+      "expires_at": "2026-05-18T22:17:50Z",
+      "framework": "sglang",
+      "framework_args": "--port 8080 --model-path /capstor/store/cscs/swissai/infra01/hf_models/models/swiss-ai/Apertus-8B-Instruct-2509     --served-model-name swiss-ai/Apertus-8B-Instruct-2509-rob-dev     --host 0.0.0.0     --enable-metrics",
+      "launched_by": "rosmith",
+      "served_model_name": "swiss-ai/Apertus-8B-Instruct-2509-rob-dev",
+      "slurm_job_id": "2296488",
+      "slurm_partition": "normal",
+      "started_at": "2026-05-18T16:17:50Z",
+      "worker_group_id": "2296488"
+    },
+    "last_seen": 1779126351,
+    "latency": 0,
+    "load": null,
+    "owner": "",
+    "privileged": false,
+    "public_address": "",
+    "role": null,
+    "service": [
+      {
+        "hardware": {
+          "gpus": null,
+          "host_memory": 0,
+          "host_memory_bandwidth": 0,
+          "host_memory_used": 0
+        },
+        "host": "localhost",
+        "identity_group": [
+          "model=swiss-ai/Apertus-8B-Instruct-2509-rob-dev"
+        ],
+        "name": "llm",
+        "port": "8080",
+        "status": "connected"
+      }
+    ],
+    "status": "ready",
+    "version": "dev-9ff5ec9"
+  },
+  "/QmPboSjGSpGnk7NRjUwuyR1F8Y3jN7ir9zS2KdEBFmVjJZ": {
+    "available_offering": null,
+    "connected": true,
+    "current_offering": null,
+    "hardware": {
+      "gpus": [
+        {
+          "name": "NVIDIA GH200 120GB",
+          "total_memory": 97871,
+          "used_memory": 3
+        },
+        {
+          "name": "NVIDIA GH200 120GB",
+          "total_memory": 97871,
+          "used_memory": 3
+        },
+        {
+          "name": "NVIDIA GH200 120GB",
+          "total_memory": 97871,
+          "used_memory": 3
+        },
+        {
+          "name": "NVIDIA GH200 120GB",
+          "total_memory": 97871,
+          "used_memory": 3
+        }
+      ],
+      "host_memory": 0,
+      "host_memory_bandwidth": 0,
+      "host_memory_used": 0
+    },
+    "hostname": "nid007022",
+    "id": "QmPboSjGSpGnk7NRjUwuyR1F8Y3jN7ir9zS2KdEBFmVjJZ",
+    "labels": {
+      "framework": "vllm",
+      "launched_by": "ahadinia",
+      "served_model_name": "google/gemma-4-31B-it-issue130-fix-ahadinia-2",
+      "slurm_job_id": "2297199",
+      "slurm_partition": "normal",
+      "started_at": "2026-05-18T17:38:59Z",
+      "worker_group_id": "2297199"
+    },
+    "last_seen": 1779126359,
+    "latency": 0,
+    "load": null,
+    "owner": "",
+    "privileged": false,
+    "public_address": "",
+    "role": null,
+    "service": [
+      {
+        "hardware": {
+          "gpus": null,
+          "host_memory": 0,
+          "host_memory_bandwidth": 0,
+          "host_memory_used": 0
+        },
+        "host": "localhost",
+        "identity_group": [
+          "model=google/gemma-4-31B-it-issue130-fix-ahadinia-2"
+        ],
+        "name": "llm",
+        "port": "8080",
+        "status": "connected"
+      }
+    ],
+    "status": "ready",
+    "version": "v0.1.11"
+  },
+  "/QmPqzJvbFVdoXXTq2rKW1pZBUmKLhZEWWHa4RFVrnUMf7K": {
+    "available_offering": null,
+    "connected": true,
+    "current_offering": null,
+    "hardware": {
+      "gpus": [
+        {
+          "name": "NVIDIA GH200 120GB",
+          "total_memory": 97871,
+          "used_memory": 3
+        },
+        {
+          "name": "NVIDIA GH200 120GB",
+          "total_memory": 97871,
+          "used_memory": 3
+        },
+        {
+          "name": "NVIDIA GH200 120GB",
+          "total_memory": 97871,
+          "used_memory": 3
+        },
+        {
+          "name": "NVIDIA GH200 120GB",
+          "total_memory": 97871,
+          "used_memory": 3
+        }
+      ],
+      "host_memory": 0,
+      "host_memory_bandwidth": 0,
+      "host_memory_used": 0
+    },
+    "hostname": "nid007077",
+    "id": "QmPqzJvbFVdoXXTq2rKW1pZBUmKLhZEWWHa4RFVrnUMf7K",
+    "labels": {
+      "framework": "vllm",
+      "launched_by": "ahadinia",
+      "served_model_name": "google/gemma-4-31B-it-issue130-fix-ahadinia-2",
+      "slurm_job_id": "2297199",
+      "slurm_partition": "normal",
+      "started_at": "2026-05-18T17:38:59Z",
+      "worker_group_id": "2297199"
+    },
+    "last_seen": 1779126359,
+    "latency": 0,
+    "load": null,
+    "owner": "",
+    "privileged": false,
+    "public_address": "",
+    "role": null,
+    "service": [
+      {
+        "hardware": {
+          "gpus": null,
+          "host_memory": 0,
+          "host_memory_bandwidth": 0,
+          "host_memory_used": 0
+        },
+        "host": "localhost",
+        "identity_group": [
+          "model=google/gemma-4-31B-it-issue130-fix-ahadinia-2"
+        ],
+        "name": "llm",
+        "port": "8080",
+        "status": "connected"
+      }
+    ],
+    "status": "ready",
+    "version": "v0.1.11"
+  },
+  "/QmQ7bwDY55urPNvcC28YahaimpXWJjYt2wNUNg6x3jpk7d": {
+    "available_offering": null,
+    "connected": true,
+    "current_offering": null,
+    "hardware": {
+      "gpus": [
+        {
+          "name": "NVIDIA GH200 120GB",
+          "total_memory": 97871,
+          "used_memory": 3
+        },
+        {
+          "name": "NVIDIA GH200 120GB",
+          "total_memory": 97871,
+          "used_memory": 3
+        },
+        {
+          "name": "NVIDIA GH200 120GB",
+          "total_memory": 97871,
+          "used_memory": 3
+        },
+        {
+          "name": "NVIDIA GH200 120GB",
+          "total_memory": 97871,
+          "used_memory": 3
+        }
+      ],
+      "host_memory": 0,
+      "host_memory_bandwidth": 0,
+      "host_memory_used": 0
+    },
+    "hostname": "nid006763",
+    "id": "QmQ7bwDY55urPNvcC28YahaimpXWJjYt2wNUNg6x3jpk7d",
+    "labels": {
+      "framework": "vllm",
+      "launched_by": "ahadinia",
+      "served_model_name": "google/gemma-4-31B-it-issue130-fix-ahadinia-2",
+      "slurm_job_id": "2297022",
+      "slurm_partition": "normal",
+      "started_at": "2026-05-18T17:16:29Z",
+      "worker_group_id": "2297022"
+    },
+    "last_seen": 1779126369,
+    "latency": 0,
+    "load": null,
+    "owner": "",
+    "privileged": false,
+    "public_address": "",
+    "role": null,
+    "service": [
+      {
+        "hardware": {
+          "gpus": null,
+          "host_memory": 0,
+          "host_memory_bandwidth": 0,
+          "host_memory_used": 0
+        },
+        "host": "localhost",
+        "identity_group": [
+          "model=google/gemma-4-31B-it-issue130-fix-ahadinia-2"
+        ],
+        "name": "llm",
+        "port": "8080",
+        "status": "connected"
+      }
+    ],
+    "status": "ready",
+    "version": "v0.1.11"
+  },
+  "/QmR7BJnXf2dYjSUtntm8dkuPJGQnXejTi3GHrxHmrtEzmC": {
+    "available_offering": null,
+    "connected": true,
+    "current_offering": null,
+    "hardware": {
+      "gpus": [
+        {
+          "name": "NVIDIA GH200 120GB",
+          "total_memory": 97871,
+          "used_memory": 3
+        },
+        {
+          "name": "NVIDIA GH200 120GB",
+          "total_memory": 97871,
+          "used_memory": 3
+        },
+        {
+          "name": "NVIDIA GH200 120GB",
+          "total_memory": 97871,
+          "used_memory": 3
+        },
+        {
+          "name": "NVIDIA GH200 120GB",
+          "total_memory": 97871,
+          "used_memory": 3
+        }
+      ],
+      "host_memory": 0,
+      "host_memory_bandwidth": 0,
+      "host_memory_used": 0
+    },
+    "hostname": "nid006764",
+    "id": "QmR7BJnXf2dYjSUtntm8dkuPJGQnXejTi3GHrxHmrtEzmC",
+    "labels": {
+      "framework": "vllm",
+      "launched_by": "ahadinia",
+      "served_model_name": "google/gemma-4-31B-it-issue130-fix-ahadinia-2",
+      "slurm_job_id": "2297022",
+      "slurm_partition": "normal",
+      "started_at": "2026-05-18T17:16:29Z",
+      "worker_group_id": "2297022"
+    },
+    "last_seen": 1779126369,
+    "latency": 0,
+    "load": null,
+    "owner": "",
+    "privileged": false,
+    "public_address": "",
+    "role": null,
+    "service": [
+      {
+        "hardware": {
+          "gpus": null,
+          "host_memory": 0,
+          "host_memory_bandwidth": 0,
+          "host_memory_used": 0
+        },
+        "host": "localhost",
+        "identity_group": [
+          "model=google/gemma-4-31B-it-issue130-fix-ahadinia-2"
+        ],
+        "name": "llm",
+        "port": "8080",
+        "status": "connected"
+      }
+    ],
+    "status": "ready",
+    "version": "v0.1.11"
+  },
+  "/QmXBXtg1Ra8eDJNvtkTTmTVLbACDrGNWERLoQfqjr1ufpk": {
+    "available_offering": null,
+    "connected": true,
+    "current_offering": null,
+    "hardware": {
+      "gpus": [
+        {
+          "name": "NVIDIA GH200 120GB",
+          "total_memory": 97871,
+          "used_memory": 3
+        },
+        {
+          "name": "NVIDIA GH200 120GB",
+          "total_memory": 97871,
+          "used_memory": 3
+        },
+        {
+          "name": "NVIDIA GH200 120GB",
+          "total_memory": 97871,
+          "used_memory": 3
+        },
+        {
+          "name": "NVIDIA GH200 120GB",
+          "total_memory": 97871,
+          "used_memory": 3
+        }
+      ],
+      "host_memory": 0,
+      "host_memory_bandwidth": 0,
+      "host_memory_used": 0
+    },
+    "hostname": "nid007028",
+    "id": "QmXBXtg1Ra8eDJNvtkTTmTVLbACDrGNWERLoQfqjr1ufpk",
+    "labels": {
+      "framework": "vllm",
+      "launched_by": "ahadinia",
+      "served_model_name": "google/gemma-4-31B-it-issue130-fix-ahadinia-2",
+      "slurm_job_id": "2297199",
+      "slurm_partition": "normal",
+      "started_at": "2026-05-18T17:38:59Z",
+      "worker_group_id": "2297199"
+    },
+    "last_seen": 1779126359,
+    "latency": 0,
+    "load": null,
+    "owner": "",
+    "privileged": false,
+    "public_address": "",
+    "role": null,
+    "service": [
+      {
+        "hardware": {
+          "gpus": null,
+          "host_memory": 0,
+          "host_memory_bandwidth": 0,
+          "host_memory_used": 0
+        },
+        "host": "localhost",
+        "identity_group": [
+          "model=google/gemma-4-31B-it-issue130-fix-ahadinia-2"
+        ],
+        "name": "llm",
+        "port": "8080",
+        "status": "connected"
+      }
+    ],
+    "status": "ready",
+    "version": "v0.1.11"
+  },
+  "/QmbUKJkCfotDzbFE5uoTsXD4GRyPHjzZC1f2yAGLoeBMn9": {
+    "available_offering": null,
+    "connected": true,
+    "current_offering": null,
+    "hardware": {
+      "gpus": null,
+      "host_memory": 0,
+      "host_memory_bandwidth": 0,
+      "host_memory_used": 0
+    },
+    "hostname": "",
+    "id": "QmbUKJkCfotDzbFE5uoTsXD4GRyPHjzZC1f2yAGLoeBMn9",
+    "last_seen": 1779126352,
+    "latency": 0,
+    "load": null,
+    "owner": "",
+    "privileged": false,
+    "public_address": "148.187.108.177",
+    "role": null,
+    "service": null,
+    "status": "",
+    "version": ""
+  },
+  "/Qmc5czVb3D1uMqnM7dKr3CpZyTWuvTXpPpjy2nSvvgucmE": {
+    "available_offering": null,
+    "connected": true,
+    "current_offering": null,
+    "hardware": {
+      "gpus": [
+        {
+          "name": "NVIDIA GH200 120GB",
+          "total_memory": 97871,
+          "used_memory": 4
+        },
+        {
+          "name": "NVIDIA GH200 120GB",
+          "total_memory": 97871,
+          "used_memory": 17
+        },
+        {
+          "name": "NVIDIA GH200 120GB",
+          "total_memory": 97871,
+          "used_memory": 7
+        },
+        {
+          "name": "NVIDIA GH200 120GB",
+          "total_memory": 97871,
+          "used_memory": 7
+        }
+      ],
+      "host_memory": 0,
+      "host_memory_bandwidth": 0,
+      "host_memory_used": 0
+    },
+    "hostname": "nid006788",
+    "id": "Qmc5czVb3D1uMqnM7dKr3CpZyTWuvTXpPpjy2nSvvgucmE",
+    "labels": {
+      "framework": "vllm",
+      "launched_by": "ahadinia",
+      "served_model_name": "google/gemma-4-31B-it-issue130-fix-ahadinia-2",
+      "slurm_job_id": "2297022",
+      "slurm_partition": "normal",
+      "started_at": "2026-05-18T17:16:29Z",
+      "worker_group_id": "2297022"
+    },
+    "last_seen": 1779126369,
+    "latency": 0,
+    "load": null,
+    "owner": "",
+    "privileged": false,
+    "public_address": "",
+    "role": null,
+    "service": [
+      {
+        "hardware": {
+          "gpus": null,
+          "host_memory": 0,
+          "host_memory_bandwidth": 0,
+          "host_memory_used": 0
+        },
+        "host": "localhost",
+        "identity_group": [
+          "model=google/gemma-4-31B-it-issue130-fix-ahadinia-2"
+        ],
+        "name": "llm",
+        "port": "8080",
+        "status": "connected"
+      }
+    ],
+    "status": "ready",
+    "version": "v0.1.11"
+  },
+  "/Qmc6t2AXxpbmguXwNTrSrxLy78teZPFUx8vwnYgyEtVqvi": {
+    "available_offering": null,
+    "connected": true,
+    "current_offering": null,
+    "hardware": {
+      "gpus": [
+        {
+          "name": "NVIDIA GH200 120GB",
+          "total_memory": 97871,
+          "used_memory": 3
+        },
+        {
+          "name": "NVIDIA GH200 120GB",
+          "total_memory": 97871,
+          "used_memory": 10
+        },
+        {
+          "name": "NVIDIA GH200 120GB",
+          "total_memory": 97871,
+          "used_memory": 6
+        },
+        {
+          "name": "NVIDIA GH200 120GB",
+          "total_memory": 97871,
+          "used_memory": 3
+        }
+      ],
+      "host_memory": 0,
+      "host_memory_bandwidth": 0,
+      "host_memory_used": 0
+    },
+    "hostname": "nid007326",
+    "id": "Qmc6t2AXxpbmguXwNTrSrxLy78teZPFUx8vwnYgyEtVqvi",
+    "labels": {
+      "expires_at": "2026-05-18T23:06:48Z",
+      "framework": "sglang",
+      "framework_args": "--port 8080 --model-path /capstor/store/cscs/swissai/infra01/hf_models/models/swiss-ai/Apertus-8B-Instruct-2509     --served-model-name swiss-ai/Apertus-8B-Instruct-2509-rob-dev2     --host 0.0.0.0     --enable-metrics",
+      "launched_by": "rosmith",
+      "served_model_name": "swiss-ai/Apertus-8B-Instruct-2509-rob-dev2",
+      "slurm_job_id": "2296973",
+      "slurm_partition": "normal",
+      "started_at": "2026-05-18T17:06:48Z",
+      "worker_group_id": "2296973"
+    },
+    "last_seen": 1779126369,
+    "latency": 0,
+    "load": null,
+    "owner": "",
+    "privileged": false,
+    "public_address": "",
+    "role": null,
+    "service": [
+      {
+        "hardware": {
+          "gpus": null,
+          "host_memory": 0,
+          "host_memory_bandwidth": 0,
+          "host_memory_used": 0
+        },
+        "host": "localhost",
+        "identity_group": [
+          "model=swiss-ai/Apertus-8B-Instruct-2509-rob-dev2"
+        ],
+        "name": "llm",
+        "port": "8080",
+        "status": "connected"
+      }
+    ],
+    "status": "ready",
+    "version": "dev-9ff5ec9"
+  },
+  "/QmdjF9giGrwFfAHL7v1y6DAM81vKRSb81QCrJ2yEJeopPa": {
+    "available_offering": null,
+    "connected": true,
+    "current_offering": null,
+    "hardware": {
+      "gpus": [
+        {
+          "name": "NVIDIA GH200 120GB",
+          "total_memory": 97871,
+          "used_memory": 3
+        },
+        {
+          "name": "NVIDIA GH200 120GB",
+          "total_memory": 97871,
+          "used_memory": 3
+        },
+        {
+          "name": "NVIDIA GH200 120GB",
+          "total_memory": 97871,
+          "used_memory": 3
+        },
+        {
+          "name": "NVIDIA GH200 120GB",
+          "total_memory": 97871,
+          "used_memory": 3
+        }
+      ],
+      "host_memory": 0,
+      "host_memory_bandwidth": 0,
+      "host_memory_used": 0
+    },
+    "hostname": "nid007071",
+    "id": "QmdjF9giGrwFfAHL7v1y6DAM81vKRSb81QCrJ2yEJeopPa",
+    "labels": {
+      "framework": "vllm",
+      "launched_by": "ahadinia",
+      "served_model_name": "google/gemma-4-31B-it-issue130-fix-ahadinia-2",
+      "slurm_job_id": "2297199",
+      "slurm_partition": "normal",
+      "started_at": "2026-05-18T17:38:59Z",
+      "worker_group_id": "2297199"
+    },
+    "last_seen": 1779126359,
+    "latency": 0,
+    "load": null,
+    "owner": "",
+    "privileged": false,
+    "public_address": "",
+    "role": null,
+    "service": [
+      {
+        "hardware": {
+          "gpus": null,
+          "host_memory": 0,
+          "host_memory_bandwidth": 0,
+          "host_memory_used": 0
+        },
+        "host": "localhost",
+        "identity_group": [
+          "model=google/gemma-4-31B-it-issue130-fix-ahadinia-2"
+        ],
+        "name": "llm",
+        "port": "8080",
+        "status": "connected"
+      }
+    ],
+    "status": "ready",
+    "version": "v0.1.11"
+  },
+  "/Qme4gTokkLYdgzS2EgRKHAsrav3jcGUZXzWXraavow7uWM": {
+    "available_offering": null,
+    "connected": true,
+    "current_offering": null,
+    "hardware": {
+      "gpus": [
+        {
+          "name": "NVIDIA GH200 120GB",
+          "total_memory": 97871,
+          "used_memory": 3
+        },
+        {
+          "name": "NVIDIA GH200 120GB",
+          "total_memory": 97871,
+          "used_memory": 3
+        },
+        {
+          "name": "NVIDIA GH200 120GB",
+          "total_memory": 97871,
+          "used_memory": 3
+        },
+        {
+          "name": "NVIDIA GH200 120GB",
+          "total_memory": 97871,
+          "used_memory": 3
+        }
+      ],
+      "host_memory": 0,
+      "host_memory_bandwidth": 0,
+      "host_memory_used": 0
+    },
+    "hostname": "nid006774",
+    "id": "Qme4gTokkLYdgzS2EgRKHAsrav3jcGUZXzWXraavow7uWM",
+    "labels": {
+      "framework": "vllm",
+      "launched_by": "ahadinia",
+      "served_model_name": "google/gemma-4-31B-it-issue130-fix-ahadinia-2",
+      "slurm_job_id": "2297022",
+      "slurm_partition": "normal",
+      "started_at": "2026-05-18T17:16:29Z",
+      "worker_group_id": "2297022"
+    },
+    "last_seen": 1779126369,
+    "latency": 0,
+    "load": null,
+    "owner": "",
+    "privileged": false,
+    "public_address": "",
+    "role": null,
+    "service": [
+      {
+        "hardware": {
+          "gpus": null,
+          "host_memory": 0,
+          "host_memory_bandwidth": 0,
+          "host_memory_used": 0
+        },
+        "host": "localhost",
+        "identity_group": [
+          "model=google/gemma-4-31B-it-issue130-fix-ahadinia-2"
+        ],
+        "name": "llm",
+        "port": "8080",
+        "status": "connected"
+      }
+    ],
+    "status": "ready",
+    "version": "v0.1.11"
+  }
+}
