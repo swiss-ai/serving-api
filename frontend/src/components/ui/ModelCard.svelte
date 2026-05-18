@@ -83,13 +83,21 @@
 
   // Header summary across all replicas of this model. If every replica has
   // the same per-replica topology (almost always true: a model is launched
-  // with one shape), show it once. Otherwise admit ambiguity rather than
-  // pick one to display.
+  // with one shape), show it with the replica multiplier prefixed when
+  // there's more than one. Otherwise admit ambiguity rather than pick one
+  // to display.
+  //
+  //   1 replica, 1 node              → "4x NVIDIA GH200 120GB"
+  //   1 replica, 4 nodes             → "4 nodes × 4x NVIDIA GH200 120GB"
+  //   2 replicas, 4 nodes each       → "2 replicas × 4 nodes × 4x NVIDIA GH200 120GB"
+  //   replicas with differing shapes → "Various"
   function topologySummary(replicas: Replica[]): string {
     if (replicas.length === 0) return "unknown";
     const distinct = new Set(replicas.map(topologyString));
-    if (distinct.size === 1) return [...distinct][0];
-    return "Various";
+    if (distinct.size !== 1) return "Various";
+    const perReplica = [...distinct][0];
+    if (replicas.length === 1) return perReplica;
+    return `${replicas.length} replicas × ${perReplica}`;
   }
 
   async function copyModelName(e: Event) {
@@ -187,7 +195,7 @@
       on:keydown|stopPropagation
       role="region"
     >
-      <!-- Action buttons (what clicking the card used to do, plus metrics) -->
+      <!-- Action buttons: Chat (primary) + Metrics, left-aligned. -->
       <div class="flex flex-wrap gap-2">
         <a
           href={chatUrl}
@@ -200,7 +208,7 @@
             <polyline points="15 3 21 3 21 9"></polyline>
             <line x1="10" y1="14" x2="21" y2="3"></line>
           </svg>
-          Open in OpenWebUI
+          Chat
         </a>
         {#if metricsUrl}
           <a
@@ -213,7 +221,7 @@
               <path d="M3 3v18h18"></path>
               <path d="M7 15l4-4 4 4 5-5"></path>
             </svg>
-            Metrics Dashboard
+            Metrics
           </a>
         {/if}
       </div>
@@ -272,8 +280,9 @@
               !["launched_by","slurm_job_id","worker_group_id","framework","started_at","expires_at","slurm_partition","served_model_name"].includes(k)
             )}
             {#if extra.length > 0}
+              {@const pad = Math.max(...extra.map(([k]) => k.length)) + 1}
               <div class="text-xs text-slate-500 dark:text-slate-400 mt-2 mb-1">Extra labels</div>
-              <pre class="code-block">{extra.map(([k, v]) => `${k.padEnd(18)} ${v}`).join("\n")}</pre>
+              <pre class="code-block">{extra.map(([k, v]) => `${k.padEnd(pad)} ${v}`).join("\n")}</pre>
             {/if}
           {/if}
         </div>

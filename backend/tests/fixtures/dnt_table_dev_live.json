@@ -415,6 +415,61 @@
     "status": "ready",
     "version": "v0.1.11"
   },
+  "/QmY7FvKB3i6N1yvpkgAZXQCnFmpKR5WJ4MqqGNcLb3tWC5": {
+    "available_offering": null,
+    "connected": true,
+    "current_offering": null,
+    "hardware": {
+      "gpus": [
+        {
+          "name": "NVIDIA GH200 120GB",
+          "total_memory": 97871,
+          "used_memory": 6
+        },
+        {
+          "name": "NVIDIA GH200 120GB",
+          "total_memory": 97871,
+          "used_memory": 5
+        },
+        {
+          "name": "NVIDIA GH200 120GB",
+          "total_memory": 97871,
+          "used_memory": 5
+        },
+        {
+          "name": "NVIDIA GH200 120GB",
+          "total_memory": 97871,
+          "used_memory": 13
+        }
+      ],
+      "host_memory": 0,
+      "host_memory_bandwidth": 0,
+      "host_memory_used": 0
+    },
+    "hostname": "nid007456",
+    "id": "QmY7FvKB3i6N1yvpkgAZXQCnFmpKR5WJ4MqqGNcLb3tWC5",
+    "labels": {
+      "expires_at": "2026-05-19T00:09:35Z",
+      "framework": "sglang",
+      "framework_args": "--port 8080 --model-path /capstor/store/cscs/swissai/infra01/hf_models/models/swiss-ai/Apertus-8B-Instruct-2509 --served-model-name swiss-ai/Apertus-8B-Instruct-2509-rob-dev3 --host 0.0.0.0 --enable-metrics",
+      "launched_by": "rosmith",
+      "served_model_name": "swiss-ai/Apertus-8B-Instruct-2509-rob-dev3",
+      "slurm_job_id": "2297439",
+      "slurm_partition": "normal",
+      "started_at": "2026-05-18T18:09:35Z",
+      "worker_group_id": "2297439"
+    },
+    "last_seen": 1779127775,
+    "latency": 0,
+    "load": null,
+    "owner": "",
+    "privileged": false,
+    "public_address": "",
+    "role": null,
+    "service": null,
+    "status": "pending",
+    "version": "dev-9ff5ec9"
+  },
   "/QmbUKJkCfotDzbFE5uoTsXD4GRyPHjzZC1f2yAGLoeBMn9": {
     "available_offering": null,
     "connected": true,
