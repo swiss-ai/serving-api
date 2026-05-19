@@ -44,7 +44,11 @@
 
   const logoUrl = getModelLogo(entry.data.title);
   const metricsUrl = getModelMetricsUrl(entry.data.title);
-  const tier = getModelTier(entry.data.title);
+  // L1-hosted models are 24/7 by nature (CSCS L1 service), independent
+  // of the modelMetrics.ts config — let launched_by drive the badge so
+  // newly-discovered L1 models don't need a code change to look right.
+  const isL1Model = entry.data.replicas[0]?.head?.launched_by === "cscs_L1";
+  const tier = isL1Model ? "L2" : getModelTier(entry.data.title);
   const chatUrl = `${chatAppUrl.replace(/\/$/, "")}/?models=${encodeURIComponent(entry.data.title)}`;
 
   let expanded = false;
@@ -229,6 +233,7 @@
       <!-- Per-replica detail blocks -->
       {#each entry.data.replicas as replica, idx (replica.worker_group_id)}
         {@const head = replica.head}
+        {@const isL1 = head.launched_by === "cscs_L1"}
         {@const hasLabels = !!(head.launched_by || head.slurm_job_id || head.started_at || head.expires_at || head.framework || head.otela_version || head.status)}
         {@const peerLine = (p) => {
           const hn = p.hostname;
@@ -236,26 +241,35 @@
           if (hn && pid) return `${hn} (${pid})`;
           return hn || pid || "unknown";
         }}
-        {@const rows = [
-          ["model", entry.data.title],
-          ["launched_by", head.launched_by],
-          ["slurm_job_id", head.slurm_job_id],
-          ["started_at", withRelative(head.started_at)],
-          ["expires_at", withRelative(head.expires_at)],
-          ["framework", head.framework],
-          ["otela_version", head.otela_version],
-          // worker_group_id is omitted when it's a synthesised legacy-N fallback —
-          // it's just noise in that case.
-          ["worker_group_id", replica.worker_group_id.startsWith("legacy-") ? "" : replica.worker_group_id],
-          ["head", peerLine(head)],
-          ...replica.followers.map((f, i) => [`follower_${i + 1}`, peerLine(f)]),
-        ].filter(([, v]) => v && v !== "unknown" || v === peerLine(head) || (typeof v === "string" && v.includes("(")))}
+        <!-- For CSCS L1 passthrough models we don't run the pod, so the
+             slurm/started/expires/peer fields don't exist. Show the
+             minimal "what is this" block instead. -->
+        {@const rows = isL1
+          ? [
+              ["model", entry.data.title],
+              ["launched_by", head.launched_by],
+              ["framework", head.framework],
+            ]
+          : [
+              ["model", entry.data.title],
+              ["launched_by", head.launched_by],
+              ["slurm_job_id", head.slurm_job_id],
+              ["started_at", withRelative(head.started_at)],
+              ["expires_at", withRelative(head.expires_at)],
+              ["framework", head.framework],
+              ["otela_version", head.otela_version],
+              // worker_group_id is omitted when it's a synthesised legacy-N fallback —
+              // it's just noise in that case.
+              ["worker_group_id", replica.worker_group_id.startsWith("legacy-") ? "" : replica.worker_group_id],
+              ["head", peerLine(head)],
+              ...replica.followers.map((f, i) => [`follower_${i + 1}`, peerLine(f)]),
+            ].filter(([, v]) => v && v !== "unknown" || v === peerLine(head) || (typeof v === "string" && v.includes("(")))}
         <div class="border border-black/10 dark:border-white/15 rounded-md p-3 bg-black/[0.02] dark:bg-white/[0.03]">
           <div class="text-xs text-slate-500 dark:text-slate-400 mb-2 flex items-center gap-2">
             <span class="font-semibold">Replica {idx + 1}{entry.data.replicaCount > 1 ? ` / ${entry.data.replicaCount}` : ""}</span>
             <span>·</span>
             <span>{topologyString(replica)}</span>
-            {#if head.status}
+            {#if head.status && !isL1}
               <span class="status-pill" data-status={head.status}>{head.status}</span>
             {/if}
           </div>
@@ -268,14 +282,16 @@
             .map(([k, v]) => `${k.padEnd(18)} ${v}`)
             .join("\n")}</pre>
 
-          {#if !hasLabels}
+          {#if !hasLabels && !isL1}
             <p class="text-xs text-amber-700 dark:text-amber-400 mt-2">
               Launch metadata (launched_by, slurm_job_id, framework, started_at, expires_at…) requires OpenTela v0.0.6+ on the serving node.
             </p>
           {/if}
 
-          <!-- Topology / extra labels block: framework_args, etc. -->
-          {#if head.labels && Object.keys(head.labels).length > 0}
+          <!-- Topology / extra labels block: framework_args, etc.
+               Skipped for L1 — the upstream service doesn't surface any
+               extra labels worth showing. -->
+          {#if !isL1 && head.labels && Object.keys(head.labels).length > 0}
             {@const extra = Object.entries(head.labels).filter(([k]) =>
               !["launched_by","slurm_job_id","worker_group_id","framework","started_at","expires_at","slurm_partition","served_model_name"].includes(k)
             )}

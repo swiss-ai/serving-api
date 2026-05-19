@@ -6,11 +6,22 @@ from backend.services.llm_service import (
     llm_proxy_completions,
     response_generator,
 )
+from backend.services.cscs_l1_service import is_l1_model, l1_endpoint, l1_api_key
 from backend.models.protocols import LLMRequest, LLMCompletionsRequest
 from backend.config import get_settings
 
 router = APIRouter()
 settings = get_settings()
+
+
+async def _resolve_endpoint_and_key(model: str, user_token: str) -> tuple[str, str]:
+    """L1-hosted models go to the upstream L1 endpoint with our shared L1
+    key; everything else stays on the OpenTela proxy with the user's
+    bearer token forwarded as-is."""
+    if await is_l1_model(model):
+        return l1_endpoint(), l1_api_key()
+    return settings.otela_head_addr + "/v1/service/llm/v1/", user_token
+
 
 CHAT_RESERVED_KEYS = [
     "model",
@@ -74,9 +85,10 @@ async def chat_completion(
         user_id=token, opt_out=opt_out, app_title=app_title, **reorg_data
     )
 
+    endpoint, api_key = await _resolve_endpoint_and_key(llm_request.model, token)
     response = await llm_proxy(
-        endpoint=settings.otela_head_addr + "/v1/service/llm/v1/",
-        api_key=token,
+        endpoint=endpoint,
+        api_key=api_key,
         request=llm_request,
     )
     if "stream" in data and data["stream"]:
@@ -124,9 +136,10 @@ async def completion(
         user_id=token, opt_out=opt_out, app_title=app_title, **reorg_data
     )
 
+    endpoint, api_key = await _resolve_endpoint_and_key(llm_request.model, token)
     response = await llm_proxy_completions(
-        endpoint=settings.otela_head_addr + "/v1/service/llm/v1/",
-        api_key=token,
+        endpoint=endpoint,
+        api_key=api_key,
         request=llm_request,
     )
     if "stream" in data and data["stream"]:

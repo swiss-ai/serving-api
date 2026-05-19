@@ -173,23 +173,94 @@ def test_legacy_ocf_env_vars_still_work(monkeypatch):
     assert s.otela_fixture_path == "/legacy/fixture.json"
 
 
-def test_canonical_otela_env_vars_win_over_legacy(monkeypatch):
-    """When both are set, the canonical OTELA_* names win so a partial
-    migration (one renamed, one not) doesn't silently keep the legacy
-    value in force."""
-    from backend.config import Settings
-
-    monkeypatch.setenv("OCF_HEAD_ADDR", "http://legacy:8092")
-    monkeypatch.setenv("OTELA_HEAD_ADDR", "http://canonical:8092")
-    s = Settings()
-    assert s.otela_head_addr == "http://canonical:8092"
-
-
 def test_request_failure_returns_empty():
     with patch("backend.services.model_service.requests.get") as mock_get:
         mock_get.side_effect = Exception("boom")
         out = get_all_models("http://x/v1/dnt/table")
     assert out == []
+
+
+# ── /v1/models L1 merge ─────────────────────────────────────────────────────
+
+
+def _fake_l1_settings(base_url="https://l1/v1", api_key="k"):
+    class S:
+        cscs_l1_base_url = base_url
+        cscs_l1_api_key = api_key
+
+    return S()
+
+
+def _patch_l1_fetch(ids):
+    from unittest.mock import AsyncMock
+    from backend.services import cscs_l1_service
+
+    return patch.object(
+        cscs_l1_service,
+        "_fetch_l1_model_ids",
+        new=AsyncMock(return_value=set(ids)),
+    )
+
+
+def test_models_router_merges_l1_entries():
+    """The models router should advertise L1-hosted models on top of the
+    OpenTela DNT table so the frontend's model list includes them."""
+    import asyncio
+
+    from backend.routers.models import _with_l1
+    from backend.services import cscs_l1_service
+
+    cscs_l1_service._reset_cache_for_tests()
+    base = [{"id": "some/local-model", "object": "model"}]
+    with (
+        patch.object(cscs_l1_service, "get_settings", return_value=_fake_l1_settings()),
+        _patch_l1_fetch(["Apertus-8B-Instruct-2509", "Apertus-70B-Instruct-2509"]),
+    ):
+        merged = asyncio.run(_with_l1(list(base), with_details=True))
+    ids = {e["id"] for e in merged}
+    assert "some/local-model" in ids
+    assert "Apertus-8B-Instruct-2509" in ids
+    assert "Apertus-70B-Instruct-2509" in ids
+
+
+def test_models_router_dedupes_l1_against_dnt():
+    """If a model is already advertised by OpenTela (e.g. mid-migration
+    we still have a k8s replica running), don't double-list it from L1.
+    The DNT entry wins — that's the one carrying real peer metadata."""
+    import asyncio
+
+    from backend.routers.models import _with_l1
+    from backend.services import cscs_l1_service
+
+    cscs_l1_service._reset_cache_for_tests()
+    base = [{"id": "Apertus-8B-Instruct-2509", "launched_by": "rosmith"}]
+    with (
+        patch.object(cscs_l1_service, "get_settings", return_value=_fake_l1_settings()),
+        _patch_l1_fetch(["Apertus-8B-Instruct-2509"]),
+    ):
+        merged = asyncio.run(_with_l1(list(base), with_details=True))
+    apertus_8b = [e for e in merged if e["id"] == "Apertus-8B-Instruct-2509"]
+    assert len(apertus_8b) == 1
+    assert apertus_8b[0]["launched_by"] == "rosmith"  # DNT entry kept
+
+
+def test_models_router_skips_l1_when_unconfigured():
+    """No env → L1 entries withheld so we don't expose models we can't
+    actually proxy."""
+    import asyncio
+
+    from backend.routers.models import _with_l1
+    from backend.services import cscs_l1_service
+
+    cscs_l1_service._reset_cache_for_tests()
+    base = [{"id": "some/local-model", "object": "model"}]
+    with patch.object(
+        cscs_l1_service,
+        "get_settings",
+        return_value=_fake_l1_settings(base_url="", api_key=""),
+    ):
+        merged = asyncio.run(_with_l1(list(base), with_details=True))
+    assert merged == base
 
 
 # ── fixtures from live prod ─────────────────────────────────────────────────

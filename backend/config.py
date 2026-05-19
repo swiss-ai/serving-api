@@ -33,6 +33,13 @@ class Settings(BaseSettings):
         default="",
         validation_alias=AliasChoices("otela_fixture_path", "ocf_fixture_path"),
     )
+    # CSCS L1 passthrough — when set, chat/completion requests for the
+    # hardcoded L1 model list in backend/services/cscs_l1_service.py are
+    # forwarded here instead of the OpenTela network. Lets us expose
+    # Apertus 8B/70B from the upstream L1 service without launching our
+    # own k8s pods. Both must be provided via env in k8s secrets.
+    cscs_l1_base_url: str = ""
+    cscs_l1_api_key: str = ""
     langfuse_host: str = ""
     langfuse_public_key: str = ""
     langfuse_secret_key: str = ""
