@@ -22,6 +22,7 @@ async def _resolve_endpoint_and_key(model: str, user_token: str) -> tuple[str, s
         return l1_endpoint(), l1_api_key()
     return settings.otela_head_addr + "/v1/service/llm/v1/", user_token
 
+
 CHAT_RESERVED_KEYS = [
     "model",
     "messages",

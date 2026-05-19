@@ -224,9 +224,10 @@ def test_models_router_merges_l1_entries():
 
     cscs_l1_service._reset_cache_for_tests()
     base = [{"id": "some/local-model", "object": "model"}]
-    with patch.object(
-        cscs_l1_service, "get_settings", return_value=_fake_l1_settings()
-    ), _patch_l1_fetch(["Apertus-8B-Instruct-2509", "Apertus-70B-Instruct-2509"]):
+    with (
+        patch.object(cscs_l1_service, "get_settings", return_value=_fake_l1_settings()),
+        _patch_l1_fetch(["Apertus-8B-Instruct-2509", "Apertus-70B-Instruct-2509"]),
+    ):
         merged = asyncio.run(_with_l1(list(base), with_details=True))
     ids = {e["id"] for e in merged}
     assert "some/local-model" in ids
@@ -245,9 +246,10 @@ def test_models_router_dedupes_l1_against_dnt():
 
     cscs_l1_service._reset_cache_for_tests()
     base = [{"id": "Apertus-8B-Instruct-2509", "launched_by": "rosmith"}]
-    with patch.object(
-        cscs_l1_service, "get_settings", return_value=_fake_l1_settings()
-    ), _patch_l1_fetch(["Apertus-8B-Instruct-2509"]):
+    with (
+        patch.object(cscs_l1_service, "get_settings", return_value=_fake_l1_settings()),
+        _patch_l1_fetch(["Apertus-8B-Instruct-2509"]),
+    ):
         merged = asyncio.run(_with_l1(list(base), with_details=True))
     apertus_8b = [e for e in merged if e["id"] == "Apertus-8B-Instruct-2509"]
     assert len(apertus_8b) == 1

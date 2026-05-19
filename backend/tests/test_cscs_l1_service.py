@@ -73,14 +73,21 @@ def _patch_fetch(ids_or_none):
     value. Pass a list to return a set; pass None to simulate fetch
     failure."""
     value = set(ids_or_none) if ids_or_none is not None else None
-    return patch.object(cscs_l1_service, "_fetch_l1_model_ids", new=AsyncMock(return_value=value))
+    return patch.object(
+        cscs_l1_service, "_fetch_l1_model_ids", new=AsyncMock(return_value=value)
+    )
 
 
 def test_is_l1_model_routes_to_fetched_ids():
     """Membership reflects whatever L1 currently exposes — not a hardcoded list."""
-    with patch.object(
-        cscs_l1_service, "get_settings", return_value=_FakeSettings("https://l1/v1", "k")
-    ), _patch_fetch(["Apertus-8B-Instruct-2509", "Apertus-70B-Instruct-2509"]):
+    with (
+        patch.object(
+            cscs_l1_service,
+            "get_settings",
+            return_value=_FakeSettings("https://l1/v1", "k"),
+        ),
+        _patch_fetch(["Apertus-8B-Instruct-2509", "Apertus-70B-Instruct-2509"]),
+    ):
         assert _run(is_l1_model("Apertus-8B-Instruct-2509")) is True
         assert _run(is_l1_model("Apertus-70B-Instruct-2509")) is True
         assert _run(is_l1_model("not-on-l1")) is False
@@ -90,9 +97,14 @@ def test_synthetic_entries_built_from_fetched_ids():
     """The /v1/models entries surfaced to the frontend are built from
     whatever L1 reports — so a new model on L1 shows up without us
     deploying."""
-    with patch.object(
-        cscs_l1_service, "get_settings", return_value=_FakeSettings("https://l1/v1", "k")
-    ), _patch_fetch(["foo/new-model", "Apertus-8B-Instruct-2509"]):
+    with (
+        patch.object(
+            cscs_l1_service,
+            "get_settings",
+            return_value=_FakeSettings("https://l1/v1", "k"),
+        ),
+        _patch_fetch(["foo/new-model", "Apertus-8B-Instruct-2509"]),
+    ):
         entries = _run(get_l1_synthetic_entries(with_details=True))
     ids = {e["id"] for e in entries}
     assert ids == {"foo/new-model", "Apertus-8B-Instruct-2509"}
@@ -112,9 +124,14 @@ def test_fetch_cached_within_ttl():
     Stops us from hammering L1 on every /v1/models page load + every
     completion dispatch."""
     fake = AsyncMock(return_value={"Apertus-8B-Instruct-2509"})
-    with patch.object(
-        cscs_l1_service, "get_settings", return_value=_FakeSettings("https://l1/v1", "k")
-    ), patch.object(cscs_l1_service, "_fetch_l1_model_ids", new=fake):
+    with (
+        patch.object(
+            cscs_l1_service,
+            "get_settings",
+            return_value=_FakeSettings("https://l1/v1", "k"),
+        ),
+        patch.object(cscs_l1_service, "_fetch_l1_model_ids", new=fake),
+    ):
         _run(is_l1_model("Apertus-8B-Instruct-2509"))
         _run(is_l1_model("Apertus-8B-Instruct-2509"))
         _run(is_l1_model("anything"))
@@ -128,9 +145,14 @@ def test_cold_start_fetch_failure_falls_back_to_hardcoded_list():
     """If L1 is unreachable on the very first call, surface the
     hardcoded fallback so the Apertus rows still appear in the model
     list instead of mysteriously vanishing."""
-    with patch.object(
-        cscs_l1_service, "get_settings", return_value=_FakeSettings("https://l1/v1", "k")
-    ), _patch_fetch(None):
+    with (
+        patch.object(
+            cscs_l1_service,
+            "get_settings",
+            return_value=_FakeSettings("https://l1/v1", "k"),
+        ),
+        _patch_fetch(None),
+    ):
         entries = _run(get_l1_synthetic_entries())
     ids = {e["id"] for e in entries}
     assert ids == set(FALLBACK_MODEL_IDS)
@@ -143,9 +165,14 @@ def test_stale_cache_preferred_over_fallback_after_initial_success():
     we don't want a transient outage to drop models that *were* there."""
     fake = AsyncMock(side_effect=[{"custom/only-on-l1"}, None])
 
-    with patch.object(
-        cscs_l1_service, "get_settings", return_value=_FakeSettings("https://l1/v1", "k")
-    ), patch.object(cscs_l1_service, "_fetch_l1_model_ids", new=fake):
+    with (
+        patch.object(
+            cscs_l1_service,
+            "get_settings",
+            return_value=_FakeSettings("https://l1/v1", "k"),
+        ),
+        patch.object(cscs_l1_service, "_fetch_l1_model_ids", new=fake),
+    ):
         first = _run(get_l1_synthetic_entries())
         # Expire the cache and call again; second fetch fails.
         cscs_l1_service._cache["fetched_at"] = 0.0
