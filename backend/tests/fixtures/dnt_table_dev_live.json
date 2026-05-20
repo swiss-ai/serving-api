@@ -770,5 +770,352 @@
     ],
     "status": "ready",
     "version": "v0.1.11"
+  },
+  "/QmNWFQvMQSimNCYzRYpZb7yhwfER53nYo3pJhQJ9HAdM7U": {
+    "id": "QmNWFQvMQSimNCYzRYpZb7yhwfER53nYo3pJhQJ9HAdM7U",
+    "latency": 0,
+    "privileged": false,
+    "owner": "",
+    "current_offering": null,
+    "role": null,
+    "status": "ready",
+    "available_offering": null,
+    "service": [
+      {
+        "name": "llm",
+        "hardware": {
+          "gpus": null,
+          "host_memory": 0,
+          "host_memory_bandwidth": 0,
+          "host_memory_used": 0
+        },
+        "status": "connected",
+        "host": "localhost",
+        "port": "8080",
+        "identity_group": [
+          "model=meta-llama/Llama-3.3-70B-Instruct"
+        ]
+      }
+    ],
+    "last_seen": 1779267166,
+    "version": "sai-v0.0.6",
+    "hostname": "sglang-llama-70b-bb9cbb4b6-wn9x2",
+    "labels": {
+      "framework": "sglang",
+      "launched_by": "k8s",
+      "served_model_name": "meta-llama/Llama-3.3-70B-Instruct",
+      "started_at": "2026-05-19T15:58:39Z",
+      "worker_group_id": "sglang-llama-70b-bb9cbb4b6-wn9x2"
+    },
+    "public_address": "",
+    "hardware": {
+      "gpus": [
+        {
+          "name": "NVIDIA GH200 120GB",
+          "total_memory": 97871,
+          "used_memory": 14
+        },
+        {
+          "name": "NVIDIA GH200 120GB",
+          "total_memory": 97871,
+          "used_memory": 9
+        },
+        {
+          "name": "NVIDIA GH200 120GB",
+          "total_memory": 97871,
+          "used_memory": 8
+        },
+        {
+          "name": "NVIDIA GH200 120GB",
+          "total_memory": 97871,
+          "used_memory": 7
+        }
+      ],
+      "host_memory": 0,
+      "host_memory_bandwidth": 0,
+      "host_memory_used": 0
+    },
+    "connected": true,
+    "load": null
+  },
+  "/QmNpziFtdsDmFFPSdgL3XMwz6cf3jDaZxNVvb4e9Be39f3": {
+    "id": "QmNpziFtdsDmFFPSdgL3XMwz6cf3jDaZxNVvb4e9Be39f3",
+    "latency": 0,
+    "privileged": false,
+    "owner": "",
+    "current_offering": null,
+    "role": null,
+    "status": "ready",
+    "available_offering": null,
+    "service": [
+      {
+        "name": "llm",
+        "hardware": {
+          "gpus": null,
+          "host_memory": 0,
+          "host_memory_bandwidth": 0,
+          "host_memory_used": 0
+        },
+        "status": "connected",
+        "host": "localhost",
+        "port": "8080",
+        "identity_group": [
+          "model=Snowflake/snowflake-arctic-embed-l-v2.0"
+        ]
+      }
+    ],
+    "last_seen": 1779267169,
+    "version": "sai-v0.0.6",
+    "hostname": "vllm-snowflake-7468ff7dc8-4hv68",
+    "labels": {
+      "framework": "vllm",
+      "launched_by": "k8s",
+      "served_model_name": "Snowflake/snowflake-arctic-embed-l-v2.0",
+      "started_at": "2026-05-19T15:57:44Z",
+      "worker_group_id": "vllm-snowflake-7468ff7dc8-4hv68"
+    },
+    "public_address": "",
+    "hardware": {
+      "gpus": [
+        {
+          "name": "NVIDIA GH200 120GB",
+          "total_memory": 97871,
+          "used_memory": 1
+        }
+      ],
+      "host_memory": 0,
+      "host_memory_bandwidth": 0,
+      "host_memory_used": 0
+    },
+    "connected": true,
+    "load": null
+  },
+  "/QmUsx1HD2WPJ9hjVGXcpA9RTcn5YmN6bDuxFF2mUburLRq": {
+    "id": "QmUsx1HD2WPJ9hjVGXcpA9RTcn5YmN6bDuxFF2mUburLRq",
+    "latency": 0,
+    "privileged": false,
+    "owner": "",
+    "current_offering": null,
+    "role": null,
+    "status": "ready",
+    "available_offering": null,
+    "service": [
+      {
+        "name": "llm",
+        "hardware": {
+          "gpus": null,
+          "host_memory": 0,
+          "host_memory_bandwidth": 0,
+          "host_memory_used": 0
+        },
+        "status": "connected",
+        "host": "localhost",
+        "port": "8080",
+        "identity_group": [
+          "model=Qwen/Qwen3.5-27B"
+        ]
+      }
+    ],
+    "last_seen": 1779267152,
+    "version": "sai-v0.0.6",
+    "hostname": "vllm-qwen35-27b-7fc7bb7ffc-4bgkf",
+    "labels": {
+      "framework": "vllm",
+      "launched_by": "k8s",
+      "served_model_name": "Qwen/Qwen3.5-27B",
+      "started_at": "2026-05-19T15:59:26Z",
+      "worker_group_id": "vllm-qwen35-27b-7fc7bb7ffc-4bgkf"
+    },
+    "public_address": "",
+    "hardware": {
+      "gpus": [
+        {
+          "name": "NVIDIA GH200 120GB",
+          "total_memory": 97871,
+          "used_memory": 0
+        },
+        {
+          "name": "NVIDIA GH200 120GB",
+          "total_memory": 97871,
+          "used_memory": 1
+        }
+      ],
+      "host_memory": 0,
+      "host_memory_bandwidth": 0,
+      "host_memory_used": 0
+    },
+    "connected": true,
+    "load": null
+  },
+  "/QmWZBsbbkn93QHp4wVDaQ92u9LEBZsgAUn9jbj1iBKdDhj": {
+    "id": "QmWZBsbbkn93QHp4wVDaQ92u9LEBZsgAUn9jbj1iBKdDhj",
+    "latency": 0,
+    "privileged": false,
+    "owner": "",
+    "current_offering": null,
+    "role": null,
+    "status": "ready",
+    "available_offering": null,
+    "service": [
+      {
+        "name": "llm",
+        "hardware": {
+          "gpus": null,
+          "host_memory": 0,
+          "host_memory_bandwidth": 0,
+          "host_memory_used": 0
+        },
+        "status": "connected",
+        "host": "localhost",
+        "port": "8080",
+        "identity_group": [
+          "model=swiss-ai/Apertus-70B-Instruct-2509"
+        ]
+      }
+    ],
+    "last_seen": 1779267164,
+    "version": "sai-v0.0.6",
+    "hostname": "vllm-apertus-70b-84d688fd7d-mbhbd",
+    "labels": {
+      "framework": "vllm",
+      "launched_by": "k8s",
+      "served_model_name": "swiss-ai/Apertus-70B-Instruct-2509",
+      "started_at": "2026-05-20T08:27:04Z",
+      "worker_group_id": "vllm-apertus-70b-84d688fd7d-mbhbd"
+    },
+    "public_address": "",
+    "hardware": {
+      "gpus": [
+        {
+          "name": "NVIDIA GH200 120GB",
+          "total_memory": 97871,
+          "used_memory": 2
+        },
+        {
+          "name": "NVIDIA GH200 120GB",
+          "total_memory": 97871,
+          "used_memory": 1
+        },
+        {
+          "name": "NVIDIA GH200 120GB",
+          "total_memory": 97871,
+          "used_memory": 3
+        },
+        {
+          "name": "NVIDIA GH200 120GB",
+          "total_memory": 97871,
+          "used_memory": 1
+        }
+      ],
+      "host_memory": 0,
+      "host_memory_bandwidth": 0,
+      "host_memory_used": 0
+    },
+    "connected": true,
+    "load": null
+  },
+  "/QmYTeswtJmGEzYnPEG64GFyQ6USnfCdER6czXkr2VAPE5u": {
+    "id": "QmYTeswtJmGEzYnPEG64GFyQ6USnfCdER6czXkr2VAPE5u",
+    "latency": 0,
+    "privileged": false,
+    "owner": "",
+    "current_offering": null,
+    "role": null,
+    "status": "ready",
+    "available_offering": null,
+    "service": [
+      {
+        "name": "llm",
+        "hardware": {
+          "gpus": null,
+          "host_memory": 0,
+          "host_memory_bandwidth": 0,
+          "host_memory_used": 0
+        },
+        "status": "connected",
+        "host": "localhost",
+        "port": "8080",
+        "identity_group": [
+          "model=swiss-ai/Apertus-8B-Instruct-2509"
+        ]
+      }
+    ],
+    "last_seen": 1779267169,
+    "version": "sai-v0.0.6",
+    "hostname": "sglang-apertus-8b-78b4f9d77-v2pbt",
+    "labels": {
+      "framework": "sglang",
+      "launched_by": "k8s",
+      "served_model_name": "swiss-ai/Apertus-8B-Instruct-2509",
+      "started_at": "2026-05-19T16:11:00Z",
+      "worker_group_id": "sglang-apertus-8b-78b4f9d77-v2pbt"
+    },
+    "public_address": "",
+    "hardware": {
+      "gpus": [
+        {
+          "name": "NVIDIA GH200 120GB",
+          "total_memory": 97871,
+          "used_memory": 3
+        }
+      ],
+      "host_memory": 0,
+      "host_memory_bandwidth": 0,
+      "host_memory_used": 0
+    },
+    "connected": true,
+    "load": null
+  },
+  "/QmbVVJVM1VwTCHEo8FCFZinWT5zEBoccDJmbZtj7zRK6Cx": {
+    "id": "QmbVVJVM1VwTCHEo8FCFZinWT5zEBoccDJmbZtj7zRK6Cx",
+    "latency": 0,
+    "privileged": false,
+    "owner": "",
+    "current_offering": null,
+    "role": null,
+    "status": "ready",
+    "available_offering": null,
+    "service": [
+      {
+        "name": "llm",
+        "hardware": {
+          "gpus": null,
+          "host_memory": 0,
+          "host_memory_bandwidth": 0,
+          "host_memory_used": 0
+        },
+        "status": "connected",
+        "host": "localhost",
+        "port": "8080",
+        "identity_group": [
+          "model=zai-org/GLM-4.7-Flash"
+        ]
+      }
+    ],
+    "last_seen": 1779267154,
+    "version": "sai-v0.0.6",
+    "hostname": "sglang-glm-47-flash-759d7dd467-fx9s4",
+    "labels": {
+      "framework": "sglang",
+      "launched_by": "k8s",
+      "served_model_name": "zai-org/GLM-4.7-Flash",
+      "started_at": "2026-05-19T15:58:03Z",
+      "worker_group_id": "sglang-glm-47-flash-759d7dd467-fx9s4"
+    },
+    "public_address": "",
+    "hardware": {
+      "gpus": [
+        {
+          "name": "NVIDIA GH200 120GB",
+          "total_memory": 97871,
+          "used_memory": 1
+        }
+      ],
+      "host_memory": 0,
+      "host_memory_bandwidth": 0,
+      "host_memory_used": 0
+    },
+    "connected": true,
+    "load": null
   }
 }

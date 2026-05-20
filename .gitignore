@@ -1,6 +1,7 @@
 *.pyc
 *.env
 *.env*
+!.env.example
 details.json
 secrets/*.json
 .venv/*

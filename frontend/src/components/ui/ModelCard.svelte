@@ -1,6 +1,6 @@
 <script lang="ts">
   import { getModelLogo } from '../../lib/modelLogos';
-  import { getModelMetricsUrl, getModelTier } from '../../lib/modelMetrics';
+  import { getModelMetricsUrl, getTierFromLaunchedBy } from '../../lib/modelMetrics';
 
   interface Peer {
     peer_id?: string;
@@ -44,11 +44,11 @@
 
   const logoUrl = getModelLogo(entry.data.title);
   const metricsUrl = getModelMetricsUrl(entry.data.title);
-  // L1-hosted models are 24/7 by nature (CSCS L1 service), independent
-  // of the modelMetrics.ts config — let launched_by drive the badge so
-  // newly-discovered L1 models don't need a code change to look right.
-  const isL1Model = entry.data.replicas[0]?.head?.launched_by === "cscs_L1";
-  const tier = isL1Model ? "L2" : getModelTier(entry.data.title);
+  // Tier follows the peer's launched_by label: "k8s" or "cscs_L1" → 24/7,
+  // anything else (a username from model-launch, or no label) → Slurm.
+  const headLaunchedBy = entry.data.replicas[0]?.head?.launched_by;
+  const isL1Model = headLaunchedBy === "cscs_L1";
+  const tier = getTierFromLaunchedBy(headLaunchedBy);
   const chatUrl = `${chatAppUrl.replace(/\/$/, "")}/?models=${encodeURIComponent(entry.data.title)}`;
 
   let expanded = false;
@@ -59,6 +59,21 @@
   // same launcher/framework, but we render them per-replica below anyway.
   $: firstHead = entry.data.replicas[0]?.head ?? {};
   $: framework = firstHead.framework || "";
+
+  // Aggregated status across all replicas:
+  //   "ready"   — every replica's head is ready
+  //   "pending" — at least one replica is still booting
+  //   "unknown" — no status info at all (legacy binary)
+  // Used by both the traffic-light dot and the greyed-tile styling so
+  // we can compare which signal reads better at a glance.
+  $: aggregateStatus = (() => {
+    const statuses = entry.data.replicas.map(r => r.head?.status).filter(Boolean);
+    if (statuses.length === 0) return "unknown";
+    if (statuses.some(s => s === "pending")) return "pending";
+    if (statuses.every(s => s === "ready")) return "ready";
+    return "unknown";
+  })();
+  $: isPending = aggregateStatus === "pending";
 
   // "2026-05-17T07:00:00Z" → "2026-05-17T07:00:00Z (11 hours ago)".
   // Returns the iso untouched if it doesn't parse — keeps the row useful even
@@ -134,12 +149,22 @@
   aria-expanded={expanded}
   on:click={toggleExpand}
   on:keydown={onKeyDown}
+  class:tile-pending={isPending}
   class="relative group flex flex-col py-3 px-4 rounded-lg border border-black/15 dark:border-white/20 hover:bg-black/5 dark:hover:bg-white/5 hover:text-black dark:hover:text-white transition-colors duration-300 ease-in-out cursor-pointer"
 >
   <div class="flex items-center gap-3 min-w-0">
     <img src={logoUrl} alt="Model logo" class="w-8 h-8 object-contain" />
     <div class="flex flex-col flex-1 min-w-0">
       <div class="font-semibold flex items-center gap-2 min-w-0">
+        <!-- Traffic-light dot reflects aggregated replica status.
+             Visible whether the tile is expanded or not. -->
+        <span
+          class="status-dot status-dot-{aggregateStatus}"
+          title={aggregateStatus === "ready" ? "All replicas ready"
+               : aggregateStatus === "pending" ? "At least one replica is still starting up"
+               : "Status unknown"}
+          aria-label="status: {aggregateStatus}"
+        ></span>
         <span
           on:click={copyModelName}
           on:keydown={(e) => { if (e.key === "Enter") copyModelName(e); }}
@@ -314,6 +339,50 @@
     font-weight: bold;
     padding: 0 6px;
     border-radius: 4px;
+  }
+
+  /* Traffic-light dot — small filled circle in front of the model name. */
+  .status-dot {
+    display: inline-block;
+    width: 0.6rem;
+    height: 0.6rem;
+    border-radius: 9999px;
+    flex-shrink: 0;
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.1) inset;
+  }
+  .status-dot-ready {
+    background-color: #10b981; /* emerald-500 */
+  }
+  .status-dot-pending {
+    background-color: #f59e0b; /* amber-500 */
+    animation: status-pulse 1.5s ease-in-out infinite;
+  }
+  .status-dot-unknown {
+    background-color: #9ca3af; /* gray-400 */
+  }
+  @keyframes status-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.35; }
+  }
+
+  /* Greyed-tile treatment — applied to the outer card when any replica
+     is pending. Mutes text/icons via `color` (inherited by SVGs using
+     currentColor) and grayscales the logo + colored badges. The
+     status-dot opts out by using its own background-color, so the
+     amber pending signal stays vivid against the otherwise-grey card. */
+  .tile-pending {
+    background-color: rgba(0, 0, 0, 0.04);
+    color: #6b7280; /* gray-500 */
+  }
+  :global(.dark) .tile-pending {
+    background-color: rgba(255, 255, 255, 0.04);
+    color: #9ca3af; /* gray-400 */
+  }
+  .tile-pending img,
+  .tile-pending .uptime-badge,
+  .tile-pending .slurm-badge,
+  .tile-pending .instance-count {
+    filter: grayscale(1);
   }
 
   .uptime-badge {

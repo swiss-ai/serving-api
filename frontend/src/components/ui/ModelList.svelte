@@ -2,7 +2,7 @@
     import { onMount } from "svelte";
     import ModelCard from "./ModelCard.svelte";
     import { getApiUrl } from "../../lib/config";
-    import { getModelTier } from "../../lib/modelMetrics";
+    import { getTierFromLaunchedBy } from "../../lib/modelMetrics";
 
     export let chatAppUrl;
 
@@ -101,8 +101,9 @@
             if (!haystack.includes(q)) return false;
         }
 
-        if (activeFilter === "24/7") return getModelTier(title) === "L2";
-        if (activeFilter === "slurm") return getModelTier(title) === "slurm";
+        const tier = getTierFromLaunchedBy(m.data.replicas[0]?.head?.launched_by);
+        if (activeFilter === "24/7") return tier === "L2";
+        if (activeFilter === "slurm") return tier === "slurm";
         return true;
     });
 </script>
