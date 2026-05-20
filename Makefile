@@ -1,4 +1,4 @@
-.PHONY: install install-dev format check test run dummy-run db-up db-down migrate _ensure-env _ensure-frontend-env
+.PHONY: install install-dev format check test run dummy-run db-up db-down migrate _ensure-env _ensure-frontend-env _guard-local-db _guard-local-api
 
 UV_EXTRA ?=
 
@@ -66,10 +66,38 @@ db-down:
 	-docker stop $(PG_CONTAINER) > /dev/null 2>&1
 	-docker rm $(PG_CONTAINER) > /dev/null 2>&1
 
-migrate: _ensure-env db-up
+# Refuse to run any DB-touching target if .env points at a non-local host.
+# We never want `make run` / `make migrate` to accidentally apply migrations
+# or open connections against a remote (prod/staging) database — the local
+# Postgres container is the only acceptable target for dev commands.
+_guard-local-db: _ensure-env
+	@url=$$(grep -E '^DATABASE_URL=' .env | head -1 | cut -d= -f2- | tr -d '"' | tr -d "'"); \
+	host=$$(echo "$$url" | sed -E 's|^[^:]+://[^@]*@([^:/?]+).*|\1|'); \
+	case "$$host" in \
+		localhost|127.0.0.1|::1|"") ;; \
+		*) echo "REFUSING: .env DATABASE_URL host '$$host' is not local."; \
+		   echo "Local dev must not run against prod/staging. Set DATABASE_URL=$(DATABASE_URL) in .env."; \
+		   exit 1;; \
+	esac
+
+# Same guard for the frontend — VITE_API_URL is what `npm run dev` reads,
+# so a prod URL there silently makes the local UI hit prod even when the
+# local backend is running fine. That's exactly what tripped up dummy-run
+# the first time around. Empty / unset is fine (frontend defaults apply).
+_guard-local-api: _ensure-frontend-env
+	@url=$$(grep -E '^VITE_API_URL=' frontend/.env | head -1 | cut -d= -f2- | tr -d '"' | tr -d "'"); \
+	host=$$(echo "$$url" | sed -E 's|^[^:]+://([^:/?]+).*|\1|'); \
+	case "$$host" in \
+		localhost|127.0.0.1|::1|"") ;; \
+		*) echo "REFUSING: frontend/.env VITE_API_URL host '$$host' is not local."; \
+		   echo "Local dev must not call prod/staging API. Set VITE_API_URL=http://localhost:8080 in frontend/.env."; \
+		   exit 1;; \
+	esac
+
+migrate: _ensure-env _guard-local-db db-up
 	alembic upgrade head
 
-run: _ensure-env _ensure-frontend-env db-up migrate
+run: _ensure-env _ensure-frontend-env _guard-local-api db-up migrate
 	uvicorn backend.main:app --reload --host 0.0.0.0 --port 8080 & \
 	cd frontend && npm run dev & \
 	wait
@@ -77,7 +105,7 @@ run: _ensure-env _ensure-frontend-env db-up migrate
 # Same as `run` but forces the model list to come from the synthesised
 # upgraded fixture instead of the live OpenTela endpoint. Useful for
 # iterating on the model-card UI without depending on prod state.
-dummy-run: _ensure-env _ensure-frontend-env db-up migrate
+dummy-run: _ensure-env _ensure-frontend-env _guard-local-api db-up migrate
 	OTELA_FIXTURE_PATH=$(PWD)/backend/tests/fixtures/dnt_table_dev_live.json \
 	uvicorn backend.main:app --reload --host 0.0.0.0 --port 8080 & \
 	cd frontend && npm run dev & \

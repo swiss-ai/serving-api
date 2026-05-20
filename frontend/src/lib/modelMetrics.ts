@@ -4,25 +4,24 @@ export type HostingTier = "L2" | "slurm";
 
 type ModelConfig = {
   metrics?: boolean;
-  tier?: HostingTier;
 };
 
-const models: Record<string, ModelConfig> = {
-  "swiss-ai/Apertus-8B-Instruct-2509": { tier: "L2" },
-  "zai-org/GLM-4.7-Flash": { tier: "L2" },
-  "Snowflake/snowflake-arctic-embed-l-v2.0": { tier: "L2" },
-  "cais/HarmBench-Llama-2-13b-cls": { tier: "L2" },
-  "meta-llama/Llama-3.3-70B-Instruct": { tier: "L2" },
-  "meta-llama/Llama-Guard-4-12B": { tier: "L2" },
-  "swiss-ai/Apertus-70B-Instruct-2509": { tier: "L2" },
-  "Qwen/Qwen3.5-27B": { tier: "L2" },
-};
+// Per-model overrides for the Grafana metrics dashboard URL. Add an entry
+// with `metrics: false` for models that have no panel — clicking through
+// to a blank dashboard is worse than hiding the button.
+const models: Record<string, ModelConfig> = {};
 
 export function getModelMetricsUrl(modelName: string): string | null {
   if (models[modelName]?.metrics === false) return null;
   return `${METRICS_BASE}${encodeURIComponent(modelName)}`;
 }
 
-export function getModelTier(modelName: string): HostingTier {
-  return models[modelName]?.tier ?? "slurm";
+// Tier is now driven by the peer's `launched_by` label instead of a
+// hardcoded model list. Persistent infra launchers ("k8s", "cscs_L1") map
+// to the 24/7 badge; anything else (a username from model-launch, or an
+// older OpenTela binary that doesn't emit the label) is a Slurm job.
+const PERSISTENT_LAUNCHERS = new Set(["k8s", "cscs_L1"]);
+
+export function getTierFromLaunchedBy(launched_by: string | undefined): HostingTier {
+  return launched_by && PERSISTENT_LAUNCHERS.has(launched_by) ? "L2" : "slurm";
 }
