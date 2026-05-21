@@ -98,6 +98,7 @@ def test_new_binary_head_carries_labels():
     assert entry["worker_group_id"] == "12345"
     assert entry["framework"] == "sglang"
     assert entry["status"] == "ready"
+    assert entry["has_service"] is True
 
 
 def test_metrics_only_follower_groups_with_head_via_worker_group_id():
@@ -126,6 +127,12 @@ def test_metrics_only_follower_groups_with_head_via_worker_group_id():
         == by_id["QmFollower"]["worker_group_id"]
         == "12345"
     )
+    # has_service distinguishes the actually-serving peer from TP-worker /
+    # metrics-only peers — the frontend uses this to pick the head when
+    # aggregating replicas (otherwise a multi-node TP replica shows pending
+    # forever because rank-1..N never register an llm service).
+    assert by_id["QmHead"]["has_service"] is True
+    assert by_id["QmFollower"]["has_service"] is False
 
 
 def test_pending_peer_without_served_model_name_label_falls_back_to_empty_id():

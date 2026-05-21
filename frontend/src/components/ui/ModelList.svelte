@@ -57,8 +57,15 @@
             replicaCount = 0;
             models = Array.from(modelsMap.values()).map(grouped => {
                 const replicas = Array.from(grouped.replicas.values()).map(r => {
-                    // The head is the peer that owns the serving entry.
-                    const head = r.peers.find(p => p.id === grouped.id) || r.peers[0];
+                    // The head is the peer that owns the serving entry. In a
+                    // multi-node TP replica only rank-0 registers `llm`, so
+                    // has_service uniquely identifies it; the other peers all
+                    // share the same id (from served_model_name) and would
+                    // otherwise be indistinguishable.
+                    const head =
+                        r.peers.find(p => p.has_service) ||
+                        r.peers.find(p => p.id === grouped.id) ||
+                        r.peers[0];
                     const followers = r.peers.filter(p => p !== head);
                     return {
                         worker_group_id: r.worker_group_id,

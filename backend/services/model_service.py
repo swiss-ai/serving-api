@@ -73,6 +73,7 @@ def get_all_models(endpoint: str, with_details: bool = False):
                 "object": "model",
                 "created": "0x",
                 "owner": "0x",
+                "has_service": False,
                 **meta,
             }
             if with_details:
@@ -93,6 +94,7 @@ def get_all_models(endpoint: str, with_details: bool = False):
                     "object": "model",
                     "created": "0x",
                     "owner": "0x",
+                    "has_service": True,
                     **meta,
                 }
                 if with_details:
