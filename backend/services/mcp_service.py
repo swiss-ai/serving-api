@@ -3,9 +3,30 @@ import aiohttp
 NAMESPACE = "rob-poc"
 MCP_PORT = 8080
 
-# Hardcoded MCP server registry: owner/repo -> K8s service DNS
+# (owner, repo) pairs mirroring ../rob-poc/tool-gym/dev/{deployment,service}.yaml
+_MCP_TOOLS = [
+    ("alan5543", "calculator-mcp"),
+    ("metehangzl", "pokemcp"),
+    ("ilaydabayrak", "simple-mcp"),
+    ("harunguclu", "bible-mcp"),
+    ("hcatakli", "dictionary-mcp"),
+    ("ceydasimsekk", "book-mcp"),
+    ("mach123089", "basic-float-math-mcp"),
+    ("biocontext", "pubchem-mcp"),
+    ("sellisd", "mcp-units"),
+    ("daheepk", "arxiv-paper-mcp"),
+    ("ahmetcvlk", "nationality-mcp"),
+    ("yokingma", "time-mcp"),
+    ("forceconstant", "lyrical-mcp"),
+    ("mikechao", "metmuseum-mcp"),
+    ("myrve", "mcp-fruit"),
+    ("esmakymkci", "yeni-detect-lang-mcp"),
+    ("hashicorp", "terraform-mcp-server"),
+]
+
 MCP_SERVERS = {
-    "alan5543/calculator-mcp": f"http://tool-gym-alan5543-calculator-mcp-dev.{NAMESPACE}.svc.cluster.local:{MCP_PORT}",
+    f"{owner}/{repo}": f"http://tool-gym-{owner}-{repo}-dev.{NAMESPACE}.svc.cluster.local:{MCP_PORT}"
+    for owner, repo in _MCP_TOOLS
 }
 
 
