@@ -1,9 +1,7 @@
-import aiohttp
+PUBLIC_DOMAIN = "swissai.svc.cscs.ch"
+MCP_PATH = "/mcp"
 
-NAMESPACE = "rob-poc"
-MCP_PORT = 8080
-
-# (owner, repo) pairs mirroring ../rob-poc/tool-gym/dev/{deployment,service}.yaml
+# (owner, repo) pairs mirroring ../rob-poc/tool-gym/dev/{deployment,service,ingress}.yaml
 _MCP_TOOLS = [
     ("alan5543", "calculator-mcp"),
     ("metehangzl", "pokemcp"),
@@ -24,27 +22,13 @@ _MCP_TOOLS = [
     ("hashicorp", "terraform-mcp-server"),
 ]
 
-MCP_SERVERS = {
-    f"{owner}/{repo}": f"http://tool-gym-{owner}-{repo}-dev.{NAMESPACE}.svc.cluster.local:{MCP_PORT}"
-    for owner, repo in _MCP_TOOLS
-}
 
-
-async def mcp_proxy(owner: str, repo: str, body: bytes) -> tuple[bytes, int]:
-    """Forward a JSON-RPC request to the MCP server. Returns (body, status)."""
-    url = MCP_SERVERS.get(f"{owner}/{repo}")
-    if not url:
-        return b'{"error":"MCP server not found"}', 404
-    async with aiohttp.ClientSession() as session:
-        async with session.post(
-            url,
-            data=body,
-            headers={"Content-Type": "application/json"},
-            timeout=aiohttp.ClientTimeout(total=30),
-        ) as resp:
-            data = await resp.read()
-            return data, resp.status
+def _public_url(owner: str, repo: str) -> str:
+    return f"https://tool-gym-{owner}-{repo}-dev.{PUBLIC_DOMAIN}{MCP_PATH}"
 
 
 def list_mcp_servers() -> list[dict]:
-    return [{"owner": k.split("/")[0], "repo": k.split("/")[1]} for k in MCP_SERVERS]
+    return [
+        {"owner": owner, "repo": repo, "url": _public_url(owner, repo)}
+        for owner, repo in _MCP_TOOLS
+    ]
