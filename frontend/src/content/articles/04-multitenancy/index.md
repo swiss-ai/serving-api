@@ -28,7 +28,7 @@ We evaluate our system across two experiments:
 
 **Experiment 2.** Compares single-tenant asynchronous training (verl's fully async implementation) against a 2-tenant asynchronous run, to evaluate whether combining multi-tenancy with asynchrony can further improve throughput and match or exceed the state-of-the-art method in throughput (steps per GPU-hour).
 
-Both experiments were conducted with Qwen3-4B, the GRPO algorithm [9], and the DAPO-Math-17k-Processed dataset, with LoRA rank = alpha = 32, lr = 5e-5, max response length = 32k, fsdp_group_size = 2, batch size of 32 prompts and 8 responses per prompt. The asynchronous experiments used `trigger_parameter_sync_step = 2` and `staleness_threshold = 0.1`, meaning that at each parameter sync from trainer to rollout worker, (32 × 8) × (2 + 1) = 768 requests were submitted to vLLM per tenant. Both experiments were run with 1, 2, and 4 GH200 nodes on the Clariden cluster at CSCS.
+Both experiments were conducted with Qwen3-4B, the GRPO algorithm [9], and the DAPO-Math-17k-Processed dataset, with LoRA rank = alpha = 32, lr = 5e-5, max response length = 32k, fsdp_group_size = 2, batch size of 32 prompts and 8 responses per prompt. The asynchronous experiments used `trigger_parameter_sync_step = 2` and `staleness_threshold = 0.1`, meaning that after each parameter sync from trainer to rollout worker, (32 × 8) × (2 + 1) = 768 requests were submitted to vLLM per tenant. Both experiments were run with 1, 2, and 4 GH200 nodes on the Clariden cluster at CSCS.
 
 ## Results
 
