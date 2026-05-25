@@ -1,6 +1,12 @@
-# Sharing is Scaling: Efficient RL Fine-tuning with Multi-tenancy
 
-by Mahdi Atallah and Youssef Boughizane
+---
+title: "Sharing is Scaling: Efficient RL Fine-tuning with Multi-tenancy"
+description: "RL fine-tuning leaves GPUs idle during long-tail rollouts. We exploit that idleness by training multiple LoRA adapters on a shared base model in parallel, achieving higher throughput at scale."
+date: "May 25 2026"
+authors: [{ name: "Mahdi Atallah", url: "atoula.github.io"}, {name: "Youssef Boughizane", url: "https://youssef62.github.io/"}]
+demoURL: "https://github.com/swiss-ai/rl-as-a-service/"
+repoURL: "https://github.com/swiss-ai/rl-as-a-service/"
+---
 
 ## Motivation
 
@@ -8,7 +14,15 @@ RL has become a standard step in post-training LLMs, especially for reasoning. D
 
 In synchronous RL, we alternate between rollout phases (response generation) and training phases (gradient update), where the latter cannot begin until all responses in the batch are complete. This method suffers from massive GPU underutilization in the rollout phase [2]. This is mainly due to the long tail distribution of response lengths in reasoning models: the majority of requests finish early, while a minority have long responses. During the long tail, most GPUs sit idle or process only a small number of remaining sequences. For a memory-bound workload like LLM decoding, this translates directly to wasted compute.
 
+<<<<<<< HEAD
 To mitigate this, several works propose asynchronous RL [4, 5, 6, 7], which decouples the rollout and training phases. Rather than waiting for all responses to finish, the trainer begins updates as soon as enough samples are available, while the rollout worker continues generating in parallel. This improves hardware utilization at the cost of on-policy training: some training samples will be generated under an older version of the model.
+=======
+![Request length distribution showing long-tail rollouts.](./request_lengths.png)
+
+![SM active utilization during rollout phase.](./sm_active.jpeg)
+
+To mitigate this, several works propose asynchronous RL [4, 5, 6, 7], which decouples the rollout and training phases. Rather than waiting for all responses to finish, the trainer begins updates as soon as enough samples are available, while the rollout worker continues generating in parallel. This improves hardware utilization at the cost of on-policy strictness: some training samples may have been generated under a slightly older version of the model.
+>>>>>>> 1adcb69 (add diagrams and similar header to other blogs)
 
 In this work, we look to exploit the long tail inefficiency using a multi-tenant setup. Rather than serving a single user, we train multiple LoRA adapters on a shared base model simultaneously, using the compute left idle during the long tail to issue rollouts for independent tenants in parallel and guarantee a large inference batch size. This is possible thanks to Punica [8], a multi-LoRA serving system that batches computation across adapters without duplicating base model weights.
 
@@ -36,7 +50,7 @@ Both experiments were conducted with Qwen3-4B, the GRPO algorithm [9], and the D
 
 ![Synchronous training throughput vs. node count, comparing single-tenant and multi-tenant configurations.](./sync_tenant_node_sweep.png)
 
-**Experiment 2.** Multi-tenant asynchronous training consistently outperforms single-tenant asynchronous training at every scale. While single-tenant throughput per GPU-hour degrades significantly with scale, multi-tenant throughput remains stable, resulting in a growing performance gap — from parity at 1 node to 20% at 2 nodes and 48% at 4 nodes.
+**Experiment 2.** Multi-tenant asynchronous training consistently outperforms single-tenant asynchronous training at every scale. While single-tenant throughput per GPU-hour degrades significantly with scale, multi-tenant throughput remains stable, resulting in a growing performance gap: from parity at 1 node to 20% at 2 nodes and 48% at 4 nodes.
 
 ![Asynchronous training throughput vs. node count, comparing single-tenant and multi-tenant configurations.](./async_tenant_node_sweep.png)
 
