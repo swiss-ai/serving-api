@@ -14,15 +14,11 @@ RL has become a standard step in post-training LLMs, especially for reasoning. D
 
 In synchronous RL, we alternate between rollout phases (response generation) and training phases (gradient update), where the latter cannot begin until all responses in the batch are complete. This method suffers from massive GPU underutilization in the rollout phase [2]. This is mainly due to the long tail distribution of response lengths in reasoning models: the majority of requests finish early, while a minority have long responses. During the long tail, most GPUs sit idle or process only a small number of remaining sequences. For a memory-bound workload like LLM decoding, this translates directly to wasted compute.
 
-<<<<<<< HEAD
-To mitigate this, several works propose asynchronous RL [4, 5, 6, 7], which decouples the rollout and training phases. Rather than waiting for all responses to finish, the trainer begins updates as soon as enough samples are available, while the rollout worker continues generating in parallel. This improves hardware utilization at the cost of on-policy training: some training samples will be generated under an older version of the model.
-=======
 ![Request length distribution showing long-tail rollouts.](./request_lengths.png)
 
 ![SM active utilization during rollout phase.](./sm_active.jpeg)
 
 To mitigate this, several works propose asynchronous RL [4, 5, 6, 7], which decouples the rollout and training phases. Rather than waiting for all responses to finish, the trainer begins updates as soon as enough samples are available, while the rollout worker continues generating in parallel. This improves hardware utilization at the cost of on-policy strictness: some training samples may have been generated under a slightly older version of the model.
->>>>>>> 1adcb69 (add diagrams and similar header to other blogs)
 
 In this work, we look to exploit the long tail inefficiency using a multi-tenant setup. Rather than serving a single user, we train multiple LoRA adapters on a shared base model simultaneously, using the compute left idle during the long tail to issue rollouts for independent tenants in parallel and guarantee a large inference batch size. This is possible thanks to Punica [8], a multi-LoRA serving system that batches computation across adapters without duplicating base model weights.
 
