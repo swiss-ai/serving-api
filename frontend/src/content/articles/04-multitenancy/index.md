@@ -2,7 +2,7 @@
 title: "Sharing is Scaling: Efficient RL Fine-tuning with Multi-tenancy"
 description: "RL fine-tuning leaves GPUs idle during long-tail rollouts. We exploit that idleness by training multiple LoRA adapters on a shared base model in parallel, achieving higher throughput at scale."
 date: "May 25 2026"
-authors: [{ name: "Mahdi Atallah", url: "https://atoula.github.io"}, {name: "Youssef Boughizane", url: "https://youssef62.github.io/"}]
+authors: [{ name: "Mahdi Atallah", url: "https://atoula.github.io"}, {name: "Youssef Boughizane", url: "https://youssef62.github.io/"}, { name: "Xiaozhe Yao", url: "https://about.yao.sh/" }]
 demoURL: "https://github.com/swiss-ai/rl-as-a-service/"
 repoURL: "https://github.com/swiss-ai/rl-as-a-service/"
 ---
