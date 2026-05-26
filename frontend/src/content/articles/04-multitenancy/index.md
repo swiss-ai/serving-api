@@ -13,6 +13,8 @@ RL has become a standard step in post-training LLMs, especially for reasoning. D
 
 In synchronous RL, we alternate between rollout phases (response generation) and training phases (gradient update), where the latter cannot begin until all responses in the batch are complete. This method suffers from massive GPU underutilization in the rollout phase [2]. This is mainly due to the long tail distribution of response lengths in reasoning models: the majority of requests finish early, while a minority have long responses. During the long tail, most GPUs sit idle or process only a small number of remaining sequences. For a memory-bound workload like LLM decoding, this translates directly to wasted compute.
 
+To illustrate the problem concretely, we ran 500 requests through vLLM serving Qwen3-4B across 4 GPUs on a single GH200 in data-parallel mode. The response length distribution (left) shows a pronounced long tail, and the resulting SM active utilization (right) reflects how that imbalance plays out during the rollout phase.
+
 ![Request length distribution showing long-tail rollouts and SM active utilization during rollout phase.](./request_lengths_sm_active.png)
 
 To mitigate this, several works propose asynchronous RL [4, 5, 6, 7], which decouples the rollout and training phases. Rather than waiting for all responses to finish, the trainer begins updates as soon as enough samples are available, while the rollout worker continues generating in parallel. This improves hardware utilization at the cost of on-policy strictness: some training samples may have been generated under a slightly older version of the model.
