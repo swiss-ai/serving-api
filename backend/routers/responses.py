@@ -2,7 +2,10 @@ from fastapi import APIRouter, Request, Depends
 from fastapi.responses import StreamingResponse
 from backend.middleware.auth import require_auth
 from backend.services.llm_service import llm_proxy_responses, response_generator_raw
-from backend.services.cscs_l1_service import is_l1_model, l1_endpoint, l1_api_key
+from backend.services.passthrough_service import (
+    resolve_provider,
+    endpoint as passthrough_endpoint,
+)
 from backend.config import get_settings
 
 router = APIRouter()
@@ -18,8 +21,9 @@ async def create_response(
     stream = data.get("stream", False)
     model = data.get("model", "unknown")
 
-    if await is_l1_model(model):
-        endpoint, api_key = l1_endpoint(), l1_api_key()
+    provider = await resolve_provider(model)
+    if provider is not None:
+        endpoint, api_key = passthrough_endpoint(provider), provider.api_key
     else:
         endpoint, api_key = settings.otela_head_addr + "/v1/service/llm/v1/", token
 

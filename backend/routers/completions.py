@@ -6,7 +6,10 @@ from backend.services.llm_service import (
     llm_proxy_completions,
     response_generator,
 )
-from backend.services.cscs_l1_service import is_l1_model, l1_endpoint, l1_api_key
+from backend.services.passthrough_service import (
+    resolve_provider,
+    endpoint as passthrough_endpoint,
+)
 from backend.models.protocols import LLMRequest, LLMCompletionsRequest
 from backend.config import get_settings
 
@@ -15,11 +18,13 @@ settings = get_settings()
 
 
 async def _resolve_endpoint_and_key(model: str, user_token: str) -> tuple[str, str]:
-    """L1-hosted models go to the upstream L1 endpoint with our shared L1
-    key; everything else stays on the OpenTela proxy with the user's
-    bearer token forwarded as-is."""
-    if await is_l1_model(model):
-        return l1_endpoint(), l1_api_key()
+    """Models hosted by a passthrough provider (CSCS L1, RCP, ...) go to
+    that provider's upstream endpoint with its shared key; everything else
+    stays on the OpenTela proxy with the user's bearer token forwarded
+    as-is."""
+    provider = await resolve_provider(model)
+    if provider is not None:
+        return passthrough_endpoint(provider), provider.api_key
     return settings.otela_head_addr + "/v1/service/llm/v1/", user_token
 
 

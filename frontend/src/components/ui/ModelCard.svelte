@@ -1,6 +1,6 @@
 <script lang="ts">
   import { getModelLogo } from '../../lib/modelLogos';
-  import { getModelMetricsUrl, getTierFromLaunchedBy } from '../../lib/modelMetrics';
+  import { getModelMetricsUrl, getTierFromLaunchedBy, isPassthroughLauncher } from '../../lib/modelMetrics';
 
   interface Peer {
     peer_id?: string;
@@ -47,7 +47,7 @@
   // Tier follows the peer's launched_by label: "k8s" or "cscs_L1" → 24/7,
   // anything else (a username from model-launch, or no label) → Slurm.
   const headLaunchedBy = entry.data.replicas[0]?.head?.launched_by;
-  const isL1Model = headLaunchedBy === "cscs_L1";
+  const isL1Model = isPassthroughLauncher(headLaunchedBy);
   const tier = getTierFromLaunchedBy(headLaunchedBy);
   const chatUrl = `${chatAppUrl.replace(/\/$/, "")}/?models=${encodeURIComponent(entry.data.title)}`;
 
@@ -258,7 +258,7 @@
       <!-- Per-replica detail blocks -->
       {#each entry.data.replicas as replica, idx (replica.worker_group_id)}
         {@const head = replica.head}
-        {@const isL1 = head.launched_by === "cscs_L1"}
+        {@const isL1 = isPassthroughLauncher(head.launched_by)}
         {@const hasLabels = !!(head.launched_by || head.slurm_job_id || head.started_at || head.expires_at || head.framework || head.otela_version || head.status)}
         {@const peerLine = (p) => {
           const hn = p.hostname;

@@ -187,86 +187,99 @@ def test_request_failure_returns_empty():
     assert out == []
 
 
-# ── /v1/models L1 merge ─────────────────────────────────────────────────────
+# ── /v1/models passthrough merge ────────────────────────────────────────────
 
 
-def _fake_l1_settings(base_url="https://l1/v1", api_key="k"):
+def _fake_passthrough_settings(base_url="https://l1/v1", api_key="k"):
     class S:
         cscs_l1_base_url = base_url
         cscs_l1_api_key = api_key
+        rcp_base_url = ""
+        rcp_api_key = ""
 
     return S()
 
 
-def _patch_l1_fetch(ids):
+def _patch_passthrough_fetch(ids):
     from unittest.mock import AsyncMock
-    from backend.services import cscs_l1_service
+    from backend.services import passthrough_service
 
     return patch.object(
-        cscs_l1_service,
-        "_fetch_l1_model_ids",
+        passthrough_service,
+        "_fetch_model_ids",
         new=AsyncMock(return_value=set(ids)),
     )
 
 
-def test_models_router_merges_l1_entries():
-    """The models router should advertise L1-hosted models on top of the
-    OpenTela DNT table so the frontend's model list includes them."""
+def test_models_router_merges_passthrough_entries():
+    """The models router should advertise passthrough-hosted models on top
+    of the OpenTela DNT table so the frontend's model list includes them."""
     import asyncio
 
-    from backend.routers.models import _with_l1
-    from backend.services import cscs_l1_service
+    from backend.routers.models import _with_passthrough
+    from backend.services import passthrough_service
 
-    cscs_l1_service._reset_cache_for_tests()
+    passthrough_service._reset_cache_for_tests()
     base = [{"id": "some/local-model", "object": "model"}]
     with (
-        patch.object(cscs_l1_service, "get_settings", return_value=_fake_l1_settings()),
-        _patch_l1_fetch(["Apertus-8B-Instruct-2509", "Apertus-70B-Instruct-2509"]),
+        patch.object(
+            passthrough_service,
+            "get_settings",
+            return_value=_fake_passthrough_settings(),
+        ),
+        _patch_passthrough_fetch(
+            ["Apertus-8B-Instruct-2509", "Apertus-70B-Instruct-2509"]
+        ),
     ):
-        merged = asyncio.run(_with_l1(list(base), with_details=True))
+        merged = asyncio.run(_with_passthrough(list(base), with_details=True))
     ids = {e["id"] for e in merged}
     assert "some/local-model" in ids
     assert "Apertus-8B-Instruct-2509" in ids
     assert "Apertus-70B-Instruct-2509" in ids
 
 
-def test_models_router_dedupes_l1_against_dnt():
+def test_models_router_dedupes_passthrough_against_dnt():
     """If a model is already advertised by OpenTela (e.g. mid-migration
-    we still have a k8s replica running), don't double-list it from L1.
-    The DNT entry wins — that's the one carrying real peer metadata."""
+    we still have a k8s replica running), don't double-list it from the
+    passthrough provider. The DNT entry wins — it carries real peer
+    metadata."""
     import asyncio
 
-    from backend.routers.models import _with_l1
-    from backend.services import cscs_l1_service
+    from backend.routers.models import _with_passthrough
+    from backend.services import passthrough_service
 
-    cscs_l1_service._reset_cache_for_tests()
+    passthrough_service._reset_cache_for_tests()
     base = [{"id": "Apertus-8B-Instruct-2509", "launched_by": "rosmith"}]
     with (
-        patch.object(cscs_l1_service, "get_settings", return_value=_fake_l1_settings()),
-        _patch_l1_fetch(["Apertus-8B-Instruct-2509"]),
+        patch.object(
+            passthrough_service,
+            "get_settings",
+            return_value=_fake_passthrough_settings(),
+        ),
+        _patch_passthrough_fetch(["Apertus-8B-Instruct-2509"]),
     ):
-        merged = asyncio.run(_with_l1(list(base), with_details=True))
+        merged = asyncio.run(_with_passthrough(list(base), with_details=True))
     apertus_8b = [e for e in merged if e["id"] == "Apertus-8B-Instruct-2509"]
     assert len(apertus_8b) == 1
     assert apertus_8b[0]["launched_by"] == "rosmith"  # DNT entry kept
 
 
-def test_models_router_skips_l1_when_unconfigured():
-    """No env → L1 entries withheld so we don't expose models we can't
-    actually proxy."""
+def test_models_router_skips_passthrough_when_unconfigured():
+    """No env → passthrough entries withheld so we don't expose models we
+    can't actually proxy."""
     import asyncio
 
-    from backend.routers.models import _with_l1
-    from backend.services import cscs_l1_service
+    from backend.routers.models import _with_passthrough
+    from backend.services import passthrough_service
 
-    cscs_l1_service._reset_cache_for_tests()
+    passthrough_service._reset_cache_for_tests()
     base = [{"id": "some/local-model", "object": "model"}]
     with patch.object(
-        cscs_l1_service,
+        passthrough_service,
         "get_settings",
-        return_value=_fake_l1_settings(base_url="", api_key=""),
+        return_value=_fake_passthrough_settings(base_url="", api_key=""),
     ):
-        merged = asyncio.run(_with_l1(list(base), with_details=True))
+        merged = asyncio.run(_with_passthrough(list(base), with_details=True))
     assert merged == base
 
 
