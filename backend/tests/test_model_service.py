@@ -223,9 +223,13 @@ def test_models_router_merges_passthrough_entries():
     base = [{"id": "some/local-model", "object": "model"}]
     with (
         patch.object(
-            passthrough_service, "get_settings", return_value=_fake_passthrough_settings()
+            passthrough_service,
+            "get_settings",
+            return_value=_fake_passthrough_settings(),
         ),
-        _patch_passthrough_fetch(["Apertus-8B-Instruct-2509", "Apertus-70B-Instruct-2509"]),
+        _patch_passthrough_fetch(
+            ["Apertus-8B-Instruct-2509", "Apertus-70B-Instruct-2509"]
+        ),
     ):
         merged = asyncio.run(_with_passthrough(list(base), with_details=True))
     ids = {e["id"] for e in merged}
@@ -248,7 +252,9 @@ def test_models_router_dedupes_passthrough_against_dnt():
     base = [{"id": "Apertus-8B-Instruct-2509", "launched_by": "rosmith"}]
     with (
         patch.object(
-            passthrough_service, "get_settings", return_value=_fake_passthrough_settings()
+            passthrough_service,
+            "get_settings",
+            return_value=_fake_passthrough_settings(),
         ),
         _patch_passthrough_fetch(["Apertus-8B-Instruct-2509"]),
     ):

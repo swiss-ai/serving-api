@@ -71,7 +71,9 @@ def test_no_providers_when_unconfigured():
 
 def test_half_configured_provider_skipped():
     """Both env vars required — URL without key should not register."""
-    with _patch_settings(_FakeSettings(cscs_l1_base_url="https://l1/v1", cscs_l1_api_key="")):
+    with _patch_settings(
+        _FakeSettings(cscs_l1_base_url="https://l1/v1", cscs_l1_api_key="")
+    ):
         assert registered_providers() == []
 
 
@@ -91,8 +93,9 @@ def test_synthetic_entries_empty_when_unconfigured():
 
 def test_resolve_routes_to_fetched_ids():
     """Membership reflects whatever the upstream currently exposes."""
-    with _patch_settings(_FakeSettings()), _patch_fetch(
-        ["Apertus-8B-Instruct-2509", "Apertus-70B-Instruct-2509"]
+    with (
+        _patch_settings(_FakeSettings()),
+        _patch_fetch(["Apertus-8B-Instruct-2509", "Apertus-70B-Instruct-2509"]),
     ):
         p = _run(resolve_provider("Apertus-8B-Instruct-2509"))
         assert p is not None and p.name == "cscs_L1"
@@ -101,8 +104,9 @@ def test_resolve_routes_to_fetched_ids():
 
 
 def test_synthetic_entries_built_from_fetched_ids():
-    with _patch_settings(_FakeSettings()), _patch_fetch(
-        ["foo/new-model", "Apertus-8B-Instruct-2509"]
+    with (
+        _patch_settings(_FakeSettings()),
+        _patch_fetch(["foo/new-model", "Apertus-8B-Instruct-2509"]),
     ):
         entries = _run(get_synthetic_entries(with_details=True))
     ids = {e["id"] for e in entries}
@@ -122,8 +126,9 @@ def test_fetch_cached_within_ttl():
     """Successive calls within the TTL hit cache, not re-fetch — stops us
     hammering the upstream on every page load + completion dispatch."""
     fake = AsyncMock(return_value={"Apertus-8B-Instruct-2509"})
-    with _patch_settings(_FakeSettings()), patch.object(
-        passthrough_service, "_fetch_model_ids", new=fake
+    with (
+        _patch_settings(_FakeSettings()),
+        patch.object(passthrough_service, "_fetch_model_ids", new=fake),
     ):
         _run(resolve_provider("Apertus-8B-Instruct-2509"))
         _run(resolve_provider("Apertus-8B-Instruct-2509"))
@@ -145,7 +150,9 @@ def test_cold_start_fetch_failure_falls_back_for_cscs_l1():
 def test_cold_start_failure_no_fallback_for_provider_without_one():
     """A provider with no fallback_ids (e.g. RCP) advertises nothing until
     its first successful fetch — not a stale Apertus list."""
-    rcp = Provider(name="rcp", base_url="https://rcp/v1", api_key="k", device="EPFL RCP")
+    rcp = Provider(
+        name="rcp", base_url="https://rcp/v1", api_key="k", device="EPFL RCP"
+    )
     with _patch_fetch(None):
         assert _run(passthrough_service._get_cached_ids(rcp)) == set()
 
@@ -154,8 +161,9 @@ def test_stale_cache_preferred_over_fallback_after_initial_success():
     """Once we've fetched successfully, a later fetch failure keeps serving
     the real (stale) set rather than resetting to the fallback."""
     fake = AsyncMock(side_effect=[{"custom/only-on-l1"}, None])
-    with _patch_settings(_FakeSettings()), patch.object(
-        passthrough_service, "_fetch_model_ids", new=fake
+    with (
+        _patch_settings(_FakeSettings()),
+        patch.object(passthrough_service, "_fetch_model_ids", new=fake),
     ):
         first = _run(get_synthetic_entries())
         # Expire the cache and call again; second fetch fails.
@@ -172,8 +180,10 @@ def test_rcp_provider_routes_independently():
     """An RCP-only model id resolves to the RCP provider with its own
     endpoint + key, while OpenTela models still fall through."""
     settings = _FakeSettings(
-        cscs_l1_base_url="", cscs_l1_api_key="",
-        rcp_base_url="https://rcp/v1", rcp_api_key="rcp-key",
+        cscs_l1_base_url="",
+        cscs_l1_api_key="",
+        rcp_base_url="https://rcp/v1",
+        rcp_api_key="rcp-key",
     )
     with _patch_settings(settings), _patch_fetch(["llama-3-rcp"]):
         p = _run(resolve_provider("llama-3-rcp"))
@@ -186,9 +196,7 @@ def test_collision_first_registered_provider_wins():
     """When two providers expose the same id, the earlier one in
     registration order (CSCS L1) wins routing and the duplicate is not
     double-listed."""
-    settings = _FakeSettings(
-        rcp_base_url="https://rcp/v1", rcp_api_key="rcp-key"
-    )
+    settings = _FakeSettings(rcp_base_url="https://rcp/v1", rcp_api_key="rcp-key")
     # Both providers return the same id from /models.
     with _patch_settings(settings), _patch_fetch(["shared-model"]):
         p = _run(resolve_provider("shared-model"))
