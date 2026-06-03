@@ -33,13 +33,18 @@ class Settings(BaseSettings):
         default="",
         validation_alias=AliasChoices("otela_fixture_path", "ocf_fixture_path"),
     )
-    # CSCS L1 passthrough — when set, chat/completion requests for the
-    # hardcoded L1 model list in backend/services/cscs_l1_service.py are
-    # forwarded here instead of the OpenTela network. Lets us expose
-    # Apertus 8B/70B from the upstream L1 service without launching our
-    # own k8s pods. Both must be provided via env in k8s secrets.
+    # OpenAI-compatible passthrough providers — when a provider's pair is
+    # set, chat/completion requests for model ids that provider exposes are
+    # forwarded to its endpoint instead of the OpenTela network. Lets us
+    # surface upstream-hosted models without launching our own k8s pods.
+    # Each pair must be provided via env in k8s secrets; registration +
+    # discovery live in backend/services/passthrough_service.py.
+    #   CSCS L1: Apertus 8B/70B from the CSCS L1 service.
     cscs_l1_base_url: str = ""
     cscs_l1_api_key: str = ""
+    #   EPFL RCP: another OpenAI-compatible upstream.
+    rcp_base_url: str = ""
+    rcp_api_key: str = ""
     langfuse_host: str = ""
     langfuse_public_key: str = ""
     langfuse_secret_key: str = ""
