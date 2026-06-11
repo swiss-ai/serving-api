@@ -55,6 +55,7 @@ def test_app_routes_registered(client):
         "/v1/perf",
         "/v1/rerank",
         "/v1/score",
+        "/v1/classify",
         "/v1/tokenize",
         "/v1/detokenize",
     ]
@@ -97,6 +98,42 @@ def test_score_requires_auth(client):
         "/v1/score", json={"model": "test", "text_1": "a", "text_2": "b"}
     )
     assert response.status_code in (401, 403)
+
+
+def test_classify_requires_auth(client):
+    """/v1/classify should reject unauthenticated requests."""
+    response = client.post("/v1/classify", json={"model": "test", "input": "hello"})
+    assert response.status_code in (401, 403)
+
+
+def test_classify_forwards_to_pod_root(client, monkeypatch):
+    """/v1/classify must forward to the vLLM pod root (/classify), not /v1/classify.
+    vLLM serves classify without the /v1 prefix used by chat/completions/embeddings,
+    so the upstream base must stop at ".../v1/service/llm/"."""
+    import types
+
+    import backend.routers.classify as classify_router
+    from backend.middleware.auth import require_auth
+    from backend.config import get_settings
+
+    captured = {}
+
+    async def fake_classify(*, endpoint, api_key, payload, model):
+        captured["endpoint"] = endpoint
+        return types.SimpleNamespace(data={"ok": True})
+
+    monkeypatch.setattr(classify_router, "llm_proxy_classify", fake_classify)
+    client.app.dependency_overrides[require_auth] = lambda: "test-token"
+    try:
+        response = client.post("/v1/classify", json={"model": "m", "input": "hello"})
+    finally:
+        client.app.dependency_overrides.pop(require_auth, None)
+
+    assert response.status_code == 200
+    base = get_settings().otela_head_addr
+    assert captured["endpoint"] == base + "/v1/service/llm/"
+    upstream = captured["endpoint"].rstrip("/") + "/classify"
+    assert "/service/llm/v1/" not in upstream, upstream
 
 
 def test_tokenize_requires_auth(client):

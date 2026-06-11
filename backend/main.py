@@ -17,6 +17,7 @@ from backend.routers import (
     profile,
     metrics,
     rerank,
+    classify,
     tokenization,
     mcp,
 )
@@ -69,6 +70,7 @@ app.include_router(models.router)
 app.include_router(profile.router)
 app.include_router(metrics.router)
 app.include_router(rerank.router)
+app.include_router(classify.router)
 app.include_router(tokenization.router)
 app.include_router(mcp.router)
 
