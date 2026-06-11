@@ -117,3 +117,67 @@ def test_statistics_no_auth(client):
     """/v1/statistics should work without auth."""
     response = client.get("/v1/statistics")
     assert response.status_code in (200, 500)
+
+
+@pytest.mark.parametrize(
+    "path,module_path,fn_name,payload",
+    [
+        (
+            "/v1/score",
+            "backend.routers.rerank",
+            "llm_proxy_score",
+            {"model": "m", "text_1": "a", "text_2": "b"},
+        ),
+        (
+            "/v1/rerank",
+            "backend.routers.rerank",
+            "llm_proxy_rerank",
+            {"model": "m", "query": "q", "documents": ["a"]},
+        ),
+        (
+            "/v1/tokenize",
+            "backend.routers.tokenization",
+            "llm_proxy_tokenize",
+            {"model": "m", "prompt": "hello"},
+        ),
+        (
+            "/v1/detokenize",
+            "backend.routers.tokenization",
+            "llm_proxy_detokenize",
+            {"model": "m", "tokens": [1, 2, 3]},
+        ),
+    ],
+)
+def test_pooling_endpoints_forward_to_pod_root(
+    client, monkeypatch, path, module_path, fn_name, payload
+):
+    """Regression: pooling-family endpoints must forward to the vLLM pod root
+    (e.g. /score), not /v1/score. vLLM serves these without the /v1 prefix used
+    by chat/completions/embeddings, so the upstream base must stop at
+    ".../v1/service/llm/". A stray "/v1/" here makes the pod 404."""
+    import importlib
+    import types
+
+    from backend.middleware.auth import require_auth
+    from backend.config import get_settings
+
+    module = importlib.import_module(module_path)
+    captured = {}
+
+    async def fake_proxy(*, endpoint, api_key, payload, model):
+        captured["endpoint"] = endpoint
+        return types.SimpleNamespace(data={"ok": True})
+
+    monkeypatch.setattr(module, fn_name, fake_proxy)
+    client.app.dependency_overrides[require_auth] = lambda: "test-token"
+    try:
+        response = client.post(path, json=payload)
+    finally:
+        client.app.dependency_overrides.pop(require_auth, None)
+
+    assert response.status_code == 200
+    base = get_settings().otela_head_addr
+    assert captured["endpoint"] == base + "/v1/service/llm/"
+    # The composed upstream URL must hit the pod root, never a double-/v1 path.
+    upstream = captured["endpoint"].rstrip("/") + path[len("/v1") :]
+    assert "/service/llm/v1/" not in upstream, upstream

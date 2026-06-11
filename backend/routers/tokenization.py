@@ -6,6 +6,10 @@ from backend.config import get_settings
 router = APIRouter()
 settings = get_settings()
 
+# vLLM serves /tokenize and /detokenize at the server root, NOT under /v1 like
+# chat/completions/embeddings. The upstream base must stop at ".../v1/service/llm/" —
+# appending "/v1/" would forward to a nonexistent "/v1/tokenize" on the pod and 404.
+
 
 @router.post("/v1/tokenize")
 async def tokenize(
@@ -14,7 +18,7 @@ async def tokenize(
 ):
     data = await request.json()
     response = await llm_proxy_tokenize(
-        endpoint=settings.otela_head_addr + "/v1/service/llm/v1/",
+        endpoint=settings.otela_head_addr + "/v1/service/llm/",
         api_key=token,
         payload=data,
         model=data.get("model", "unknown"),
@@ -29,7 +33,7 @@ async def detokenize(
 ):
     data = await request.json()
     response = await llm_proxy_detokenize(
-        endpoint=settings.otela_head_addr + "/v1/service/llm/v1/",
+        endpoint=settings.otela_head_addr + "/v1/service/llm/",
         api_key=token,
         payload=data,
         model=data.get("model", "unknown"),
