@@ -356,6 +356,19 @@ async def llm_proxy_score(endpoint, api_key, payload: dict, model: str):
     )
 
 
+async def llm_proxy_classify(endpoint, api_key, payload: dict, model: str):
+    return await _shared_proxy_handler(
+        endpoint=endpoint,
+        api_key=api_key,
+        payload=payload,
+        headers_extra={},
+        stream=False,
+        full_url=endpoint.rstrip("/") + "/classify",
+        model=model,
+        raw_response=True,
+    )
+
+
 async def llm_proxy_tokenize(endpoint, api_key, payload: dict, model: str):
     return await _shared_proxy_handler(
         endpoint=endpoint,
