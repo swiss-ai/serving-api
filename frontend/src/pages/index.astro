@@ -29,12 +29,24 @@ const articles = (await getCollection("articles"))
 // instead of a Sign In button that would kick off the real Auth0 flow.
 const authBypass =
   (process.env.VITE_DEV_AUTH_BYPASS || import.meta.env.VITE_DEV_AUTH_BYPASS) === 'true';
-// Auth0 tenant for the logout redirect (clears the Auth0 + upstream CILogon
-// session, not just the local app cookie). process.env wins for SSR runtime.
+// Auth0 config for the logout redirect (clears the Auth0 + upstream CILogon
+// session, not just the local app cookie). Use the SAME app the server logs in
+// with — AUTH0_CLIENT_ID / AUTH0_DOMAIN from the deployment configmap/secret —
+// so logout's client_id matches the session. These are not VITE_-prefixed, so
+// at runtime they only exist on process.env (SSR); VITE_ vars are a local-dev
+// fallback.
 const auth0Domain =
-  process.env.VITE_AUTH0_DOMAIN || import.meta.env.VITE_AUTH0_DOMAIN || '';
+  process.env.AUTH0_DOMAIN ||
+  import.meta.env.AUTH0_DOMAIN ||
+  process.env.VITE_AUTH0_DOMAIN ||
+  import.meta.env.VITE_AUTH0_DOMAIN ||
+  '';
 const auth0ClientId =
-  process.env.VITE_AUTH0_CLIENT_ID || import.meta.env.VITE_AUTH0_CLIENT_ID || '';
+  process.env.AUTH0_CLIENT_ID ||
+  import.meta.env.AUTH0_CLIENT_ID ||
+  process.env.VITE_AUTH0_CLIENT_ID ||
+  import.meta.env.VITE_AUTH0_CLIENT_ID ||
+  '';
 const session = authBypass
   ? { user: { name: 'Dev User', email: 'dev@localhost' }, accessToken: 'dev-dummy-token' }
   : await getSession(Astro.request);
