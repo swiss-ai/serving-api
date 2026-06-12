@@ -29,12 +29,12 @@ const articles = (await getCollection("articles"))
 // instead of a Sign In button that would kick off the real Auth0 flow.
 const authBypass =
   (process.env.VITE_DEV_AUTH_BYPASS || import.meta.env.VITE_DEV_AUTH_BYPASS) === 'true';
-// Auth0 config for the logout redirect (clears the Auth0 + upstream CILogon
-// session, not just the local app cookie). Use the SAME app the server logs in
-// with — AUTH0_CLIENT_ID / AUTH0_DOMAIN from the deployment configmap/secret —
-// so logout's client_id matches the session. These are not VITE_-prefixed, so
-// at runtime they only exist on process.env (SSR); VITE_ vars are a local-dev
-// fallback.
+// Auth0 config for the logout redirect (clears the local app cookie + the
+// Auth0 session; CILogon's IdP session can't be cleared, see the logout
+// handler below). Use the SAME app the server logs in with — AUTH0_CLIENT_ID /
+// AUTH0_DOMAIN from the deployment configmap/secret — so logout's client_id
+// matches the session. These are not VITE_-prefixed, so at runtime they only
+// exist on process.env (SSR); VITE_ vars are a local-dev fallback.
 const auth0Domain =
   process.env.AUTH0_DOMAIN ||
   import.meta.env.AUTH0_DOMAIN ||
@@ -191,15 +191,18 @@ const sponsors = [
               } catch (e) {
                 console.error('Local sign-out failed:', e);
               }
-              // 2) Clear the Auth0 session and federate logout to the upstream
-              //    IdP (CILogon), so the next sign-in shows the login screen
-              //    instead of silently re-authenticating.
+              // 2) Clear the Auth0 session so the next sign-in shows the login
+              //    screen instead of silently re-authenticating. We don't pass
+              //    ?federated: CILogon exposes no OIDC end_session_endpoint, so
+              //    Auth0 can't end its session (it would just log
+              //    federated_logout_failed). The CILogon/institution SSO
+              //    session can't be cleared programmatically.
               const params = new URLSearchParams({
                 client_id: auth0ClientId,
                 returnTo: window.location.origin,
               });
               window.location.href =
-                `https://${auth0Domain}/v2/logout?federated&${params.toString()}`;
+                `https://${auth0Domain}/v2/logout?${params.toString()}`;
             });
           </script>
 
