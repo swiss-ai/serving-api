@@ -10,6 +10,7 @@ import pytest
 from backend.services import passthrough_service
 from backend.services.passthrough_service import (
     Provider,
+    _ALLOWED_MODEL_IDS,
     _CSCS_L1_FALLBACK_IDS,
     _reset_cache_for_tests,
     endpoint,
@@ -80,7 +81,7 @@ def test_half_configured_provider_skipped():
 def test_resolve_false_when_unconfigured():
     """No provider configured → even a known id falls through to OpenTela."""
     with _patch_settings(_FakeSettings(cscs_l1_base_url="", cscs_l1_api_key="")):
-        assert _run(resolve_provider("Apertus-8B-Instruct-2509")) is None
+        assert _run(resolve_provider("swiss-ai/Apertus-8B-Instruct-2509")) is None
 
 
 def test_synthetic_entries_empty_when_unconfigured():
@@ -95,22 +96,31 @@ def test_resolve_routes_to_fetched_ids():
     """Membership reflects whatever the upstream currently exposes."""
     with (
         _patch_settings(_FakeSettings()),
-        _patch_fetch(["Apertus-8B-Instruct-2509", "Apertus-70B-Instruct-2509"]),
+        _patch_fetch(
+            [
+                "swiss-ai/Apertus-8B-Instruct-2509",
+                "swiss-ai/Apertus-70B-Instruct-2509",
+            ]
+        ),
     ):
-        p = _run(resolve_provider("Apertus-8B-Instruct-2509"))
+        p = _run(resolve_provider("swiss-ai/Apertus-8B-Instruct-2509"))
         assert p is not None and p.name == "cscs_L1"
-        assert _run(resolve_provider("Apertus-70B-Instruct-2509")).name == "cscs_L1"
+        assert (
+            _run(resolve_provider("swiss-ai/Apertus-70B-Instruct-2509")).name
+            == "cscs_L1"
+        )
         assert _run(resolve_provider("not-hosted")) is None
 
 
 def test_synthetic_entries_built_from_fetched_ids():
     with (
         _patch_settings(_FakeSettings()),
-        _patch_fetch(["foo/new-model", "Apertus-8B-Instruct-2509"]),
+        # foo/new-model is off the allowlist and must be dropped.
+        _patch_fetch(["foo/new-model", "swiss-ai/Apertus-8B-Instruct-2509"]),
     ):
         entries = _run(get_synthetic_entries(with_details=True))
     ids = {e["id"] for e in entries}
-    assert ids == {"foo/new-model", "Apertus-8B-Instruct-2509"}
+    assert ids == {"swiss-ai/Apertus-8B-Instruct-2509"}
     for e in entries:
         assert e["launched_by"] == "cscs_L1"
         assert e["framework"] == "vllm"
@@ -125,15 +135,51 @@ def test_synthetic_entries_built_from_fetched_ids():
 def test_fetch_cached_within_ttl():
     """Successive calls within the TTL hit cache, not re-fetch — stops us
     hammering the upstream on every page load + completion dispatch."""
-    fake = AsyncMock(return_value={"Apertus-8B-Instruct-2509"})
+    fake = AsyncMock(return_value={"swiss-ai/Apertus-8B-Instruct-2509"})
     with (
         _patch_settings(_FakeSettings()),
         patch.object(passthrough_service, "_fetch_model_ids", new=fake),
     ):
-        _run(resolve_provider("Apertus-8B-Instruct-2509"))
-        _run(resolve_provider("Apertus-8B-Instruct-2509"))
+        _run(resolve_provider("swiss-ai/Apertus-8B-Instruct-2509"))
+        _run(resolve_provider("swiss-ai/Apertus-8B-Instruct-2509"))
         _run(resolve_provider("anything"))
     assert fake.await_count == 1
+
+
+# ── allowlist curation ──────────────────────────────────────────────────────
+
+
+def test_allowlist_is_the_two_apertus_instruct_models():
+    """Guard the curated set so a stray edit can't silently widen it."""
+    assert _ALLOWED_MODEL_IDS == frozenset(
+        {
+            "swiss-ai/Apertus-8B-Instruct-2509",
+            "swiss-ai/Apertus-70B-Instruct-2509",
+        }
+    )
+
+
+def test_off_allowlist_ids_are_filtered_from_listing_and_routing():
+    """A provider that advertises many models (RCP-style, incl. quant
+    variants and a bare-prefix id) surfaces ONLY the two allowlisted ids,
+    and only those route."""
+    upstream = [
+        "swiss-ai/Apertus-8B-Instruct-2509",
+        "swiss-ai/Apertus-70B-Instruct-2509",
+        "swiss-ai/Apertus-8B-Instruct-2509-FP8",  # quant variant
+        "Apertus-8B-Instruct-2509",  # bare, no org prefix
+        "meta-llama/Llama-3-8B",
+    ]
+    with _patch_settings(_FakeSettings()), _patch_fetch(upstream):
+        listed = {e["id"] for e in _run(get_synthetic_entries())}
+        assert _run(resolve_provider("swiss-ai/Apertus-8B-Instruct-2509")) is not None
+        assert _run(resolve_provider("swiss-ai/Apertus-8B-Instruct-2509-FP8")) is None
+        assert _run(resolve_provider("Apertus-8B-Instruct-2509")) is None
+        assert _run(resolve_provider("meta-llama/Llama-3-8B")) is None
+    assert listed == {
+        "swiss-ai/Apertus-8B-Instruct-2509",
+        "swiss-ai/Apertus-70B-Instruct-2509",
+    }
 
 
 # ── failure modes ───────────────────────────────────────────────────────────
@@ -160,7 +206,8 @@ def test_cold_start_failure_no_fallback_for_provider_without_one():
 def test_stale_cache_preferred_over_fallback_after_initial_success():
     """Once we've fetched successfully, a later fetch failure keeps serving
     the real (stale) set rather than resetting to the fallback."""
-    fake = AsyncMock(side_effect=[{"custom/only-on-l1"}, None])
+    allowed = "swiss-ai/Apertus-8B-Instruct-2509"
+    fake = AsyncMock(side_effect=[{allowed}, None])
     with (
         _patch_settings(_FakeSettings()),
         patch.object(passthrough_service, "_fetch_model_ids", new=fake),
@@ -169,8 +216,8 @@ def test_stale_cache_preferred_over_fallback_after_initial_success():
         # Expire the cache and call again; second fetch fails.
         passthrough_service._cache["cscs_L1"]["fetched_at"] = 0.0
         second = _run(get_synthetic_entries())
-    assert {e["id"] for e in first} == {"custom/only-on-l1"}
-    assert {e["id"] for e in second} == {"custom/only-on-l1"}
+    assert {e["id"] for e in first} == {allowed}
+    assert {e["id"] for e in second} == {allowed}
 
 
 # ── multi-provider routing + precedence ─────────────────────────────────────
@@ -185,8 +232,11 @@ def test_rcp_provider_routes_independently():
         rcp_base_url="https://rcp/v1",
         rcp_api_key="rcp-key",
     )
-    with _patch_settings(settings), _patch_fetch(["llama-3-rcp"]):
-        p = _run(resolve_provider("llama-3-rcp"))
+    with (
+        _patch_settings(settings),
+        _patch_fetch(["swiss-ai/Apertus-70B-Instruct-2509"]),
+    ):
+        p = _run(resolve_provider("swiss-ai/Apertus-70B-Instruct-2509"))
     assert p is not None and p.name == "rcp"
     assert endpoint(p) == "https://rcp/v1"
     assert p.api_key == "rcp-key"
@@ -197,12 +247,13 @@ def test_collision_first_registered_provider_wins():
     registration order (CSCS L1) wins routing and the duplicate is not
     double-listed."""
     settings = _FakeSettings(rcp_base_url="https://rcp/v1", rcp_api_key="rcp-key")
+    shared_id = "swiss-ai/Apertus-8B-Instruct-2509"
     # Both providers return the same id from /models.
-    with _patch_settings(settings), _patch_fetch(["shared-model"]):
-        p = _run(resolve_provider("shared-model"))
+    with _patch_settings(settings), _patch_fetch([shared_id]):
+        p = _run(resolve_provider(shared_id))
         entries = _run(get_synthetic_entries())
     assert p.name == "cscs_L1"  # registered before rcp
-    shared = [e for e in entries if e["id"] == "shared-model"]
+    shared = [e for e in entries if e["id"] == shared_id]
     assert len(shared) == 1
     assert shared[0]["launched_by"] == "cscs_L1"
 

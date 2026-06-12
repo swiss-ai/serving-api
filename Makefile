@@ -1,4 +1,4 @@
-.PHONY: install install-dev format check test run dummy-run db-up db-down migrate _ensure-env _ensure-frontend-env _guard-local-db _guard-local-api
+.PHONY: install install-dev format check test run auth-run dummy-run db-up db-down migrate _ensure-env _ensure-frontend-env _guard-local-db _guard-local-api
 
 UV_EXTRA ?=
 
@@ -98,14 +98,27 @@ migrate: _ensure-env _guard-local-db db-up
 	alembic upgrade head
 
 run: _ensure-env _ensure-frontend-env _guard-local-api db-up migrate
+	@trap 'kill 0' EXIT INT TERM; \
 	uvicorn backend.main:app --reload --host 0.0.0.0 --port 8080 & \
 	cd frontend && npm run dev & \
+	wait
+
+# Like `run`, but enables the local dev auth bypass so the frontend's dev
+# session (api_key.astro) is accepted without a real Auth0 login. Use this
+# for local work when you don't have Auth0 configured. LOCAL ONLY — the
+# bypass must never be enabled in a deployment.
+auth-run: _ensure-env _ensure-frontend-env _guard-local-api db-up migrate
+	@trap 'kill 0' EXIT INT TERM; \
+	DEV_AUTH_BYPASS=true \
+	uvicorn backend.main:app --reload --host 0.0.0.0 --port 8080 & \
+	cd frontend && VITE_DEV_AUTH_BYPASS=true npm run dev & \
 	wait
 
 # Same as `run` but forces the model list to come from the synthesised
 # upgraded fixture instead of the live OpenTela endpoint. Useful for
 # iterating on the model-card UI without depending on prod state.
 dummy-run: _ensure-env _ensure-frontend-env _guard-local-api db-up migrate
+	@trap 'kill 0' EXIT INT TERM; \
 	OTELA_FIXTURE_PATH=$(PWD)/backend/tests/fixtures/dnt_table_dev_live.json \
 	uvicorn backend.main:app --reload --host 0.0.0.0 --port 8080 & \
 	cd frontend && npm run dev & \

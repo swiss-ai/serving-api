@@ -58,6 +58,7 @@ def test_app_routes_registered(client):
         "/v1/classify",
         "/v1/tokenize",
         "/v1/detokenize",
+        "/v1/profile/rotate",
     ]
     for path in expected:
         assert path in paths, f"Missing route: {path}"
@@ -218,3 +219,84 @@ def test_pooling_endpoints_forward_to_pod_root(
     # The composed upstream URL must hit the pod root, never a double-/v1 path.
     upstream = captured["endpoint"].rstrip("/") + path[len("/v1") :]
     assert "/service/llm/v1/" not in upstream, upstream
+
+
+def test_profile_rotate_requires_auth(client):
+    """/v1/profile/rotate should reject unauthenticated requests."""
+    response = client.post("/v1/profile/rotate")
+    assert response.status_code in (401, 403)
+
+
+def test_profile_rotate_invalid_access_token(client, monkeypatch):
+    """An invalid Auth0 access token should yield 401, not rotate anything."""
+    from backend.routers import profile as profile_router
+
+    def fake_userinfo(access_token):
+        raise Exception("Invalid access token")
+
+    monkeypatch.setattr(profile_router, "get_profile_from_accesstoken", fake_userinfo)
+    response = client.post(
+        "/v1/profile/rotate", headers={"Authorization": "Bearer bad-token"}
+    )
+    assert response.status_code == 401
+
+
+def test_profile_rotate_no_key_for_user(client, monkeypatch):
+    """Rotating when the user has no API key yields 404."""
+    from backend.routers import profile as profile_router
+
+    monkeypatch.setattr(
+        profile_router,
+        "get_profile_from_accesstoken",
+        lambda access_token: {"email": "nobody@ethz.ch"},
+    )
+    response = client.post(
+        "/v1/profile/rotate", headers={"Authorization": "Bearer good-token"}
+    )
+    assert response.status_code == 404
+
+
+def test_profile_rotate_replaces_key_and_clears_cache(client, monkeypatch):
+    """Rotating issues a new key, removes the old DB row, and evicts the old
+    token from the Redis cache (no full flush needed)."""
+    from sqlmodel import Session, select
+    from backend.models.entities import APIKey
+    from backend.routers import profile as profile_router
+    from backend.redis_cache import get_token_cache
+
+    email = "rotate-me@ethz.ch"
+    old_key = "sk-rc-oldkey-rotate-test"
+
+    engine = client.app.state.engine
+    with Session(engine) as session:
+        session.add(APIKey(key=old_key, owner_email=email, budget=1000))
+        session.commit()
+
+    # Simulate the old key already being warm in the token cache.
+    cache = get_token_cache()
+    cache.add_token(old_key, ttl=3600)
+    assert cache.has_token(old_key)
+
+    monkeypatch.setattr(
+        profile_router,
+        "get_profile_from_accesstoken",
+        lambda access_token: {"email": email},
+    )
+    response = client.post(
+        "/v1/profile/rotate", headers={"Authorization": "Bearer good-token"}
+    )
+    assert response.status_code == 200
+
+    new_key = response.json()["api_key"]
+    assert new_key != old_key
+    assert new_key.startswith("sk-rc-")
+
+    # Old key evicted from cache; new key not cached until first use.
+    assert not cache.has_token(old_key)
+    assert not cache.has_token(new_key)
+
+    # DB now holds only the new key for this user.
+    with Session(engine) as session:
+        assert session.exec(select(APIKey).where(APIKey.key == old_key)).first() is None
+        row = session.exec(select(APIKey).where(APIKey.owner_email == email)).first()
+        assert row.key == new_key

@@ -1,0 +1,67 @@
+---
+import PageLayout from "@layouts/PageLayout.astro";
+import Container from "@components/Container.astro";
+
+export const prerender = false;
+
+const faqs = [
+  {
+    q: "Can I use this in my project?",
+    a: "Yes, as long as it's an academic project, we should be able to grant you access.",
+  },
+  {
+    q: "Can I use this for commercial or startup use?",
+    a: 'No, this is for non-commercial use only. Please reach out at <a class="text-indigo-600 dark:text-indigo-400 underline" href="https://apertvs.ai/contact/" target="_blank" rel="noopener noreferrer">apertvs.ai/contact/</a>, including some details and we will forward your request to the right internal team or industry partners',
+  },
+  {
+    q: "Can I launch any model?",
+    a: 'Yes, see <a class="text-indigo-600 dark:text-indigo-400 underline" href="https://github.com/swiss-ai/model-launch" target="_blank" rel="noopener noreferrer">model launch</a>. This usually requires a CSCS GPU grant. Compute grants come in two tiers: small (&lt;32k GPU hrs) and large (&gt;500k GPU hrs). See the <a class="text-indigo-600 dark:text-indigo-400 underline" href="https://www.swiss-ai.org/compute-grants" target="_blank" rel="noopener noreferrer">compute grants process</a>.',
+  },
+  {
+    q: "Is my institution enabled?",
+    a: 'Members of supported Swiss institutions are auto-enabled, getting an active budget on first sign-in. See the current list of <a class="text-indigo-600 dark:text-indigo-400 underline" href="https://github.com/swiss-ai/serving-api/blob/main/backend/swiss_domains.json" target="_blank" rel="noopener noreferrer">enabled institutions</a>. If yours is not listed, please <a class="text-indigo-600 dark:text-indigo-400 underline" href="https://apertvs.ai/contact/" target="_blank" rel="noopener noreferrer">contact us</a>.',
+  },
+  {
+    q: "I'm at a non-Swiss university, can I get access?",
+    a: "Yes, but service is prioritised in this order: <br /><br />(1) ETH and EPFL Apertus-related projects, <br />(2) Swiss AI-related institutions, <br />(3) other global academic institutions.",
+  },
+  {
+    q: "I'm running a hackathon or sprint, can we get access?",
+    a: 'Possibly. If it\'s academic and focused on Apertus, please reach out at <a class="text-indigo-600 dark:text-indigo-400 underline" href="https://apertvs.ai/contact/" target="_blank" rel="noopener noreferrer">apertvs.ai/contact/</a>.',
+  },
+  {
+    q: "I can't access the Chat because I'm not on the network. What can I do?",
+    a: 'If you have API access, try running Open WebUI locally: see the <a class="text-indigo-600 dark:text-indigo-400 underline" href="https://serving.swissai.svc.cscs.ch/guides/01-getting-started/openwebui" target="_blank" rel="noopener noreferrer">Open WebUI guide</a>. Otherwise, we can whitelist your institution or VPN IP range; please <a class="text-indigo-600 dark:text-indigo-400 underline" href="https://apertvs.ai/contact/" target="_blank" rel="noopener noreferrer">contact us</a>.',
+  },
+  {
+    q: "I would like to collaborate on an academic project, is this possible?",
+    a: 'Please reach out at <a class="text-indigo-600 dark:text-indigo-400 underline" href="https://apertvs.ai/contact/" target="_blank" rel="noopener noreferrer">apertvs.ai/contact/</a>.',
+  },
+];
+---
+
+<PageLayout title="FAQ" description="Frequently asked questions about the Swiss AI Research Platform">
+  <Container>
+    <div class="space-y-12 py-8">
+      <div class="animate text-center">
+        <h1 class="text-4xl md:text-5xl font-bold gradient-text mb-4">
+          Frequently Asked Questions
+        </h1>
+        <p class="text-lg text-slate-600 dark:text-slate-400 max-w-2xl mx-auto">
+          Common questions about access and use of the Swiss AI Platform
+        </p>
+      </div>
+
+      <div class="space-y-6">
+        {faqs.map((faq) => (
+          <div class="animate card p-8">
+            <h2 class="text-xl font-bold text-slate-900 dark:text-white mb-3">
+              {faq.q}
+            </h2>
+            <p class="text-slate-600 dark:text-slate-300 leading-relaxed" set:html={faq.a} />
+          </div>
+        ))}
+      </div>
+    </div>
+  </Container>
+</PageLayout>

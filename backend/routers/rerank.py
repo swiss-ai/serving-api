@@ -1,5 +1,6 @@
-from fastapi import APIRouter, Request, Depends
+from fastapi import APIRouter, Depends
 from backend.middleware.auth import require_auth
+from backend.middleware.body import json_body
 from backend.services.llm_service import llm_proxy_rerank, llm_proxy_score
 from backend.config import get_settings
 
@@ -14,10 +15,9 @@ settings = get_settings()
 
 @router.post("/v1/rerank")
 async def rerank(
-    request: Request,
     token: str = Depends(require_auth),
+    data: dict = Depends(json_body),
 ):
-    data = await request.json()
     response = await llm_proxy_rerank(
         endpoint=settings.otela_head_addr + "/v1/service/llm/",
         api_key=token,
@@ -29,10 +29,9 @@ async def rerank(
 
 @router.post("/v1/score")
 async def score(
-    request: Request,
     token: str = Depends(require_auth),
+    data: dict = Depends(json_body),
 ):
-    data = await request.json()
     response = await llm_proxy_score(
         endpoint=settings.otela_head_addr + "/v1/service/llm/",
         api_key=token,

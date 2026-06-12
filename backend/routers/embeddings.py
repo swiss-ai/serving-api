@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Request, Depends
 from backend.middleware.auth import require_auth
+from backend.middleware.body import json_body
 from backend.services.llm_service import llm_proxy_embeddings
 from backend.config import get_settings
 
@@ -11,8 +12,8 @@ settings = get_settings()
 async def embeddings(
     request: Request,
     token: str = Depends(require_auth),
+    data: dict = Depends(json_body),
 ):
-    data = await request.json()
     data["user_id"] = token
 
     opt_out = request.headers.get("X-OPTOUT-TRACKING", "").lower() in (
