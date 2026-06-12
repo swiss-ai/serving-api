@@ -53,6 +53,25 @@ def rotate_key(engine, key: str) -> APIKey:
         return api_key
 
 
+def rotate_key_by_email(engine, owner_email: str) -> APIKey:
+    token_cache = get_token_cache()
+
+    with Session(engine) as session:
+        api_key = session.exec(
+            select(APIKey).where(APIKey.owner_email == owner_email)
+        ).first()
+        if api_key is None:
+            raise ValueError("No API key for this user")
+
+        token_cache.remove_token(api_key.key)
+
+        api_key.key = f"sk-rc-{secrets.token_urlsafe(16)}"
+        session.add(api_key)
+        session.commit()
+        session.refresh(api_key)
+        return api_key
+
+
 def verify_token(engine, token: str) -> bool:
     token_cache = get_token_cache()
 
