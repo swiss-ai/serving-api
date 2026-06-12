@@ -228,14 +228,17 @@ def test_models_router_merges_passthrough_entries():
             return_value=_fake_passthrough_settings(),
         ),
         _patch_passthrough_fetch(
-            ["Apertus-8B-Instruct-2509", "Apertus-70B-Instruct-2509"]
+            [
+                "swiss-ai/Apertus-8B-Instruct-2509",
+                "swiss-ai/Apertus-70B-Instruct-2509",
+            ]
         ),
     ):
         merged = asyncio.run(_with_passthrough(list(base), with_details=True))
     ids = {e["id"] for e in merged}
     assert "some/local-model" in ids
-    assert "Apertus-8B-Instruct-2509" in ids
-    assert "Apertus-70B-Instruct-2509" in ids
+    assert "swiss-ai/Apertus-8B-Instruct-2509" in ids
+    assert "swiss-ai/Apertus-70B-Instruct-2509" in ids
 
 
 def test_models_router_dedupes_passthrough_against_dnt():
@@ -249,17 +252,17 @@ def test_models_router_dedupes_passthrough_against_dnt():
     from backend.services import passthrough_service
 
     passthrough_service._reset_cache_for_tests()
-    base = [{"id": "Apertus-8B-Instruct-2509", "launched_by": "rosmith"}]
+    base = [{"id": "swiss-ai/Apertus-8B-Instruct-2509", "launched_by": "rosmith"}]
     with (
         patch.object(
             passthrough_service,
             "get_settings",
             return_value=_fake_passthrough_settings(),
         ),
-        _patch_passthrough_fetch(["Apertus-8B-Instruct-2509"]),
+        _patch_passthrough_fetch(["swiss-ai/Apertus-8B-Instruct-2509"]),
     ):
         merged = asyncio.run(_with_passthrough(list(base), with_details=True))
-    apertus_8b = [e for e in merged if e["id"] == "Apertus-8B-Instruct-2509"]
+    apertus_8b = [e for e in merged if e["id"] == "swiss-ai/Apertus-8B-Instruct-2509"]
     assert len(apertus_8b) == 1
     assert apertus_8b[0]["launched_by"] == "rosmith"  # DNT entry kept
 
