@@ -1,6 +1,7 @@
-from fastapi import APIRouter, Request, Depends
+from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
 from backend.middleware.auth import require_auth
+from backend.middleware.body import json_body
 from backend.services.llm_service import llm_proxy_responses, response_generator_raw
 from backend.services.passthrough_service import (
     resolve_provider,
@@ -14,10 +15,9 @@ settings = get_settings()
 
 @router.post("/v1/responses")
 async def create_response(
-    request: Request,
     token: str = Depends(require_auth),
+    data: dict = Depends(json_body),
 ):
-    data = await request.json()
     stream = data.get("stream", False)
     model = data.get("model", "unknown")
 

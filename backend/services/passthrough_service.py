@@ -20,6 +20,12 @@ Model ids are matched verbatim (no normalization yet). When two
 providers expose the same id, the first one in `registered_providers()`
 wins routing and listing — registration order is precedence.
 
+We curate what surfaces: upstreams advertise many more models than we
+want to expose (RCP alone returns ~26, incl. quant variants), so the
+discovered set is narrowed to the `_ALLOWED_MODEL_IDS` allowlist before
+it is listed or routed. The match is exact — an id under a different org
+prefix is not surfaced.
+
 Secrets (base URLs, API keys) come from env via Settings.
 """
 
@@ -60,12 +66,27 @@ class Provider:
     fallback_ids: tuple[str, ...] = ()
 
 
+# Only these exact model ids are ever surfaced (listed or routed) from any
+# passthrough provider. Upstreams expose far more than we want to advertise
+# (RCP ~26, incl. quant variants); discovery is narrowed to this allowlist.
+# Match is exact and verbatim — an id reported under a different org prefix
+# (e.g. bare `Apertus-8B-Instruct-2509`) does NOT match.
+_ALLOWED_MODEL_IDS: frozenset[str] = frozenset(
+    {
+        "swiss-ai/Apertus-8B-Instruct-2509",
+        "swiss-ai/Apertus-70B-Instruct-2509",
+    }
+)
+
+
 # CSCS L1 cold-start fallback so the Apertus rows don't vanish during a
 # brief L1 outage on the very first fetch. New providers (e.g. RCP) get
-# no fallback — we just wait for the first successful discovery.
+# no fallback — we just wait for the first successful discovery. Kept in
+# sync with _ALLOWED_MODEL_IDS (CSCS now reports the org-prefixed ids);
+# anything not on the allowlist would be filtered out anyway.
 _CSCS_L1_FALLBACK_IDS: tuple[str, ...] = (
-    "Apertus-70B-Instruct-2509",
-    "Apertus-8B-Instruct-2509",
+    "swiss-ai/Apertus-70B-Instruct-2509",
+    "swiss-ai/Apertus-8B-Instruct-2509",
 )
 
 
@@ -135,10 +156,20 @@ async def _fetch_model_ids(provider: Provider) -> set[str] | None:
 
 
 async def _get_cached_ids(provider: Provider) -> set[str]:
-    """Return the provider's model id set. Refreshes if TTL has expired;
-    on fetch failure keeps stale cache, falling back to
-    ``provider.fallback_ids`` only at true cold start. A transient
-    upstream outage shouldn't make rows that *were* there disappear."""
+    """The provider's *advertised* id set: whatever discovery currently
+    knows, narrowed to ``_ALLOWED_MODEL_IDS``. This is the single boundary
+    both listing (``get_synthetic_entries``) and routing
+    (``resolve_provider``) go through, so the same allowlist governs both —
+    a model we don't list also can't be routed to."""
+    return _ALLOWED_MODEL_IDS & await _discover_ids(provider)
+
+
+async def _discover_ids(provider: Provider) -> set[str]:
+    """Return the provider's discovered model id set (pre-allowlist).
+    Refreshes if TTL has expired; on fetch failure keeps stale cache,
+    falling back to ``provider.fallback_ids`` only at true cold start. A
+    transient upstream outage shouldn't make rows that *were* there
+    disappear."""
     now = time.time()
     slot = _cache.get(provider.name)
     if (
