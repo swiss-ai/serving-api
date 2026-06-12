@@ -1,4 +1,7 @@
+import json
 import secrets
+from pathlib import Path
+
 import requests
 from sqlmodel import Session, select
 from backend.config import get_settings
@@ -13,18 +16,11 @@ DEV_DUMMY_TOKEN = "dev-dummy-token"
 DEV_EMAIL = "dev@localhost"
 
 
-SWISS_DOMAINS = [
-    "ethz.ch",
-    "cscs.ch",
-    "unibas.ch",
-    "unibe.ch",
-    "uzh.ch",
-    "epfl.ch",
-    "unil.ch",
-    "unige.ch",
-    "hevs.ch",
-    "fhnw.ch",
-]
+# Institutions whose members are auto-enabled (active budget on first sign-in).
+# Canonical list — referenced from the public FAQ via its GitHub URL.
+_SWISS_DOMAINS_FILE = Path(__file__).resolve().parent.parent / "swiss_domains.json"
+with open(_SWISS_DOMAINS_FILE) as f:
+    SWISS_DOMAINS = json.load(f)
 
 
 def get_or_create_apikey(engine, owner_email: str) -> APIKey:
