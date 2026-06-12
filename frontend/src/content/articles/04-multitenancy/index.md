@@ -37,11 +37,11 @@ We evaluate our system across two experiments:
 
 **Experiment 2.** Compares single-tenant asynchronous training (verl's fully async implementation) against a 2-tenant asynchronous run, to evaluate whether combining multi-tenancy with asynchrony can further improve throughput and match or exceed the state-of-the-art method in throughput (steps per GPU-hour).
 
-Both experiments were conducted with Qwen3-4B, the GRPO algorithm [9], and the DAPO-Math-17k-Processed dataset, with LoRA rank = alpha = 32, lr = 5e-5, max response length = 32k, fsdp_group_size = 2, batch size of 32 prompts and 8 responses per prompt. The asynchronous experiments used `trigger_parameter_sync_step = 2` and `staleness_threshold = 0.1`, meaning that after each parameter sync from trainer to rollout worker, (32 × 8) × (2 + 1) = 768 requests were submitted to vLLM per tenant. Both experiments were run with 1, 2, and 4 GH200 nodes on the Clariden cluster at CSCS.
+Both experiments were conducted with Qwen3-4B, the GRPO algorithm [9], and the DAPO-Math-17k-Processed dataset, with LoRA rank = alpha = 32, lr = 5e-5, max response length = 32k, fsdp_group_size = 2, batch size of 32 prompts and 8 responses per prompt. The asynchronous experiments used `trigger_parameter_sync_step = 2` and `staleness_threshold = 0.1`, meaning that after each parameter sync from trainer to rollout worker, `round((32 × 8) × (2 + 0.1)) = 538` requests were submitted to vLLM per tenant. Both experiments were run with 1, 2, and 4 GH200 nodes on the Clariden cluster at CSCS.
 
 ## Results
 
-**Experiment 1.** At high node counts, multi-tenant synchronous training outperforms single-tenant synchronous training by 45% in throughput. At low node counts, single-tenant training has the edge: the KV cache becomes saturated by concurrent tenant workloads. This is consistent with findings from the literature [2]: verl's synchronous training is effective at small scale, where collocated GPUs are well utilized during rollout, but becomes inefficient at larger scales, where those GPUs are underutilized and benefit more from being decoupled from the training phase. Multi-tenant solves this by decoupling rollout from training across tenants, recovering GPU utilization at scale without sacrificing on-policy strictness.
+**Experiment 1.** At high node counts, multi-tenant synchronous training outperforms single-tenant synchronous training by 45% in throughput. At low node counts, single-tenant training has the edge: the KV cache becomes saturated by concurrent tenant workloads. This is consistent with findings from the literature [10]: verl's synchronous training is effective at small scale, where collocated GPUs are well utilized during rollout, but becomes inefficient at larger scales, where those GPUs are underutilized and benefit more from being decoupled from the training phase. Multi-tenant solves this by decoupling rollout from training across tenants, recovering GPU utilization at scale without sacrificing on-policy strictness.
 
 ![Synchronous training throughput vs. node count, comparing single-tenant and multi-tenant configurations.](./sync_tenant_node_sweep.png)
 
@@ -72,3 +72,5 @@ Multi-tenancy is an additional dimension for scaling RL workloads. It can substi
 [8] Punica: Multi-tenant LoRA serving. https://arxiv.org/pdf/2310.18547
 
 [9] DeepSeekMath: Pushing the Limits of Mathematical Reasoning in Open Language Models. https://arxiv.org/abs/2402.03300
+
+[10] Part II: ROLL Flash -- Accelerating RLVR and Agentic Training with Asynchrony. https://arxiv.org/abs/2510.11345
