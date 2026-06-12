@@ -10,7 +10,7 @@ import ContributorCard from "@components/ContributorCard.astro";
 import SponsorCard from "@components/SponsorCard.astro";
 import CSCSLogo from "@components/CSCSLogo.astro";
 import { SITE, HOME } from "@consts";
-import { SignIn, SignOut } from 'auth-astro/components';
+import { SignIn } from 'auth-astro/components';
 import { getSession } from 'auth-astro/server';
 
 export const prerender = false;
@@ -29,6 +29,12 @@ const articles = (await getCollection("articles"))
 // instead of a Sign In button that would kick off the real Auth0 flow.
 const authBypass =
   (process.env.VITE_DEV_AUTH_BYPASS || import.meta.env.VITE_DEV_AUTH_BYPASS) === 'true';
+// Auth0 tenant for the logout redirect (clears the Auth0 + upstream CILogon
+// session, not just the local app cookie). process.env wins for SSR runtime.
+const auth0Domain =
+  process.env.VITE_AUTH0_DOMAIN || import.meta.env.VITE_AUTH0_DOMAIN || '';
+const auth0ClientId =
+  process.env.VITE_AUTH0_CLIENT_ID || import.meta.env.VITE_AUTH0_CLIENT_ID || '';
 const session = authBypass
   ? { user: { name: 'Dev User', email: 'dev@localhost' }, accessToken: 'dev-dummy-token' }
   : await getSession(Astro.request);
@@ -131,9 +137,9 @@ const sponsors = [
                       </svg>
                       View API Key
                     </a>
-                    <SignOut class="btn-secondary">
+                    <button id="logout-btn" class="btn-secondary">
                       Logout
-                    </SignOut>
+                    </button>
                   </div>
                 </div>
               </div>
@@ -156,6 +162,34 @@ const sponsors = [
               </div>
             )}
           </div>
+
+          <script>
+            // Expose auth-astro's client signOut to the inline handler below
+            // (mirrors auth-astro's own SignOut component pattern).
+            import { signOut } from 'auth-astro/client';
+            // @ts-ignore
+            window.__signOut = signOut;
+          </script>
+          <script define:vars={{ auth0Domain, auth0ClientId }}>
+            document.getElementById('logout-btn')?.addEventListener('click', async () => {
+              // 1) Clear the local app session cookie.
+              try {
+                // @ts-ignore
+                await window.__signOut({ redirect: false });
+              } catch (e) {
+                console.error('Local sign-out failed:', e);
+              }
+              // 2) Clear the Auth0 session and federate logout to the upstream
+              //    IdP (CILogon), so the next sign-in shows the login screen
+              //    instead of silently re-authenticating.
+              const params = new URLSearchParams({
+                client_id: auth0ClientId,
+                returnTo: window.location.origin,
+              });
+              window.location.href =
+                `https://${auth0Domain}/v2/logout?federated&${params.toString()}`;
+            });
+          </script>
 
           <!-- Action Buttons -->
           <div class="animate-delay-3 flex flex-col sm:flex-row gap-6 justify-center">
