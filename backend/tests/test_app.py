@@ -298,7 +298,5 @@ def test_profile_rotate_replaces_key_and_clears_cache(client, monkeypatch):
     # DB now holds only the new key for this user.
     with Session(engine) as session:
         assert session.exec(select(APIKey).where(APIKey.key == old_key)).first() is None
-        row = session.exec(
-            select(APIKey).where(APIKey.owner_email == email)
-        ).first()
+        row = session.exec(select(APIKey).where(APIKey.owner_email == email)).first()
         assert row.key == new_key
