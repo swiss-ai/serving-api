@@ -82,7 +82,15 @@ export default defineConfig({
       }
 
       try {
-        const response = await fetch(`${import.meta.env.AUTH0_ISSUER}/oauth/token`, {
+        // AUTH0_ISSUER is not VITE_-prefixed, so it is NOT baked into
+        // import.meta.env in the built server bundle — at runtime it only
+        // exists on process.env (from the deployment configmap). Without this
+        // fallback the refresh URL becomes "undefined/oauth/token" and every
+        // token refresh throws once the access token expires.
+        const issuer =
+          import.meta.env.AUTH0_ISSUER ||
+          (typeof process !== 'undefined' ? process.env.AUTH0_ISSUER : undefined);
+        const response = await fetch(`${issuer}/oauth/token`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/x-www-form-urlencoded',
