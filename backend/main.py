@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
 from sqlmodel import create_engine
 from backend.config import get_settings
+from backend.services.auth_service import dev_bypass_enabled
 from backend.services.metrics_service import metrics_collector
 from backend.middleware.logging import AccessLogMiddleware
 from backend.models.protocols import BackendHTTPError
@@ -31,6 +32,11 @@ async def lifespan(app: FastAPI):
         settings.database_url,
         pool_pre_ping=True,
     )
+    if dev_bypass_enabled():
+        logging.getLogger("backend").warning(
+            "DEV AUTH BYPASS ENABLED — Auth0 is skipped for the dev token. "
+            "This must never be enabled in a deployed environment."
+        )
     _ = metrics_collector
     yield
     app.state.engine = None

@@ -52,6 +52,11 @@ class Settings(BaseSettings):
     vite_auth0_domain: str = ""
     firebase_service_account_json: str = ""
     access_log: bool = False
+    # LOCAL DEV ONLY. When true, the backend accepts the frontend's
+    # `dev-dummy-token` (see frontend api_key.astro dev session) without
+    # calling Auth0, so `make run` works without a real login. MUST stay
+    # false in every deployed environment.
+    dev_auth_bypass: bool = False
 
     class Config:
         env_file = ".env"

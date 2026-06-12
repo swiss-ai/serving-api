@@ -8,11 +8,17 @@ import { SignIn } from 'auth-astro/components';
 
 export const prerender = false;
 
-// Detect local development
-const isDev = import.meta.env.DEV;
+// Local dev auth bypass. Set by `make auth-run` (alongside the backend's
+// DEV_AUTH_BYPASS) so both sides agree: when on, we fake a session and send
+// the dev-dummy-token the backend is configured to accept. Plain `make run`
+// leaves this unset and uses the real Auth0 flow.
+// Read from process.env first: command-line env vars (set by `make auth-run`)
+// reach SSR there, not via import.meta.env — same pattern as VITE_API_URL below.
+const authBypass =
+  (process.env.VITE_DEV_AUTH_BYPASS || import.meta.env.VITE_DEV_AUTH_BYPASS) === 'true';
 
 let session;
-if (isDev) {
+if (authBypass) {
   // Dummy session for local development — bypasses Auth0
   session = {
     user: { name: 'Dev User', email: 'dev@localhost' },
@@ -390,11 +396,12 @@ const apiUrl = process.env.VITE_API_URL || import.meta.env.VITE_API_URL || 'http
       const userEmail = session?.user?.email || '';
       const userName = session?.user?.name || '';
       
-      // Try to get API key from storage first
+      // Try to get API key (and cached budget) from storage first
       let apiKey = getApiKey();
+      let budget = localStorage.getItem('apiBudget');
       
-      // If not in storage, fetch from server
-      if (!apiKey) {
+      // If not in storage (or budget unknown), fetch from server
+      if (!apiKey || budget === null) {
         const response = await fetch(`${apiUrl}/v1/profile`, {
           method: 'GET',
           headers: {
@@ -409,26 +416,30 @@ const apiUrl = process.env.VITE_API_URL || import.meta.env.VITE_API_URL || 'http
         
         const data = await response.json();
         apiKey = data.api_key;
-        
-        // Update account status based on budget
-        if (statusText) {
-          if (data.budget <= 0) {
-            statusText.textContent = 'Inactive';
-            statusText.classList.add('text-red-600', 'dark:text-red-400');
-          } else {
-            statusText.textContent = 'Active';
-            statusText.classList.add('text-green-600', 'dark:text-green-400');
-          }
-        }
-        
-        // Store the API key if we got one
+        budget = data.budget;
+
+        // Store the API key (and budget) if we got one
         if (apiKey) {
           setApiKey(apiKey);
+          localStorage.setItem('apiBudget', String(budget));
         }
       }
-      
+
       if (!apiKey) {
         throw new Error('No API key available');
+      }
+
+      // Update account status from budget — runs whether the key/budget came
+      // from the server or from localStorage, so status never sticks on
+      // "Loading..." after a cached reload.
+      if (statusText && budget !== null && budget !== undefined) {
+        if (Number(budget) <= 0) {
+          statusText.textContent = 'Inactive';
+          statusText.classList.add('text-red-600', 'dark:text-red-400');
+        } else {
+          statusText.textContent = 'Active';
+          statusText.classList.add('text-green-600', 'dark:text-green-400');
+        }
       }
       
       // Update UI with API key
@@ -533,6 +544,7 @@ const apiUrl = process.env.VITE_API_URL || import.meta.env.VITE_API_URL || 'http
 
           // Persist and update every place the key is shown
           setApiKey(newKey);
+          localStorage.setItem('apiBudget', String(data.budget));
           if (apiKeyDisplay) apiKeyDisplay.value = newKey;
           if (headerApiKey) headerApiKey.textContent = newKey;
           if (exportApiKey) exportApiKey.textContent = newKey;
