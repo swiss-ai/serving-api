@@ -23,6 +23,7 @@ SWISS_DOMAINS = [
     "unil.ch",
     "unige.ch",
     "hevs.ch",
+    "fhnw.ch",
 ]
 
 

@@ -1,0 +1,55 @@
+---
+import PageLayout from "@layouts/PageLayout.astro";
+import Container from "@components/Container.astro";
+
+export const prerender = false;
+
+const faqs = [
+  {
+    q: "Can I use this in my project?",
+    a: "Yes — so long as the project is an academic one, we should be able to grant you access.",
+  },
+  {
+    q: "Can I use this for commercial / startup use?",
+    a: 'No, this is non-commercial only. Please email us with a request including any details at <a class="text-indigo-600 dark:text-indigo-400 underline" href="mailto:llm-requests@swiss-ai.org">llm-requests@swiss-ai.org</a> and we will forward it to the right team.',
+  },
+  {
+    q: "Can I launch any model?",
+    a: "Yes — see model launch. This usually requires CSCS GPU grants; see the grants process.",
+  },
+  {
+    q: "I am in a non-Swiss university, can I get access?",
+    a: "Yes, but priority of service is, in order: (1) ETH + EPFL Apertus-related projects, (2) Swiss AI-related institutions, (3) global academic institutions.",
+  },
+  {
+    q: "I am running a hackathon / sprint / focus-group / getaway / starting a new LLM-based religion, can I get access?",
+    a: 'Possibly — please reach out at <a class="text-indigo-600 dark:text-indigo-400 underline" href="https://apertvs.ai/contact/" target="_blank" rel="noopener noreferrer">apertvs.ai/contact/</a>.',
+  },
+];
+---
+
+<PageLayout title="FAQ" description="Frequently asked questions about the Swiss AI Research Platform">
+  <Container>
+    <div class="space-y-12 py-8">
+      <div class="animate text-center">
+        <h1 class="text-4xl md:text-5xl font-bold gradient-text mb-4">
+          Frequently Asked Questions
+        </h1>
+        <p class="text-lg text-slate-600 dark:text-slate-400 max-w-2xl mx-auto">
+          Common questions about access and use of the Swiss AI Platform
+        </p>
+      </div>
+
+      <div class="space-y-6">
+        {faqs.map((faq) => (
+          <div class="animate card p-8">
+            <h2 class="text-xl font-bold text-slate-900 dark:text-white mb-3">
+              {faq.q}
+            </h2>
+            <p class="text-slate-600 dark:text-slate-300 leading-relaxed" set:html={faq.a} />
+          </div>
+        ))}
+      </div>
+    </div>
+  </Container>
+</PageLayout>
