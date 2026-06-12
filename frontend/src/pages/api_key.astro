@@ -148,6 +148,15 @@ const apiUrl = process.env.VITE_API_URL || import.meta.env.VITE_API_URL || 'http
               Copy
             </button>
           </div>
+          <button
+            id="rotateButton"
+            class="mt-4 btn-secondary px-6 py-3 rounded-xl text-sm font-semibold flex items-center gap-2"
+          >
+            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+              <path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd"/>
+            </svg>
+            Rotate API Key
+          </button>
           <div id="copyMessage" class="hidden absolute -bottom-8 left-0 text-emerald-600 dark:text-emerald-400 text-sm font-medium">
             ✓ Copied to clipboard!
           </div>
@@ -424,12 +433,60 @@ const apiUrl = process.env.VITE_API_URL || import.meta.env.VITE_API_URL || 'http
       if (loadingMessage) loadingMessage.classList.add('hidden');
       if (errorMessage) {
         errorMessage.classList.remove('hidden');
-        errorMessage.innerHTML = "Error loading API key. Please sign out and sign in again or refresh the page.";
+        errorMessage.innerHTML = "Error loading API key. Please login again.";
         const signInButton = document.createElement('div');
         signInButton.innerHTML = `<button onclick="window.location.href='/auth/signin'" class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded transition-colors mt-2">Sign In</button>`;
         errorMessage.appendChild(signInButton);
       }
     }
+  }
+  
+  // Function to rotate API key
+  async function rotateApiKey() {
+    try {
+      const response = await fetch(`${apiUrl}/v1/rotate-key`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.accessToken}`,
+        }
+      });
+      if (!response.ok) {
+        throw new Error(`Error: ${response.status}`);
+      }
+      const data = await response.json();
+      const newApiKey = data.api_key;
+      
+      // Update UI with new API key
+      const apiKeyDisplay = document.getElementById('apiKeyDisplay');
+      if (apiKeyDisplay) apiKeyDisplay.value = newApiKey;
+      const headerApiKey = document.getElementById('headerApiKey');
+      if (headerApiKey) headerApiKey.textContent = newApiKey;
+      const exportApiKey = document.getElementById('exportApiKey');
+      if (exportApiKey) exportApiKey.textContent = newApiKey;
+      
+      // Update storage
+      setApiKey(newApiKey);
+      
+      // Show success message
+      const copyMessage = document.getElementById('copyMessage');
+      if (copyMessage) {
+        copyMessage.textContent = '✓ API key rotated successfully!';
+        copyMessage.classList.remove('hidden');
+        setTimeout(() => {
+          copyMessage.classList.add('hidden');
+        }, 3000);
+      }
+      
+    } catch (error) {
+      console.error('Error rotating API key:', error);
+      const errorMessage = document.getElementById('errorMessage');
+      
+      if (errorMessage) {
+        errorMessage.classList.remove('hidden');
+        errorMessage.innerHTML = `Error rotating API key: ${error.message}. Please try again.`;
+      }
+    } 
   }
   
   // Copy to clipboard functionality
@@ -466,6 +523,11 @@ const apiUrl = process.env.VITE_API_URL || import.meta.env.VITE_API_URL || 'http
             alert('Failed to copy API key to clipboard');
           });
       });
+    }
+    
+    const rotateButton = document.getElementById('rotateButton');
+    if (rotateButton) {
+      rotateButton.addEventListener('click', rotateApiKey);
     }
   });
 </script>
