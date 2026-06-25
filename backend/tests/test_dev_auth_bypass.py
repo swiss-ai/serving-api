@@ -12,8 +12,12 @@ import pytest
 from backend.services import auth_service
 
 
-def _settings(*, dev_auth_bypass, database_url):
-    return SimpleNamespace(dev_auth_bypass=dev_auth_bypass, database_url=database_url)
+def _settings(*, dev_auth_bypass, database_url, auth0_issuer="https://idp.example.com/"):
+    return SimpleNamespace(
+        dev_auth_bypass=dev_auth_bypass,
+        database_url=database_url,
+        auth0_issuer=auth0_issuer,
+    )
 
 
 def test_bypass_off_by_default(monkeypatch):
@@ -83,6 +87,12 @@ def test_dummy_token_hits_auth0_when_bypass_disabled(monkeypatch):
     )
     called = {}
 
+    monkeypatch.setattr(
+        auth_service,
+        "get_userinfo_endpoint",
+        lambda issuer: "https://idp.example.com/userinfo",
+    )
+
     def fake_get(url, headers):
         called["url"] = url
         return SimpleNamespace(status_code=401, text="unauthorized")
@@ -105,6 +115,12 @@ def test_dummy_token_hits_auth0_when_db_nonlocal(monkeypatch):
         ),
     )
     called = {}
+
+    monkeypatch.setattr(
+        auth_service,
+        "get_userinfo_endpoint",
+        lambda issuer: "https://idp.example.com/userinfo",
+    )
 
     def fake_get(url, headers):
         called["url"] = url
