@@ -1,5 +1,6 @@
 import json
 import secrets
+from functools import lru_cache
 from pathlib import Path
 
 import requests
@@ -108,12 +109,34 @@ def dev_bypass_enabled() -> bool:
     return "localhost" in settings.database_url or "127.0.0.1" in settings.database_url
 
 
+@lru_cache(maxsize=8)
+def get_userinfo_endpoint(issuer: str) -> str:
+    """Resolve the OIDC ``userinfo_endpoint`` from the issuer's discovery
+    document. Works for any OIDC provider (Auth0, Authentik, ...) so we never
+    hardcode a provider-specific URL. Cached so discovery is fetched once per
+    issuer rather than on every profile request."""
+    if not issuer:
+        raise Exception("No OIDC issuer configured")
+    well_known = f"{issuer.rstrip('/')}/.well-known/openid-configuration"
+    res = requests.get(well_known, headers={"Accept": "application/json"})
+    if res.status_code != 200:
+        raise Exception(
+            f"Failed to fetch OIDC discovery: {res.status_code} {res.text}"
+        )
+    userinfo_endpoint = res.json().get("userinfo_endpoint")
+    if not userinfo_endpoint:
+        raise Exception("OIDC discovery document has no userinfo_endpoint")
+    return userinfo_endpoint
+
+
 def get_profile_from_accesstoken(access_token: str):
     if dev_bypass_enabled() and access_token == DEV_DUMMY_TOKEN:
-        # Local dev: skip Auth0 and return a fixed dev profile.
+        # Local dev: skip the IdP and return a fixed dev profile.
         return {"sub": "dev", "name": "Dev User", "email": DEV_EMAIL}
+    settings = get_settings()
+    userinfo_endpoint = get_userinfo_endpoint(settings.auth0_issuer)
     res = requests.get(
-        "https://researchcomputer.eu.auth0.com/userinfo",
+        userinfo_endpoint,
         headers={
             "Accept": "application/json",
             "Authorization": f"Bearer {access_token}",
