@@ -39,7 +39,7 @@ const faqs = [
   },
   {
     q: "Do you store my prompts and responses?",
-    a: 'For the <strong>API</strong>: no. We do not store prompt or response content. We keep only metadata logs (e.g. userid, input/output token counts, model, timestamp) for capacity planning and abuse prevention.<br /><br />For the internal facing <strong>Chat app</strong>: yes, your conversation history is retained so you can return to past chats. This is important for the Apertus team development and testing various model types. Your chats are not extracted and used for training. ',
+    a: 'For the <strong>API</strong>: no. We do not store prompt or response content. We keep only metadata logs (e.g. userid, input/output token counts, model, timestamp) for capacity planning and abuse prevention.<br /><br />For the internal facing <strong>Chat app</strong>: yes, your conversation history is retained so you can return to past chats. This is important for the Apertus team development and testing various model types. Your chats are not extracted and used for training. To request deletion of your chat history, please <a class="text-indigo-600 dark:text-indigo-400 underline" href="https://apertvs.ai/contact/" target="_blank" rel="noopener noreferrer">contact us</a>.',
   },
   {
     q: "Do you train models on my data?",
@@ -47,19 +47,19 @@ const faqs = [
   },
   {
     q: "How long do you retain data?",
-    a: 'API metadata logs (token counts, model, timestamp) are kept for a limited period for operations and abuse prevention. Chat history is retained until you delete it or delete your account. For specific retention periods, please <a class="text-indigo-600 dark:text-indigo-400 underline" href="https://apertvs.ai/contact/" target="_blank" rel="noopener noreferrer">contact us</a>.',
+    a: 'API metadata logs (token counts, model, timestamp) are kept indefinitely for operations and abuse prevention. Individual chat history is retained until you delete it via OpenWebUI settings or you delete your account, to do this please contact us. For specific data retention questions, please <a class="text-indigo-600 dark:text-indigo-400 underline" href="https://apertvs.ai/contact/" target="_blank" rel="noopener noreferrer">contact us</a>.',
   },
   {
     q: "For the Chat application, where is my data processed and stored?",
-    a: 'The platform runs on Swiss infrastructure (CSCS) which is based in Lugano.',
+    a: 'The platform runs on Swiss infrastructure (CSCS) which is based in Lugano. This includes the entire application, including the web application, API, database and storage.',
   },
   {
     q: "Can I send personal, confidential, or sensitive data?",
-    a: 'Please avoid sending personal, confidential, or otherwise sensitive data (e.g. patient or personally identifiable information). The platform is a research service and is not intended for processing such data. If your project has specific data-protection requirements (FADP/GDPR), please <a class="text-indigo-600 dark:text-indigo-400 underline" href="https://apertvs.ai/contact/" target="_blank" rel="noopener noreferrer">contact us</a> first.',
+    a: 'Do not send personal, confidential, or otherwise sensitive data (e.g. personally identifiable information). The platform is a research service and is not intended for processing such data. If your project has specific data-protection requirements (FADP/GDPR), please <a class="text-indigo-600 dark:text-indigo-400 underline" href="https://apertvs.ai/contact/" target="_blank" rel="noopener noreferrer">contact us</a> first.',
   },
   {
     q: "What models are available?",
-    a: 'You can list the currently available models via the <code>/v1/models</code> endpoint, or pick from the model selector in the Chat app.',
+    a: 'You can list the currently available models on the webpage or via the <code>/v1/models</code> endpoint, or pick from the model selector in the Chat app.',
   },
   {
     q: "Are there rate limits or usage budgets?",
@@ -67,7 +67,7 @@ const faqs = [
   },
   {
     q: "How do I get or reset my API key?",
-    a: 'You can create and reset your key on the <a class="text-indigo-600 dark:text-indigo-400 underline" href="/api_key">API key page</a>.',
+    a: 'You can create and reset your key on the <a class="text-indigo-600 dark:text-indigo-400 underline" href="/api_key">API key page</a>. Currently there is only 1 API key available per user.',
   },
   {
     q: "Can I use OpenAI-compatible tools and SDKs?",
