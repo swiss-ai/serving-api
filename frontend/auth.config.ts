@@ -2,11 +2,26 @@ import Auth0 from '@auth/core/providers/auth0';
 import { defineConfig } from 'auth-astro';
 import type { JWT } from '@auth/core/jwt';
 import type { Session } from '@auth/core/types';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { loadEnv } from 'vite';
+
+const rootDir = path.dirname(fileURLToPath(import.meta.url));
+const env = loadEnv(
+  process.env.MODE ?? process.env.NODE_ENV ?? 'development',
+  rootDir,
+  ['AUTH_', 'AUTH0_', 'VITE_'],
+);
+
+function authEnv(key: string): string | undefined {
+  return env[key] || process.env[key];
+}
 
 // Define custom types for our extended token and session
 interface ExtendedJWT extends JWT {
   accessToken?: string;
   refreshToken?: string;
+  idToken?: string;
   accessTokenExpires?: number;
   user?: any;
   error?: string;
@@ -14,11 +29,13 @@ interface ExtendedJWT extends JWT {
 
 interface ExtendedSession extends Session {
   accessToken?: string;
+  idToken?: string;
   error?: string;
 }
 
 export default defineConfig({
-  secret: import.meta.env.AUTH_SECRET || (typeof process !== 'undefined' ? process.env.AUTH_SECRET : undefined),
+  secret: authEnv('AUTH_SECRET'),
+  trustHost: authEnv('AUTH_TRUST_HOST') === 'true',
 
   // Session configuration
   session: {
@@ -29,9 +46,12 @@ export default defineConfig({
 
   providers: [
     Auth0({
-      clientId: import.meta.env.AUTH0_CLIENT_ID || (typeof process !== 'undefined' ? process.env.AUTH0_CLIENT_ID : undefined),
-      clientSecret: import.meta.env.AUTH0_CLIENT_SECRET || (typeof process !== 'undefined' ? process.env.AUTH0_CLIENT_SECRET : undefined),
-      issuer: import.meta.env.AUTH0_ISSUER || (typeof process !== 'undefined' ? process.env.AUTH0_ISSUER : undefined),
+      clientId: authEnv('AUTH0_CLIENT_ID'),
+      clientSecret: authEnv('AUTH0_CLIENT_SECRET'),
+      issuer: authEnv('AUTH0_ISSUER'),
+      client: {
+        token_endpoint_auth_method: 'client_secret_post',
+      },
       authorization: {
         params: {
           scope: 'openid profile email offline_access',
@@ -59,6 +79,7 @@ export default defineConfig({
           ...extToken,
           accessToken: account.access_token,
           refreshToken: account.refresh_token,
+          idToken: account.id_token,
           accessTokenExpires: account.expires_at ? account.expires_at * 1000 : Date.now() + 24 * 60 * 60 * 1000,
           user,
         };
@@ -85,20 +106,25 @@ export default defineConfig({
         // AUTH0_ISSUER is not VITE_-prefixed, so it is NOT baked into
         // import.meta.env in the built server bundle — at runtime it only
         // exists on process.env (from the deployment configmap). Without this
-        // fallback the refresh URL becomes "undefined/oauth/token" and every
-        // token refresh throws once the access token expires.
-        const issuer =
-          import.meta.env.AUTH0_ISSUER ||
-          (typeof process !== 'undefined' ? process.env.AUTH0_ISSUER : undefined);
-        const response = await fetch(`${issuer}/oauth/token`, {
+        // fallback the refresh URL becomes "undefined/..." and every token
+        // refresh throws once the access token expires.
+        const issuer = authEnv('AUTH0_ISSUER');
+        const discoveryResponse = await fetch(
+          `${issuer?.replace(/\/$/, '')}/.well-known/openid-configuration`,
+        );
+        if (!discoveryResponse.ok) {
+          throw new Error(`Failed to fetch OIDC discovery: ${discoveryResponse.status}`);
+        }
+        const tokenEndpoint = (await discoveryResponse.json()).token_endpoint;
+        const response = await fetch(tokenEndpoint, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/x-www-form-urlencoded',
           },
           body: new URLSearchParams({
             grant_type: 'refresh_token',
-            client_id: import.meta.env.AUTH0_CLIENT_ID || process.env.AUTH0_CLIENT_ID || '',
-            client_secret: import.meta.env.AUTH0_CLIENT_SECRET || process.env.AUTH0_CLIENT_SECRET || '',
+            client_id: authEnv('AUTH0_CLIENT_ID') || '',
+            client_secret: authEnv('AUTH0_CLIENT_SECRET') || '',
             refresh_token: extToken.refreshToken,
           }),
         });
@@ -134,6 +160,7 @@ export default defineConfig({
       // Add the access token and user to the session
       if (extToken) {
         extSession.accessToken = extToken.accessToken;
+        extSession.idToken = extToken.idToken;
         extSession.error = extToken.error;
 
         if (extToken.user) {
