@@ -6,11 +6,6 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadEnv } from 'vite';
 
-// auth.config.ts is bundled as a virtual module (`auth:config`). During
-// `astro dev`, Vite does not inject AUTH_* into import.meta.env here, but
-// auth-astro's getSession() reads `options.secret` from this config object
-// (and only falls back to import.meta.env.AUTH_SECRET). Load frontend/.env
-// explicitly so local dev works when vars live in frontend/.env or process.env.
 const rootDir = path.dirname(fileURLToPath(import.meta.url));
 const env = loadEnv(
   process.env.MODE ?? process.env.NODE_ENV ?? 'development',
@@ -53,11 +48,7 @@ export default defineConfig({
     Auth0({
       clientId: authEnv('AUTH0_CLIENT_ID'),
       clientSecret: authEnv('AUTH0_CLIENT_SECRET'),
-      // Must match the `issuer` field in Authentik's OIDC discovery doc exactly
-      // (includes trailing slash for serving-api-dev).
       issuer: authEnv('AUTH0_ISSUER'),
-      // Authentik defaults to client_secret_post; @auth/core/oauth4webapi uses
-      // client_secret_basic unless told otherwise → invalid_client on callback.
       client: {
         token_endpoint_auth_method: 'client_secret_post',
       },
@@ -118,10 +109,6 @@ export default defineConfig({
         // fallback the refresh URL becomes "undefined/..." and every token
         // refresh throws once the access token expires.
         const issuer = authEnv('AUTH0_ISSUER');
-        // Resolve the token endpoint from OIDC discovery instead of assuming a
-        // provider-specific path. Auth0 uses `${issuer}/oauth/token` while
-        // Authentik uses `${issuer-base}/token/`; the discovery document gives
-        // the correct one for whichever IdP `issuer` points at.
         const discoveryResponse = await fetch(
           `${issuer?.replace(/\/$/, '')}/.well-known/openid-configuration`,
         );
