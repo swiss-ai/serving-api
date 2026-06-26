@@ -12,7 +12,9 @@ import pytest
 from backend.services import auth_service
 
 
-def _settings(*, dev_auth_bypass, database_url, auth0_issuer="https://idp.example.com/"):
+def _settings(
+    *, dev_auth_bypass, database_url, auth0_issuer="https://idp.example.com/"
+):
     return SimpleNamespace(
         dev_auth_bypass=dev_auth_bypass,
         database_url=database_url,

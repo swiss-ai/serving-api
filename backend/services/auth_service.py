@@ -120,9 +120,7 @@ def get_userinfo_endpoint(issuer: str) -> str:
     well_known = f"{issuer.rstrip('/')}/.well-known/openid-configuration"
     res = requests.get(well_known, headers={"Accept": "application/json"})
     if res.status_code != 200:
-        raise Exception(
-            f"Failed to fetch OIDC discovery: {res.status_code} {res.text}"
-        )
+        raise Exception(f"Failed to fetch OIDC discovery: {res.status_code} {res.text}")
     userinfo_endpoint = res.json().get("userinfo_endpoint")
     if not userinfo_endpoint:
         raise Exception("OIDC discovery document has no userinfo_endpoint")
