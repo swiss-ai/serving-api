@@ -10,9 +10,7 @@ services:
     environment:
       - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/ai_proxy
       - AUTH0_DOMAIN=${AUTH0_DOMAIN}
-      - AUTH0_API_AUDIENCE=${AUTH0_API_AUDIENCE}
       - AUTH0_ISSUER=${AUTH0_ISSUER}
-      - AUTH0_ALGORITHMS=${AUTH0_ALGORITHMS}
     restart: unless-stopped
     volumes:
       - ./:/app
