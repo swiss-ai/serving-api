@@ -4,7 +4,7 @@ import time
 from typing import Dict, List, Literal, Optional, Union, Any
 import base64
 import struct
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 def _generate_id():  # private helper function
@@ -130,6 +130,11 @@ class ChatCompletionDeltaToolCall(BaseModel):
 
 
 class Message(BaseModel):
+    # Pass through upstream fields we don't model explicitly (e.g. the model's
+    # `reasoning` / `reasoning_content` thinking output) instead of silently
+    # dropping them when re-parsing the backend response.
+    model_config = ConfigDict(extra="allow")
+
     content: Optional[str] = None
     role: Literal["assistant"] = "assistant"
     tool_calls: Optional[List[ChatCompletionMessageToolCall]] = None
@@ -168,6 +173,8 @@ class ChoiceLogprobs(BaseModel):
 
 
 class Delta(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
     content: Optional[str] = None
     role: Optional[str] = None
     function_call: Optional[FunctionCall] = None
@@ -187,6 +194,8 @@ class Delta(BaseModel):
 
 
 class Choices(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
     finish_reason: Optional[str] = "stop"
     index: int = 0
     message: Message = Field(default_factory=Message)
@@ -225,6 +234,8 @@ class Usage(BaseModel):
 
 
 class StreamingChoices(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
     finish_reason: Optional[str] = None
     index: int = 0
     delta: Delta = Field(default_factory=Delta)
@@ -260,6 +271,8 @@ class EmbeddingObject(BaseModel):
 
 
 class ModelResponse(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
     id: str = Field(default_factory=_generate_id)
     choices: List[Union[Choices, StreamingChoices]] = Field(
         default_factory=lambda: [Choices()]
