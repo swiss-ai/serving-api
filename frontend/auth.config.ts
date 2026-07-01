@@ -54,7 +54,7 @@ export default defineConfig({
       },
       authorization: {
         params: {
-          scope: 'openid profile email offline_access',
+          scope: 'openid profile email offline_access groups',
           // Force specific connection (e.g., Google Workspace)
           // connection: 'google-oauth2',
 
