@@ -25,7 +25,7 @@ async def get_profile(
         user_profile["budget"] = api_key.budget
         return user_profile
     except Exception:
-        return HTTPException(
+        raise HTTPException(
             status_code=401,
             detail="Invalid access token",
         )
