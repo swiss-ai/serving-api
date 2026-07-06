@@ -10,8 +10,8 @@ import pytest
 from backend.services import passthrough_service
 from backend.services.passthrough_service import (
     Provider,
-    _ALLOWED_MODEL_IDS,
     _CSCS_L1_FALLBACK_IDS,
+    _RCP_ALLOWED_MODEL_IDS,
     _reset_cache_for_tests,
     endpoint,
     get_synthetic_entries,
@@ -115,12 +115,13 @@ def test_resolve_routes_to_fetched_ids():
 def test_synthetic_entries_built_from_fetched_ids():
     with (
         _patch_settings(_FakeSettings()),
-        # foo/new-model is off the allowlist and must be dropped.
+        # CSCS L1 is unrestricted (allowed_ids=None): everything it
+        # advertises surfaces, including ids we don't serve ourselves.
         _patch_fetch(["foo/new-model", "swiss-ai/Apertus-8B-Instruct-2509"]),
     ):
         entries = _run(get_synthetic_entries(with_details=True))
     ids = {e["id"] for e in entries}
-    assert ids == {"swiss-ai/Apertus-8B-Instruct-2509"}
+    assert ids == {"foo/new-model", "swiss-ai/Apertus-8B-Instruct-2509"}
     for e in entries:
         assert e["launched_by"] == "cscs_L1"
         assert e["framework"] == "vllm"
@@ -149,9 +150,9 @@ def test_fetch_cached_within_ttl():
 # ── allowlist curation ──────────────────────────────────────────────────────
 
 
-def test_allowlist_is_the_two_apertus_instruct_models():
+def test_rcp_allowlist_is_the_two_apertus_instruct_models():
     """Guard the curated set so a stray edit can't silently widen it."""
-    assert _ALLOWED_MODEL_IDS == frozenset(
+    assert _RCP_ALLOWED_MODEL_IDS == frozenset(
         {
             "swiss-ai/Apertus-8B-Instruct-2509",
             "swiss-ai/Apertus-70B-Instruct-2509",
@@ -159,10 +160,24 @@ def test_allowlist_is_the_two_apertus_instruct_models():
     )
 
 
-def test_off_allowlist_ids_are_filtered_from_listing_and_routing():
-    """A provider that advertises many models (RCP-style, incl. quant
-    variants and a bare-prefix id) surfaces ONLY the two allowlisted ids,
-    and only those route."""
+def test_cscs_l1_is_unrestricted():
+    """CSCS L1 has no allowlist: everything it advertises is listed and
+    routable, including quant variants and non-Apertus ids."""
+    upstream = [
+        "swiss-ai/Apertus-8B-Instruct-2509",
+        "swiss-ai/Apertus-8B-Instruct-2509-FP8",
+        "meta-llama/Llama-3-8B",
+    ]
+    with _patch_settings(_FakeSettings()), _patch_fetch(upstream):
+        listed = {e["id"] for e in _run(get_synthetic_entries())}
+        for model_id in upstream:
+            assert _run(resolve_provider(model_id)).name == "cscs_L1"
+    assert listed == set(upstream)
+
+
+def test_off_allowlist_ids_are_filtered_from_rcp_listing_and_routing():
+    """RCP advertises many models (incl. quant variants and a bare-prefix
+    id) but surfaces ONLY the two allowlisted ids, and only those route."""
     upstream = [
         "swiss-ai/Apertus-8B-Instruct-2509",
         "swiss-ai/Apertus-70B-Instruct-2509",
@@ -170,7 +185,13 @@ def test_off_allowlist_ids_are_filtered_from_listing_and_routing():
         "Apertus-8B-Instruct-2509",  # bare, no org prefix
         "meta-llama/Llama-3-8B",
     ]
-    with _patch_settings(_FakeSettings()), _patch_fetch(upstream):
+    settings = _FakeSettings(
+        cscs_l1_base_url="",
+        cscs_l1_api_key="",
+        rcp_base_url="https://rcp/v1",
+        rcp_api_key="rcp-key",
+    )
+    with _patch_settings(settings), _patch_fetch(upstream):
         listed = {e["id"] for e in _run(get_synthetic_entries())}
         assert _run(resolve_provider("swiss-ai/Apertus-8B-Instruct-2509")) is not None
         assert _run(resolve_provider("swiss-ai/Apertus-8B-Instruct-2509-FP8")) is None

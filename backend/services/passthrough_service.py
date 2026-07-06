@@ -20,10 +20,11 @@ Model ids are matched verbatim (no normalization yet). When two
 providers expose the same id, the first one in `registered_providers()`
 wins routing and listing — registration order is precedence.
 
-We curate what surfaces: upstreams advertise many more models than we
-want to expose (RCP alone returns ~26, incl. quant variants), so the
-discovered set is narrowed to the `_ALLOWED_MODEL_IDS` allowlist before
-it is listed or routed. The match is exact — an id under a different org
+Curation is per provider via ``Provider.allowed_ids``: RCP advertises
+far more than we want to expose (~26 models, incl. quant variants), so
+its discovered set is narrowed to an allowlist before it is listed or
+routed; CSCS L1 is currently unrestricted — whatever it advertises
+surfaces. Allowlist matches are exact — an id under a different org
 prefix is not surfaced.
 
 Secrets (base URLs, API keys) come from env via Settings.
@@ -64,14 +65,17 @@ class Provider:
     # /models yet AND the current fetch fails. Empty = nothing advertised
     # until the first successful fetch.
     fallback_ids: tuple[str, ...] = ()
+    # Curation allowlist: only these exact ids are surfaced (listed or
+    # routed) from this provider. None = unrestricted — everything the
+    # upstream advertises surfaces. Match is exact and verbatim — an id
+    # under a different org prefix (e.g. bare `Apertus-8B-Instruct-2509`)
+    # does NOT match.
+    allowed_ids: frozenset[str] | None = None
 
 
-# Only these exact model ids are ever surfaced (listed or routed) from any
-# passthrough provider. Upstreams expose far more than we want to advertise
-# (RCP ~26, incl. quant variants); discovery is narrowed to this allowlist.
-# Match is exact and verbatim — an id reported under a different org prefix
-# (e.g. bare `Apertus-8B-Instruct-2509`) does NOT match.
-_ALLOWED_MODEL_IDS: frozenset[str] = frozenset(
+# RCP advertises far more than we want to expose (~26 models, incl. quant
+# variants), so it is narrowed to just the Apertus pair it backs up.
+_RCP_ALLOWED_MODEL_IDS: frozenset[str] = frozenset(
     {
         "swiss-ai/Apertus-8B-Instruct-2509",
         "swiss-ai/Apertus-70B-Instruct-2509",
@@ -81,9 +85,7 @@ _ALLOWED_MODEL_IDS: frozenset[str] = frozenset(
 
 # CSCS L1 cold-start fallback so the Apertus rows don't vanish during a
 # brief L1 outage on the very first fetch. New providers (e.g. RCP) get
-# no fallback — we just wait for the first successful discovery. Kept in
-# sync with _ALLOWED_MODEL_IDS (CSCS now reports the org-prefixed ids);
-# anything not on the allowlist would be filtered out anyway.
+# no fallback — we just wait for the first successful discovery.
 _CSCS_L1_FALLBACK_IDS: tuple[str, ...] = (
     "swiss-ai/Apertus-70B-Instruct-2509",
     "swiss-ai/Apertus-8B-Instruct-2509",
@@ -114,6 +116,7 @@ def registered_providers() -> list[Provider]:
                 base_url=s.rcp_base_url,
                 api_key=s.rcp_api_key,
                 device="EPFL RCP",
+                allowed_ids=_RCP_ALLOWED_MODEL_IDS,
             )
         )
     return providers
@@ -157,11 +160,14 @@ async def _fetch_model_ids(provider: Provider) -> set[str] | None:
 
 async def _get_cached_ids(provider: Provider) -> set[str]:
     """The provider's *advertised* id set: whatever discovery currently
-    knows, narrowed to ``_ALLOWED_MODEL_IDS``. This is the single boundary
-    both listing (``get_synthetic_entries``) and routing
+    knows, narrowed to the provider's ``allowed_ids`` (if any). This is the
+    single boundary both listing (``get_synthetic_entries``) and routing
     (``resolve_provider``) go through, so the same allowlist governs both —
     a model we don't list also can't be routed to."""
-    return _ALLOWED_MODEL_IDS & await _discover_ids(provider)
+    discovered = await _discover_ids(provider)
+    if provider.allowed_ids is None:
+        return discovered
+    return provider.allowed_ids & discovered
 
 
 async def _discover_ids(provider: Provider) -> set[str]:
