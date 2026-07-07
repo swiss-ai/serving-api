@@ -9,16 +9,28 @@ from types import SimpleNamespace
 
 import pytest
 
+from backend.config import Settings
 from backend.services import auth_service
 
 
 def _settings(
-    *, dev_auth_bypass, database_url, auth0_issuer="https://idp.example.com/"
+    *,
+    dev_auth_bypass,
+    database_url,
+    auth0_issuer="https://idp.example.com/",
+    auth_provider="auth0",
+    authentik_issuer="",
 ):
-    return SimpleNamespace(
+    # A real Settings instance so the issuer resolver (active_issuer /
+    # candidate_issuers) is exercised for real. Explicit kwargs take priority
+    # over any env/.env source in pydantic-settings, keeping tests deterministic.
+    return Settings(
+        _env_file=None,
         dev_auth_bypass=dev_auth_bypass,
         database_url=database_url,
         auth0_issuer=auth0_issuer,
+        auth_provider=auth_provider,
+        authentik_issuer=authentik_issuer,
     )
 
 

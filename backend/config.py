@@ -10,10 +10,20 @@ def get_settings():
 
 
 class Settings(BaseSettings):
+    # Selects the active IdP. Both credential sets can be present at once; this
+    # flag decides which one is live, so a prod cutover (or rollback) is a
+    # single env change with no image rebuild. See issue #58.
+    auth_provider: str = "auth0"
     auth0_domain: str = ""
     auth0_issuer: str = ""
     auth0_client_id: str = ""
     auth0_client_secret: str = ""
+    # Authentik credential set (dormant until auth_provider=authentik). When
+    # unset these fall back to the auth0_* values so environments that already
+    # hold Authentik values under the legacy AUTH0_* names keep working.
+    authentik_issuer: str = ""
+    authentik_client_id: str = ""
+    authentik_client_secret: str = ""
     database_url: str = ""
     auth_secret: str = ""
     auth_trust_host: bool = False
@@ -56,9 +66,37 @@ class Settings(BaseSettings):
     # false in every deployed environment.
     dev_auth_bypass: bool = False
 
+    def active_issuer(self) -> str:
+        """Issuer for the currently selected provider. Falls back to the
+        auth0_* value when the authentik_* set is unset so legacy
+        environments keep working."""
+        if self.auth_provider == "authentik":
+            return self.authentik_issuer or self.auth0_issuer
+        return self.auth0_issuer
+
+    def fallback_issuer(self) -> str:
+        """The *other* configured issuer, used to keep in-flight sessions
+        valid across a provider flip/rollback. Empty when not configured."""
+        if self.auth_provider == "authentik":
+            return self.auth0_issuer
+        return self.authentik_issuer
+
+    def candidate_issuers(self) -> list[str]:
+        """Distinct issuers to try when validating an access token: active
+        first, then the other provider (if configured and different)."""
+        issuers = [self.active_issuer()]
+        other = self.fallback_issuer()
+        if other and other not in issuers:
+            issuers.append(other)
+        return [i for i in issuers if i]
+
     class Config:
         env_file = ".env"
         populate_by_name = True
+        # Deployments inject env vars that aren't modeled here (REDIS_*,
+        # AUTH0_ALGORITHMS, AUTH0_API_AUDIENCE, ...). Ignore them instead of
+        # crashing on startup — matches what the running prod image tolerates.
+        extra = "ignore"
 
 
 def parse_hardware_info(hardware_info):
