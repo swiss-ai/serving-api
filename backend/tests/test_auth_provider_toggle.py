@@ -44,14 +44,14 @@ def test_authentik_provider_selects_authentik_issuer():
 def test_authentik_falls_back_to_auth0_names_when_unset():
     """Env that holds Authentik values under the legacy AUTH0_* names keeps
     working by only flipping AUTH_PROVIDER."""
-    s = _settings(auth_provider="authentik", auth0_issuer=AUTHENTIK, authentik_issuer="")
+    s = _settings(
+        auth_provider="authentik", auth0_issuer=AUTHENTIK, authentik_issuer=""
+    )
     assert s.active_issuer() == AUTHENTIK
 
 
 def test_candidate_issuers_tries_active_then_other():
-    s = _settings(
-        auth_provider="auth0", auth0_issuer=AUTH0, authentik_issuer=AUTHENTIK
-    )
+    s = _settings(auth_provider="auth0", auth0_issuer=AUTH0, authentik_issuer=AUTHENTIK)
     assert s.candidate_issuers() == [AUTH0, AUTHENTIK]
 
 
