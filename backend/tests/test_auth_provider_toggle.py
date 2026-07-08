@@ -100,7 +100,9 @@ def test_profile_rejects_token_from_previous_issuer_after_flip(monkeypatch):
     monkeypatch.setattr(
         auth_service.requests,
         "get",
-        lambda url, headers=None, **kwargs: SimpleNamespace(status_code=401, text="unauthorized"),
+        lambda url, headers=None, **kwargs: SimpleNamespace(
+            status_code=401, text="unauthorized"
+        ),
     )
 
     with pytest.raises(Exception, match="Invalid access token"):
@@ -123,7 +125,9 @@ def test_profile_rejected_when_active_issuer_rejects(monkeypatch):
     monkeypatch.setattr(
         auth_service.requests,
         "get",
-        lambda url, headers=None, **kwargs: SimpleNamespace(status_code=401, text="nope"),
+        lambda url, headers=None, **kwargs: SimpleNamespace(
+            status_code=401, text="nope"
+        ),
     )
 
     with pytest.raises(Exception):
