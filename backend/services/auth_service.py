@@ -118,7 +118,9 @@ def get_userinfo_endpoint(issuer: str) -> str:
     if not issuer:
         raise Exception("No OIDC issuer configured")
     well_known = f"{issuer.rstrip('/')}/.well-known/openid-configuration"
-    res = requests.get(well_known, headers={"Accept": "application/json"})
+    res = requests.get(
+        well_known, headers={"Accept": "application/json"}, timeout=(5, 10)
+    )
     if res.status_code != 200:
         raise Exception(f"Failed to fetch OIDC discovery: {res.status_code} {res.text}")
     userinfo_endpoint = res.json().get("userinfo_endpoint")
@@ -132,31 +134,24 @@ def get_profile_from_accesstoken(access_token: str):
         # Local dev: skip the IdP and return a fixed dev profile.
         return {"sub": "dev", "name": "Dev User", "email": DEV_EMAIL}
     settings = get_settings()
-    # Try the active provider first, then the other configured issuer. During a
-    # provider flip (auth0 <-> authentik) users may still hold tokens minted by
-    # the previous IdP; accepting either keeps them signed in until they
-    # naturally re-login and makes flip/rollback seamless (issue #58).
-    issuers = settings.candidate_issuers()
-    if not issuers:
+    # Hard cutover: only the active AUTH_PROVIDER issuer is trusted. After a
+    # flip (auth0 <-> authentik) tokens from the previous IdP fail and users
+    # must re-login — simpler and makes golive issues obvious (issue #58).
+    issuer = settings.active_issuer()
+    if not issuer:
         raise Exception("No OIDC issuer configured")
-    last_error: Exception | None = None
-    for issuer in issuers:
-        try:
-            userinfo_endpoint = get_userinfo_endpoint(issuer)
-            res = requests.get(
-                userinfo_endpoint,
-                headers={
-                    "Accept": "application/json",
-                    "Authorization": f"Bearer {access_token}",
-                },
-            )
-        except Exception as exc:  # discovery/network failure — try next issuer
-            last_error = exc
-            continue
-        if res.status_code == 200:
-            return res.json()
-        last_error = Exception(f"Invalid access token: {res.status_code} {res.text}")
-    raise last_error or Exception("Invalid access token")
+    userinfo_endpoint = get_userinfo_endpoint(issuer)
+    res = requests.get(
+        userinfo_endpoint,
+        headers={
+            "Accept": "application/json",
+            "Authorization": f"Bearer {access_token}",
+        },
+        timeout=(5, 10),
+    )
+    if res.status_code != 200:
+        raise Exception(f"Invalid access token: {res.status_code} {res.text}")
+    return res.json()
 
 
 def get_token_cache_stats() -> dict:

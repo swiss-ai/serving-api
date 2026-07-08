@@ -21,9 +21,9 @@ def _settings(
     auth_provider="auth0",
     authentik_issuer="",
 ):
-    # A real Settings instance so the issuer resolver (active_issuer /
-    # candidate_issuers) is exercised for real. Explicit kwargs take priority
-    # over any env/.env source in pydantic-settings, keeping tests deterministic.
+    # A real Settings instance so the issuer resolver (active_issuer) is
+    # exercised for real. Explicit kwargs take priority over any env/.env
+    # source in pydantic-settings, keeping tests deterministic.
     return Settings(
         _env_file=None,
         dev_auth_bypass=dev_auth_bypass,
@@ -107,7 +107,7 @@ def test_dummy_token_hits_auth0_when_bypass_disabled(monkeypatch):
         lambda issuer: "https://idp.example.com/userinfo",
     )
 
-    def fake_get(url, headers):
+    def fake_get(url, headers=None, **kwargs):
         called["url"] = url
         return SimpleNamespace(status_code=401, text="unauthorized")
 
@@ -136,7 +136,7 @@ def test_dummy_token_hits_auth0_when_db_nonlocal(monkeypatch):
         lambda issuer: "https://idp.example.com/userinfo",
     )
 
-    def fake_get(url, headers):
+    def fake_get(url, headers=None, **kwargs):
         called["url"] = url
         return SimpleNamespace(status_code=401, text="unauthorized")
 

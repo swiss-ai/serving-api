@@ -69,26 +69,11 @@ class Settings(BaseSettings):
     def active_issuer(self) -> str:
         """Issuer for the currently selected provider. Falls back to the
         auth0_* value when the authentik_* set is unset so legacy
-        environments keep working."""
+        environments keep working. A provider flip is a hard cutover —
+        only this issuer is trusted; users re-login after the flip."""
         if self.auth_provider == "authentik":
             return self.authentik_issuer or self.auth0_issuer
         return self.auth0_issuer
-
-    def fallback_issuer(self) -> str:
-        """The *other* configured issuer, used to keep in-flight sessions
-        valid across a provider flip/rollback. Empty when not configured."""
-        if self.auth_provider == "authentik":
-            return self.auth0_issuer
-        return self.authentik_issuer
-
-    def candidate_issuers(self) -> list[str]:
-        """Distinct issuers to try when validating an access token: active
-        first, then the other provider (if configured and different)."""
-        issuers = [self.active_issuer()]
-        other = self.fallback_issuer()
-        if other and other not in issuers:
-            issuers.append(other)
-        return [i for i in issuers if i]
 
     class Config:
         env_file = ".env"

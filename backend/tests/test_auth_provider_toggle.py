@@ -2,8 +2,7 @@
 
 A single env var selects the active IdP while both credential sets can be
 present at once, so a prod cutover/rollback is a one-line env change. The
-backend also accepts tokens minted by the *other* configured issuer during a
-flip so in-flight sessions survive.
+backend trusts only the active issuer — a flip forces re-login.
 """
 
 from types import SimpleNamespace
@@ -38,7 +37,6 @@ def test_authentik_provider_selects_authentik_issuer():
         auth_provider="authentik", auth0_issuer=AUTH0, authentik_issuer=AUTHENTIK
     )
     assert s.active_issuer() == AUTHENTIK
-    assert s.fallback_issuer() == AUTH0
 
 
 def test_authentik_falls_back_to_auth0_names_when_unset():
@@ -50,19 +48,7 @@ def test_authentik_falls_back_to_auth0_names_when_unset():
     assert s.active_issuer() == AUTHENTIK
 
 
-def test_candidate_issuers_tries_active_then_other():
-    s = _settings(auth_provider="auth0", auth0_issuer=AUTH0, authentik_issuer=AUTHENTIK)
-    assert s.candidate_issuers() == [AUTH0, AUTHENTIK]
-
-
-def test_candidate_issuers_dedupes_and_drops_empty():
-    s = _settings(auth_provider="auth0", auth0_issuer=AUTH0, authentik_issuer="")
-    assert s.candidate_issuers() == [AUTH0]
-
-
-def test_profile_accepts_token_from_fallback_issuer(monkeypatch):
-    """During a flip, a token minted by the *other* IdP still validates: the
-    active issuer's userinfo rejects it (401) but the fallback accepts it."""
+def test_profile_uses_only_active_issuer(monkeypatch):
     monkeypatch.setattr(
         auth_service,
         "get_settings",
@@ -80,11 +66,8 @@ def test_profile_accepts_token_from_fallback_issuer(monkeypatch):
 
     calls = []
 
-    def fake_get(url, headers):
+    def fake_get(url, headers=None, **kwargs):
         calls.append(url)
-        # Reject at the active (authentik) issuer, accept at the auth0 fallback.
-        if url.startswith(AUTHENTIK):
-            return SimpleNamespace(status_code=401, text="unauthorized")
         return SimpleNamespace(
             status_code=200, json=lambda: {"email": "user@example.com"}
         )
@@ -93,12 +76,38 @@ def test_profile_accepts_token_from_fallback_issuer(monkeypatch):
 
     profile = auth_service.get_profile_from_accesstoken("some-token")
     assert profile["email"] == "user@example.com"
-    # Active issuer was tried first, then the fallback.
+    assert len(calls) == 1
     assert calls[0].startswith(AUTHENTIK)
-    assert calls[1].startswith(AUTH0)
 
 
-def test_profile_rejected_when_no_issuer_accepts(monkeypatch):
+def test_profile_rejects_token_from_previous_issuer_after_flip(monkeypatch):
+    """After AUTH_PROVIDER flips to authentik, an Auth0-minted token fails —
+    no dual-issuer acceptance; user must re-login."""
+    monkeypatch.setattr(
+        auth_service,
+        "get_settings",
+        lambda: _settings(
+            auth_provider="authentik",
+            auth0_issuer=AUTH0,
+            authentik_issuer=AUTHENTIK,
+        ),
+    )
+    monkeypatch.setattr(
+        auth_service,
+        "get_userinfo_endpoint",
+        lambda issuer: f"{issuer}userinfo",
+    )
+    monkeypatch.setattr(
+        auth_service.requests,
+        "get",
+        lambda url, headers=None, **kwargs: SimpleNamespace(status_code=401, text="unauthorized"),
+    )
+
+    with pytest.raises(Exception, match="Invalid access token"):
+        auth_service.get_profile_from_accesstoken("auth0-era-token")
+
+
+def test_profile_rejected_when_active_issuer_rejects(monkeypatch):
     monkeypatch.setattr(
         auth_service,
         "get_settings",
@@ -114,7 +123,7 @@ def test_profile_rejected_when_no_issuer_accepts(monkeypatch):
     monkeypatch.setattr(
         auth_service.requests,
         "get",
-        lambda url, headers: SimpleNamespace(status_code=401, text="nope"),
+        lambda url, headers=None, **kwargs: SimpleNamespace(status_code=401, text="nope"),
     )
 
     with pytest.raises(Exception):
