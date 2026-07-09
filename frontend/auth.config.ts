@@ -10,11 +10,36 @@ const rootDir = path.dirname(fileURLToPath(import.meta.url));
 const env = loadEnv(
   process.env.MODE ?? process.env.NODE_ENV ?? 'development',
   rootDir,
-  ['AUTH_', 'AUTH0_', 'VITE_'],
+  ['AUTH_', 'AUTH0_', 'AUTHENTIK_', 'VITE_'],
 );
 
 function authEnv(key: string): string | undefined {
   return env[key] || process.env[key];
+}
+
+// Selects the active IdP. Both credential sets can be present at once; this
+// flag decides which is live so a prod cutover/rollback is a single env change
+// (issue #58). When the AUTHENTIK_* set is unset it falls back to the AUTH0_*
+// values, so environments already holding Authentik values under the legacy
+// AUTH0_* names keep working by only setting AUTH_PROVIDER=authentik.
+const authProvider = (authEnv('AUTH_PROVIDER') || 'auth0').toLowerCase();
+
+function oidcIssuer(): string | undefined {
+  return authProvider === 'authentik'
+    ? authEnv('AUTHENTIK_ISSUER') || authEnv('AUTH0_ISSUER')
+    : authEnv('AUTH0_ISSUER');
+}
+
+function oidcClientId(): string | undefined {
+  return authProvider === 'authentik'
+    ? authEnv('AUTHENTIK_CLIENT_ID') || authEnv('AUTH0_CLIENT_ID')
+    : authEnv('AUTH0_CLIENT_ID');
+}
+
+function oidcClientSecret(): string | undefined {
+  return authProvider === 'authentik'
+    ? authEnv('AUTHENTIK_CLIENT_SECRET') || authEnv('AUTH0_CLIENT_SECRET')
+    : authEnv('AUTH0_CLIENT_SECRET');
 }
 
 // Define custom types for our extended token and session
@@ -46,9 +71,9 @@ export default defineConfig({
 
   providers: [
     Auth0({
-      clientId: authEnv('AUTH0_CLIENT_ID'),
-      clientSecret: authEnv('AUTH0_CLIENT_SECRET'),
-      issuer: authEnv('AUTH0_ISSUER'),
+      clientId: oidcClientId(),
+      clientSecret: oidcClientSecret(),
+      issuer: oidcIssuer(),
       client: {
         token_endpoint_auth_method: 'client_secret_post',
       },
@@ -103,12 +128,13 @@ export default defineConfig({
       }
 
       try {
-        // AUTH0_ISSUER is not VITE_-prefixed, so it is NOT baked into
-        // import.meta.env in the built server bundle — at runtime it only
-        // exists on process.env (from the deployment configmap). Without this
-        // fallback the refresh URL becomes "undefined/..." and every token
-        // refresh throws once the access token expires.
-        const issuer = authEnv('AUTH0_ISSUER');
+        // The issuer/client vars are not VITE_-prefixed, so they are NOT baked
+        // into import.meta.env in the built server bundle — at runtime they
+        // only exist on process.env (from the deployment configmap). Without
+        // this the refresh URL becomes "undefined/..." and every token refresh
+        // throws once the access token expires. Resolved via the active
+        // provider so a flip uses the right IdP's token endpoint (issue #58).
+        const issuer = oidcIssuer();
         const discoveryResponse = await fetch(
           `${issuer?.replace(/\/$/, '')}/.well-known/openid-configuration`,
         );
@@ -123,8 +149,8 @@ export default defineConfig({
           },
           body: new URLSearchParams({
             grant_type: 'refresh_token',
-            client_id: authEnv('AUTH0_CLIENT_ID') || '',
-            client_secret: authEnv('AUTH0_CLIENT_SECRET') || '',
+            client_id: oidcClientId() || '',
+            client_secret: oidcClientSecret() || '',
             refresh_token: extToken.refreshToken,
           }),
         });

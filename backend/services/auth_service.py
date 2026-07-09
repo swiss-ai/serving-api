@@ -118,7 +118,9 @@ def get_userinfo_endpoint(issuer: str) -> str:
     if not issuer:
         raise Exception("No OIDC issuer configured")
     well_known = f"{issuer.rstrip('/')}/.well-known/openid-configuration"
-    res = requests.get(well_known, headers={"Accept": "application/json"})
+    res = requests.get(
+        well_known, headers={"Accept": "application/json"}, timeout=(5, 10)
+    )
     if res.status_code != 200:
         raise Exception(f"Failed to fetch OIDC discovery: {res.status_code} {res.text}")
     userinfo_endpoint = res.json().get("userinfo_endpoint")
@@ -132,13 +134,20 @@ def get_profile_from_accesstoken(access_token: str):
         # Local dev: skip the IdP and return a fixed dev profile.
         return {"sub": "dev", "name": "Dev User", "email": DEV_EMAIL}
     settings = get_settings()
-    userinfo_endpoint = get_userinfo_endpoint(settings.auth0_issuer)
+    # Hard cutover: only the active AUTH_PROVIDER issuer is trusted. After a
+    # flip (auth0 <-> authentik) tokens from the previous IdP fail and users
+    # must re-login — simpler and makes golive issues obvious (issue #58).
+    issuer = settings.active_issuer()
+    if not issuer:
+        raise Exception("No OIDC issuer configured")
+    userinfo_endpoint = get_userinfo_endpoint(issuer)
     res = requests.get(
         userinfo_endpoint,
         headers={
             "Accept": "application/json",
             "Authorization": f"Bearer {access_token}",
         },
+        timeout=(5, 10),
     )
     if res.status_code != 200:
         raise Exception(f"Invalid access token: {res.status_code} {res.text}")
