@@ -25,6 +25,7 @@
 
 // Map of organization names to their logos
 const orgLogos: Record<string, string | null> = {
+  'apertus-ai': "https://cdn-avatars.huggingface.co/v1/production/uploads/61f1877a168a0b52fda88455/RLfzm6CLTwgi49lwSH2sH.png",
   'swissai': "https://avatars.githubusercontent.com/u/153931663?s=200",
   'swiss-ai': "https://avatars.githubusercontent.com/u/153931663?s=200",
   'bigscience': 'https://cdn-avatars.huggingface.co/v1/production/uploads/1634806038075-5df7e9e5da6d0311fd3d53f9.png',
