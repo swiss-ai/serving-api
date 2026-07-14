@@ -38,10 +38,6 @@ const faqs = [
     a: 'Please reach out at <a class="text-indigo-600 dark:text-indigo-400 underline" href="https://apertvs.ai/contact/" target="_blank" rel="noopener noreferrer">apertvs.ai/contact/</a>.',
   },
   {
-    q: "Can I share a chat, and why is there no \u201cPublic\u201d option?",
-    a: 'Yes. In the Chat app, use the <strong>Share</strong> button to share a conversation with specific signed-in users or with a group (for example \u201cInternal research\u201d). Sharing is intentionally always <strong>Private</strong>: there is <strong>no public or anonymous link</strong>, because all access to the platform requires an institutional SSO login. Note that \u201cPublic\u201d elsewhere on the platform refers to centrally-hosted <em>models</em> available to all signed-in users, not to openly accessible chat links.<br /><br />Because of this, copy-pasting the browser URL of a chat will not work for others \u2014 share through the <strong>Share</strong> dialog instead. If a colleague can\u2019t open a chat you shared, check that they are signed in and are one of the users (or in the group) you shared with.',
-  },
-  {
     q: "Do you store my prompts and responses?",
     a: 'For the <strong>API</strong>: no. We do not store prompt or response content. We keep only metadata logs (e.g. userid, input/output token counts, model, timestamp) for capacity planning and abuse prevention.<br /><br />For the internal facing <strong>Chat app</strong>: yes, your conversation history is retained so you can return to past chats. This is important for the Apertus team development and testing various model types. Your chats are not extracted and used for training. To request deletion of your chat history, please <a class="text-indigo-600 dark:text-indigo-400 underline" href="https://apertvs.ai/contact/" target="_blank" rel="noopener noreferrer">contact us</a>.',
   },
@@ -76,6 +72,10 @@ const faqs = [
   {
     q: "Can I use OpenAI-compatible tools and SDKs?",
     a: 'Yes. The API is OpenAI-compatible, so it works with the OpenAI SDKs, LangChain, Open WebUI and similar tools — just point the base URL at our endpoint (<code>.../v1</code>) and use your API key.',
+  },
+  {
+    q: "Can I share a chat publicly?",
+    a: 'No. Chats can only be shared with specific signed-in users or a group via the <strong>Share</strong> button — there is no public link, since all access requires an SSO login. Pasting a chat URL won\u2019t work for others; use the Share dialog instead.',
   },
 ];
 ---
