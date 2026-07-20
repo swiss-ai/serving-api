@@ -4,19 +4,24 @@
 # `python authentik/export.py`; see authentik/README.md. Structure mirrors the
 # SDSC blueprint (github.com/SwissDataScienceCenter/sdsc-llm-deployment).
 #
-# Secrets are NOT stored here. They resolve at apply time from environment
-# variables via Authentik's !Env tag — inject them from your secret store
-# (the SDSC repo keeps equivalents in sops-encrypted values.*.enc.yaml):
+# Secrets are NOT stored here. Each is an !Env reference resolved from the
+# environment at apply time:
 #   AUTHENTIK_CILOGON_CLIENT_SECRET
 #   AUTHENTIK_SERVING_PROD_CLIENT_SECRET
 #   AUTHENTIK_SERVING_DEV_CLIENT_SECRET
+# A worker that has those env vars (self-hosting / the local test) resolves them
+# directly. For the shared CSCS instance, authentik/apply.py substitutes the
+# real values into the content before pushing (fail-closed: it refuses if any is
+# unset, so an empty value can never clobber a live secret).
 # client_id values are public OIDC identifiers (they appear in browser flows),
 # so they are kept inline.
 #
-# Entries are ordered by dependency (a single blueprint applies entries top to
-# bottom, so every !Find resolves against something defined above it). Built-in
-# default-* flows and the default certificatekeypair are referenced with !Find
-# and must already exist on the instance.
+# References: objects defined in THIS blueprint are linked by !KeyOf <id> (so
+# they resolve even during Authentik's synchronous content-validation, before
+# the objects exist in the DB); pre-existing objects (built-in default-* flows,
+# the default-authentication-login stage, the default certificatekeypair, the
+# managed scope mappings) are looked up with !Find. Entries are still ordered so
+# each !KeyOf target is defined above its use.
 version: 1
 metadata:
   name: serving-api
@@ -51,6 +56,7 @@ entries:
 
   # ── CILogon federation source (upstream OIDC identity provider). ────────────
   - model: authentik_sources_oauth.oauthsource
+    id: source-cilogon
     identifiers:
       slug: cilogon
     attrs:
@@ -75,10 +81,11 @@ entries:
 
   # ── cilogon-direct flow: the dev provider's authentication_flow. A minimal
   #    "Sign in" that offers only CILogon (no local user/pass), then logs in.
-  #    Defined here (before the dev provider that !Finds it) so a first apply
-  #    resolves the reference deterministically. default-authentication-login is
-  #    a built-in stage — referenced, not redefined. ────────────────────────────
+  #    Defined here and linked from the dev provider by !KeyOf flow-cilogon-direct.
+  #    default-authentication-login is a built-in stage — referenced, not
+  #    redefined. ─────────────────────────────────────────────────────────────
   - model: authentik_flows.flow
+    id: flow-cilogon-direct
     identifiers:
       slug: cilogon-direct
     attrs:
@@ -91,6 +98,7 @@ entries:
       policy_engine_mode: any
       compatibility_mode: false
   - model: authentik_stages_identification.identificationstage
+    id: stage-cilogon-only
     identifiers:
       name: cilogon-only-identification
     attrs:
@@ -101,11 +109,11 @@ entries:
       enable_remember_me: false
       show_source_labels: false
       sources:
-        - !Find [authentik_sources_oauth.oauthsource, [slug, cilogon]]
+        - !KeyOf source-cilogon
   - model: authentik_flows.flowstagebinding
     identifiers:
-      target: !Find [authentik_flows.flow, [slug, cilogon-direct]]
-      stage: !Find [authentik_stages_identification.identificationstage, [name, cilogon-only-identification]]
+      target: !KeyOf flow-cilogon-direct
+      stage: !KeyOf stage-cilogon-only
       order: 10
     attrs:
       evaluate_on_plan: false
@@ -114,7 +122,7 @@ entries:
       policy_engine_mode: any
   - model: authentik_flows.flowstagebinding
     identifiers:
-      target: !Find [authentik_flows.flow, [slug, cilogon-direct]]
+      target: !KeyOf flow-cilogon-direct
       stage: !Find [authentik_stages_user_login.userloginstage, [name, default-authentication-login]]
       order: 20
     attrs:
@@ -146,7 +154,7 @@ entries:
         - { url: "https://serving.swissai.svc.cscs.ch/api/auth/callback/auth0", matching_mode: strict, redirect_uri_type: authorization }
         - { url: "https://serving.swissai.svc.cscs.ch", matching_mode: strict, redirect_uri_type: logout }
       property_mappings:
-        - !Find [authentik_providers_oauth2.scopemapping, [name, serving-api-groups]]
+        - !KeyOf scope-serving-api-groups
         - !Find [authentik_providers_oauth2.scopemapping, [managed, goauthentik.io/providers/oauth2/scope-openid]]
         - !Find [authentik_providers_oauth2.scopemapping, [managed, goauthentik.io/providers/oauth2/scope-email]]
         - !Find [authentik_providers_oauth2.scopemapping, [managed, goauthentik.io/providers/oauth2/scope-profile]]
@@ -172,7 +180,7 @@ entries:
       refresh_token_validity: days=30
       authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-explicit-consent]]
       invalidation_flow: !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
-      authentication_flow: !Find [authentik_flows.flow, [slug, cilogon-direct]]
+      authentication_flow: !KeyOf flow-cilogon-direct
       signing_key: !Find [authentik_crypto.certificatekeypair, [name, "authentik Self-signed Certificate"]]
       redirect_uris:
         - { url: "https://servingdev.swissai.svc.cscs.ch/api/auth/callback/auth0", matching_mode: strict, redirect_uri_type: authorization }
@@ -181,7 +189,7 @@ entries:
         - { url: "https://servingdev.swissai.svc.cscs.ch", matching_mode: strict, redirect_uri_type: logout }
         - { url: "http://localhost:4321", matching_mode: strict, redirect_uri_type: logout }
       property_mappings:
-        - !Find [authentik_providers_oauth2.scopemapping, [name, serving-api-groups]]
+        - !KeyOf scope-serving-api-groups
         - !Find [authentik_providers_oauth2.scopemapping, [managed, goauthentik.io/providers/oauth2/scope-openid]]
         - !Find [authentik_providers_oauth2.scopemapping, [managed, goauthentik.io/providers/oauth2/scope-email]]
         - !Find [authentik_providers_oauth2.scopemapping, [managed, goauthentik.io/providers/oauth2/scope-profile]]
