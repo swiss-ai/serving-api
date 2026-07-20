@@ -3,8 +3,10 @@
 # throwaway (named volumes, dummy secrets) — never point this at prod data.
 #
 #   docker compose -f authentik/test/docker-compose.yml up -d
-# The repo blueprints are mounted read-only into /blueprints/serving-api, where
-# Authentik's worker auto-discovers and applies them. See ./run.sh.
+# Base stack has NO blueprint mount — used to test apply.py (the API push path).
+# docker-compose.discovery.yml overlays a read-only mount into /blueprints so the
+# worker auto-discovers + applies the blueprint (the SDSC filesystem path). See
+# ./run.sh, which selects the right combination.
 x-env: &env
   AUTHENTIK_SECRET_KEY: local-test-secret-key-not-for-prod
   AUTHENTIK_POSTGRESQL__HOST: postgresql
@@ -50,8 +52,6 @@ services:
     environment: *env
     ports:
       - "9000:9000"
-    volumes:
-      - ../blueprints:/blueprints/serving-api:ro
     depends_on:
       postgresql: { condition: service_healthy }
       redis: { condition: service_healthy }
@@ -60,8 +60,6 @@ services:
     image: ghcr.io/goauthentik/server:2026.5.0
     command: worker
     environment: *env
-    volumes:
-      - ../blueprints:/blueprints/serving-api:ro
     depends_on:
       postgresql: { condition: service_healthy }
       redis: { condition: service_healthy }
