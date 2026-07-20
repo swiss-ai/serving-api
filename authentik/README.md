@@ -18,15 +18,18 @@ here. The apply path is documented below.
 |------|-----------|------|
 | `export.py` | yes | Pulls the live serving-api config over the Authentik REST API into `raw/`. |
 | `blueprints/serving-api.yaml` | yes | The whole serving-api blueprint: scope mapping, groups, CILogon source, the `cilogon-direct` flow, both OAuth2 providers, both applications. |
-| `test/` | yes | Disposable local Authentik + assertion script that validates the blueprint (`test/run.sh`). |
-| `.token` | no (git-ignored) | Admin API token used by `export.py`. |
+| `apply.py` | yes | Pushes the blueprint to Authentik as a content-based instance and applies it (the propagation step). |
+| `test/` | yes | Disposable local Authentik + scripts that validate the blueprint (`test/run.sh`) and `apply.py` (`test/run.sh --apply`). |
+| `.token` | no (git-ignored) | Admin API token used by `export.py` / `apply.py`. |
 | `raw/` | no (git-ignored) | Raw API dumps + verbatim flow exports; an inspection aid. |
 
 ### Secrets
 
-The blueprints contain **no secret values**. Client secrets and the CILogon
-consumer secret resolve at apply time from environment variables via Authentik's
-`!Env` tag — inject these from your secret store:
+The blueprint contains **no secret values**. Client secrets and the CILogon
+consumer secret resolve at apply time from the blueprint instance's `context`
+via Authentik's `!Context` tag; `apply.py` injects them from these environment
+variables (source them from your secret store) and **refuses to apply if any is
+unset**, so an empty value can never overwrite a live secret:
 
 - `AUTHENTIK_CILOGON_CLIENT_SECRET`
 - `AUTHENTIK_SERVING_PROD_CLIENT_SECRET`
@@ -50,20 +53,42 @@ flows), so they are kept inline.
    Secrets (client secret, signing keys) are **not** exported by Authentik and
    must stay as placeholders — never commit real secret values.
 
-## Applying the blueprint
+## Applying the blueprint (propagation)
 
 `ak export_blueprint`/`ak apply_blueprint` run inside the Authentik worker pod,
-which we don't have cluster access to. Options, in order of preference:
+which we don't have cluster access to. The path that works with just an API
+token is a **content-based blueprint instance**, which is what `apply.py` uses:
 
-- **Blueprint instance via the UI/API** — Authentik → *Customization →
-  Blueprints → Create* with the file contents (or `POST
-  /api/v3/managed/blueprints/`). Authentik validates and applies it, and shows a
-  dry-run diff first. The blueprint is a single self-contained file — entries
-  are ordered so every `!Find` resolves on a first apply.
-- **Mounted secret (SDSC style)** — if you ever run your own Authentik, mount
-  the blueprint as a `Secret` keyed `*.yaml` and list it under the Authentik
-  Helm chart's `blueprints:` value; the worker auto-applies it. See
-  `templates/authentik-blueprints-secret.yaml` in the SDSC repo.
+```sh
+export AUTHENTIK_CILOGON_CLIENT_SECRET=...        # from your secret store
+export AUTHENTIK_SERVING_PROD_CLIENT_SECRET=...
+export AUTHENTIK_SERVING_DEV_CLIENT_SECRET=...
+python authentik/apply.py --dry-run   # push disabled, let Authentik validate
+python authentik/apply.py             # create/update the instance + apply
+```
 
-Secrets themselves belong in the deployment's secret store (the SDSC repo keeps
-them in sops-encrypted `values.*.enc.yaml`), not in this blueprint.
+`apply.py` substitutes the secrets into the content, pushes it as the
+`serving-api` blueprint instance, and triggers an apply; the worker then keeps
+re-applying on its schedule, so a committed change converges on the live
+instance. This is the "edit repo → run apply → propagates" loop. Wire it into CI
+(on push to `main`, with the token + secrets from CI secrets) for automatic
+propagation. The blueprint reproduces the current live state, so the first real
+apply should be a no-op — run `--dry-run` first and eyeball the diff in the UI.
+
+Alternative — **mounted secret (SDSC style):** if you ever self-host Authentik,
+mount the blueprint as a `Secret` keyed `*.yaml`, list it under the Authentik
+Helm chart's `blueprints:` value, and the worker auto-discovers + applies it
+(secrets come from the worker env via the `!Env` tags). This is the path the
+local discovery test exercises. See `templates/authentik-blueprints-secret.yaml`
+in the SDSC repo.
+
+## Testing
+
+Both paths are validated against a disposable local Authentik (pinned to the
+live version); nothing touches the shared instance:
+
+```sh
+authentik/test/run.sh          # discovery path: mount blueprint, assert objects + idempotency
+authentik/test/run.sh --apply  # push path: run apply.py, assert fail-closed + apply + idempotency
+authentik/test/run.sh --down   # tear down
+```
