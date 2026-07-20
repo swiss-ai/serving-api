@@ -4,9 +4,8 @@
 # `python authentik/export.py`; see authentik/README.md. Structure mirrors the
 # SDSC blueprint (github.com/SwissDataScienceCenter/sdsc-llm-deployment).
 #
-# Secrets are NOT stored here. Each is an !Env reference resolved from the
-# environment at apply time:
-#   AUTHENTIK_CILOGON_CLIENT_SECRET
+# Secrets are NOT stored here. The two provider client secrets are !Env
+# references resolved at apply time:
 #   AUTHENTIK_SERVING_PROD_CLIENT_SECRET
 #   AUTHENTIK_SERVING_DEV_CLIENT_SECRET
 # A worker that has those env vars (self-hosting / the local test) resolves them
@@ -14,14 +13,15 @@
 # real values into the content before pushing (fail-closed: it refuses if any is
 # unset, so an empty value can never clobber a live secret).
 # client_id values are public OIDC identifiers (they appear in browser flows),
-# so they are kept inline.
+# so they are kept inline. The shared CILogon source (and its write-only secret)
+# is referenced, not managed here — see the CILogon note below.
 #
 # References: objects defined in THIS blueprint are linked by !KeyOf <id> (so
 # they resolve even during Authentik's synchronous content-validation, before
 # the objects exist in the DB); pre-existing objects (built-in default-* flows,
 # the default-authentication-login stage, the default certificatekeypair, the
-# managed scope mappings) are looked up with !Find. Entries are still ordered so
-# each !KeyOf target is defined above its use.
+# managed scope mappings, and the shared CILogon source) are looked up with
+# !Find. Entries are still ordered so each !KeyOf target is defined above its use.
 version: 1
 metadata:
   name: serving-api
@@ -54,30 +54,12 @@ entries:
     identifiers: { name: serving-viewer }
     attrs: { name: serving-viewer }
 
-  # ── CILogon federation source (upstream OIDC identity provider). ────────────
-  - model: authentik_sources_oauth.oauthsource
-    id: source-cilogon
-    identifiers:
-      slug: cilogon
-    attrs:
-      name: CILogon
-      slug: cilogon
-      enabled: true
-      provider_type: openidconnect
-      consumer_key: "cilogon:/client_id/6268082fec2effc5a4bba9d76e32d2b0"
-      consumer_secret: !Env [AUTHENTIK_CILOGON_CLIENT_SECRET, ""]
-      authorization_url: https://cilogon.org/authorize
-      access_token_url: https://cilogon.org/oauth2/token
-      profile_url: https://cilogon.org/oauth2/userinfo
-      oidc_well_known_url: https://cilogon.org/.well-known/openid-configuration
-      oidc_jwks_url: https://cilogon.org/oauth2/certs
-      authorization_code_auth_method: post_body
-      pkce: S256
-      user_matching_mode: identifier
-      group_matching_mode: identifier
-      user_path_template: goauthentik.io/sources/%(slug)s
-      authentication_flow: !Find [authentik_flows.flow, [slug, default-source-authentication]]
-      enrollment_flow: !Find [authentik_flows.flow, [slug, default-source-enrollment]]
+  # ── CILogon federation source: referenced, NOT managed here. It is shared,
+  #    pre-existing infrastructure (other apps use it) and its consumer_secret is
+  #    write-only, so this blueprint must never overwrite it. The full source
+  #    definition lives in cilogon-source.yaml for fresh/self-host instances;
+  #    apply.py does not push it. On the shared CSCS instance the source already
+  #    exists, so the !Find below resolves. ──────────────────────────────────────
 
   # ── cilogon-direct flow: the dev provider's authentication_flow. A minimal
   #    "Sign in" that offers only CILogon (no local user/pass), then logs in.
@@ -109,7 +91,7 @@ entries:
       enable_remember_me: false
       show_source_labels: false
       sources:
-        - !KeyOf source-cilogon
+        - !Find [authentik_sources_oauth.oauthsource, [slug, cilogon]]
   - model: authentik_flows.flowstagebinding
     identifiers:
       target: !KeyOf flow-cilogon-direct

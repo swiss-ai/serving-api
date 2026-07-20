@@ -63,6 +63,39 @@ def wait_ready(timeout=240):
     print("  WARNING: readiness gate timed out; proceeding anyway")
 
 
+def seed_cilogon():
+    """serving-api.yaml references the CILogon source with !Find (it does not
+    manage it). On the shared instance CILogon pre-exists; the base test stack
+    has no blueprint mount, so create a stand-in here for !Find to resolve."""
+    B = f"{BASE}/api/v3"
+    if any(s["slug"] == "cilogon" for s in S.get(f"{B}/sources/oauth/", timeout=30).json()["results"]):
+        return
+    src = "\n".join([
+        "version: 1", "metadata: {name: seed-cilogon}", "entries:",
+        "  - model: authentik_sources_oauth.oauthsource",
+        "    identifiers: {slug: cilogon}",
+        "    attrs:",
+        "      name: CILogon",
+        "      provider_type: openidconnect",
+        "      consumer_key: seed",
+        "      consumer_secret: seed-secret",
+        "      authorization_url: https://cilogon.org/authorize",
+        "      access_token_url: https://cilogon.org/oauth2/token",
+        "      profile_url: https://cilogon.org/oauth2/userinfo",
+        "      oidc_well_known_url: https://cilogon.org/.well-known/openid-configuration",
+    ])
+    r = S.post(f"{B}/managed/blueprints/", json={"name": "seed-cilogon", "content": src, "enabled": True}, timeout=60)
+    if r.status_code in (200, 201):
+        S.post(f"{B}/managed/blueprints/{r.json()['pk']}/apply/", timeout=60)
+    # Blueprint apply is async — wait until the source actually exists so the
+    # first apply.py run doesn't race it (its !Find would resolve to None).
+    for _ in range(30):
+        if any(s["slug"] == "cilogon" for s in S.get(f"{B}/sources/oauth/", timeout=30).json()["results"]):
+            return
+        time.sleep(2)
+    raise RuntimeError("seed CILogon source did not appear in time")
+
+
 def prod_client_secret():
     lst = S.get(f"{BASE}/api/v3/providers/oauth2/", params={"search": "serving-api-prod"}, timeout=30).json()["results"]
     prov = next((x for x in lst if x["name"] == "serving-api-prod"), None)
@@ -79,8 +112,8 @@ def main():
     p = run_apply({})
     check("refuses when secrets unset (fail-closed)", p.returncode != 0, last_line(p))
 
+    seed_cilogon()  # so serving-api.yaml's !Find on the CILogon source resolves
     secrets = {
-        "AUTHENTIK_CILOGON_CLIENT_SECRET": "dummy-cilogon",
         "AUTHENTIK_SERVING_PROD_CLIENT_SECRET": DUMMY_PROD,
         "AUTHENTIK_SERVING_DEV_CLIENT_SECRET": "dummy-dev",
     }

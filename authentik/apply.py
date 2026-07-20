@@ -5,14 +5,18 @@ This is the propagation step: it creates (or updates) a content-based blueprint
 instance over the REST API and triggers an apply, so a change committed to the
 blueprint converges on the live instance. Run it by hand or from CI.
 
-The blueprint keeps secrets as !Env references. The shared CSCS worker does not
-have those env vars, so this script substitutes the real values into the content
-before pushing (Authentik resolves !Env only from the worker's own environment).
-All three secrets must be present in this script's environment or it refuses to
-run — a missing secret must never be applied as an empty string over a live one.
+Only serving-api.yaml is pushed. It references the shared CILogon source with
+!Find and does not manage it, so this script never touches that source or its
+write-only secret (see authentik/blueprints/cilogon-source.yaml).
+
+The blueprint keeps the two provider client secrets as !Env references. The
+shared CSCS worker does not have those env vars, so this script substitutes the
+real values into the content before pushing (Authentik resolves !Env only from
+the worker's own environment). Both must be present in this script's environment
+or it refuses to run — a missing secret must never be applied as an empty string
+over a live one.
 
 Usage:
-    export AUTHENTIK_CILOGON_CLIENT_SECRET=...
     export AUTHENTIK_SERVING_PROD_CLIENT_SECRET=...
     export AUTHENTIK_SERVING_DEV_CLIENT_SECRET=...
     # token from authentik/.token or $AUTHENTIK_API_TOKEN
@@ -32,9 +36,8 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 BLUEPRINT_FILE = os.path.join(HERE, "blueprints", "serving-api.yaml")
 INSTANCE_NAME = "serving-api"  # metadata.name in the blueprint
 
-# Secret !Env variables the blueprint references. All are required.
+# Secret !Env variables serving-api.yaml references. All are required.
 SECRET_ENV_VARS = [
-    "AUTHENTIK_CILOGON_CLIENT_SECRET",
     "AUTHENTIK_SERVING_PROD_CLIENT_SECRET",
     "AUTHENTIK_SERVING_DEV_CLIENT_SECRET",
 ]
