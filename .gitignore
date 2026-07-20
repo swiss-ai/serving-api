@@ -6,3 +6,7 @@ details.json
 secrets/*.json
 .venv/*
 __pycache__/
+
+# Authentik export tooling — never commit the admin API token or raw dumps
+authentik/.token
+authentik/raw/
