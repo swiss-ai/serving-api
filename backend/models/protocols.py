@@ -169,6 +169,12 @@ class ChatCompletionTokenLogprob(BaseModel):
 
 
 class ChoiceLogprobs(BaseModel):
+    # Chat responses use `content`; /v1/completions responses instead carry the
+    # classic OpenAI fields (tokens, token_logprobs, top_logprobs, text_offset).
+    # Pass those through rather than silently dropping them — loglikelihood
+    # scoring clients (e.g. lm-eval-harness) depend on token_logprobs.
+    model_config = ConfigDict(extra="allow")
+
     content: Optional[List[ChatCompletionTokenLogprob]] = None
 
 
