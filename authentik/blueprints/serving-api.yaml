@@ -1,0 +1,206 @@
+# serving-api Authentik configuration (config-as-code).
+#
+# Captured from the live shared CSCS Authentik (auth.swissai.svc.cscs.ch) via
+# `python authentik/export.py`; see authentik/README.md. Structure mirrors the
+# SDSC blueprint (github.com/SwissDataScienceCenter/sdsc-llm-deployment).
+#
+# Secrets are NOT stored here. The two provider client secrets are !Env
+# references resolved at apply time:
+#   AUTHENTIK_SERVING_PROD_CLIENT_SECRET
+#   AUTHENTIK_SERVING_DEV_CLIENT_SECRET
+# A worker that has those env vars (self-hosting / the local test) resolves them
+# directly. For the shared CSCS instance, authentik/apply.py substitutes the
+# real values into the content before pushing (fail-closed: it refuses if any is
+# unset, so an empty value can never clobber a live secret).
+# client_id values are public OIDC identifiers (they appear in browser flows),
+# so they are kept inline. The shared CILogon source (and its write-only secret)
+# is referenced, not managed here — see the CILogon note below.
+#
+# References: objects defined in THIS blueprint are linked by !KeyOf <id> (so
+# they resolve even during Authentik's synchronous content-validation, before
+# the objects exist in the DB); pre-existing objects (built-in default-* flows,
+# the default-authentication-login stage, the default certificatekeypair, the
+# managed scope mappings, and the shared CILogon source) are looked up with
+# !Find. Entries are still ordered so each !KeyOf target is defined above its use.
+version: 1
+metadata:
+  name: serving-api
+entries:
+  # ── Custom scope mapping: emits a `groups` claim, defaulting members with no
+  #    serving-* group to serving-user (see backend groups handling). ──────────
+  - model: authentik_providers_oauth2.scopemapping
+    id: scope-serving-api-groups
+    identifiers:
+      name: serving-api-groups
+    attrs:
+      name: serving-api-groups
+      scope_name: groups
+      description: "serving-api group membership claim"
+      expression: |
+        groups = [group.name for group in request.user.ak_groups.all()]
+        serving = {"serving-admin", "serving-user", "serving-viewer"}
+        if not serving.intersection(groups):
+            groups.append("serving-user")
+        return {"groups": groups}
+
+  # ── Authorization groups referenced by the groups claim above. ──────────────
+  - model: authentik_core.group
+    identifiers: { name: serving-admin }
+    attrs: { name: serving-admin }
+  - model: authentik_core.group
+    identifiers: { name: serving-user }
+    attrs: { name: serving-user }
+  - model: authentik_core.group
+    identifiers: { name: serving-viewer }
+    attrs: { name: serving-viewer }
+
+  # ── CILogon federation source: referenced, NOT managed here. It is shared,
+  #    pre-existing infrastructure (other apps use it) and its consumer_secret is
+  #    write-only, so this blueprint must never overwrite it. The full source
+  #    definition lives in cilogon-source.yaml for fresh/self-host instances;
+  #    apply.py does not push it. On the shared CSCS instance the source already
+  #    exists, so the !Find below resolves. ──────────────────────────────────────
+
+  # ── cilogon-direct flow: the dev provider's authentication_flow. A minimal
+  #    "Sign in" that offers only CILogon (no local user/pass), then logs in.
+  #    Defined here and linked from the dev provider by !KeyOf flow-cilogon-direct.
+  #    default-authentication-login is a built-in stage — referenced, not
+  #    redefined. ─────────────────────────────────────────────────────────────
+  - model: authentik_flows.flow
+    id: flow-cilogon-direct
+    identifiers:
+      slug: cilogon-direct
+    attrs:
+      name: cilogon-direct
+      title: Sign in
+      designation: authentication
+      authentication: none
+      denied_action: message_continue
+      layout: stacked
+      policy_engine_mode: any
+      compatibility_mode: false
+  - model: authentik_stages_identification.identificationstage
+    id: stage-cilogon-only
+    identifiers:
+      name: cilogon-only-identification
+    attrs:
+      user_fields: []
+      case_insensitive_matching: true
+      show_matched_user: true
+      pretend_user_exists: true
+      enable_remember_me: false
+      show_source_labels: false
+      sources:
+        - !Find [authentik_sources_oauth.oauthsource, [slug, cilogon]]
+  - model: authentik_flows.flowstagebinding
+    identifiers:
+      target: !KeyOf flow-cilogon-direct
+      stage: !KeyOf stage-cilogon-only
+      order: 10
+    attrs:
+      evaluate_on_plan: false
+      re_evaluate_policies: true
+      invalid_response_action: retry
+      policy_engine_mode: any
+  - model: authentik_flows.flowstagebinding
+    identifiers:
+      target: !KeyOf flow-cilogon-direct
+      stage: !Find [authentik_stages_user_login.userloginstage, [name, default-authentication-login]]
+      order: 20
+    attrs:
+      evaluate_on_plan: false
+      re_evaluate_policies: true
+      invalid_response_action: retry
+      policy_engine_mode: any
+
+  # ── OAuth2 / OIDC provider — production ──────────────────────────────────────
+  - model: authentik_providers_oauth2.oauth2provider
+    id: provider-serving-api-prod
+    identifiers:
+      name: serving-api-prod
+    attrs:
+      name: serving-api-prod
+      client_type: confidential
+      client_id: "lugECDdmLqyaj2S67si1FRByLt5QhmwIlg7Z38TV"
+      client_secret: !Env [AUTHENTIK_SERVING_PROD_CLIENT_SECRET, ""]
+      sub_mode: hashed_user_id
+      include_claims_in_id_token: true
+      issuer_mode: per_provider
+      access_code_validity: minutes=1
+      access_token_validity: minutes=5
+      refresh_token_validity: days=30
+      authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-explicit-consent]]
+      invalidation_flow: !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
+      signing_key: !Find [authentik_crypto.certificatekeypair, [name, "authentik Self-signed Certificate"]]
+      redirect_uris:
+        - { url: "https://serving.swissai.svc.cscs.ch/api/auth/callback/auth0", matching_mode: strict, redirect_uri_type: authorization }
+        - { url: "https://serving.swissai.svc.cscs.ch", matching_mode: strict, redirect_uri_type: logout }
+      property_mappings:
+        - !KeyOf scope-serving-api-groups
+        - !Find [authentik_providers_oauth2.scopemapping, [managed, goauthentik.io/providers/oauth2/scope-openid]]
+        - !Find [authentik_providers_oauth2.scopemapping, [managed, goauthentik.io/providers/oauth2/scope-email]]
+        - !Find [authentik_providers_oauth2.scopemapping, [managed, goauthentik.io/providers/oauth2/scope-profile]]
+        - !Find [authentik_providers_oauth2.scopemapping, [managed, goauthentik.io/providers/oauth2/scope-offline_access]]
+        - !Find [authentik_providers_oauth2.scopemapping, [managed, goauthentik.io/providers/oauth2/scope-authentik_api]]
+        - !Find [authentik_providers_oauth2.scopemapping, [managed, goauthentik.io/providers/oauth2/scope-entitlements]]
+
+  # ── OAuth2 / OIDC provider — dev (adds localhost redirects + cilogon-direct) ─
+  - model: authentik_providers_oauth2.oauth2provider
+    id: provider-serving-api-dev
+    identifiers:
+      name: serving-api-dev-provider
+    attrs:
+      name: serving-api-dev-provider
+      client_type: confidential
+      client_id: "mzRpZSfMUIhH1DeVwNStX9dFNEcSOFKgX5wlqW6l"
+      client_secret: !Env [AUTHENTIK_SERVING_DEV_CLIENT_SECRET, ""]
+      sub_mode: hashed_user_id
+      include_claims_in_id_token: true
+      issuer_mode: per_provider
+      access_code_validity: minutes=1
+      access_token_validity: minutes=5
+      refresh_token_validity: days=30
+      authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-explicit-consent]]
+      invalidation_flow: !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
+      authentication_flow: !KeyOf flow-cilogon-direct
+      signing_key: !Find [authentik_crypto.certificatekeypair, [name, "authentik Self-signed Certificate"]]
+      redirect_uris:
+        - { url: "https://servingdev.swissai.svc.cscs.ch/api/auth/callback/auth0", matching_mode: strict, redirect_uri_type: authorization }
+        - { url: "https://servingdev.swissai.svc.cscs.ch", matching_mode: strict, redirect_uri_type: authorization }
+        - { url: "http://localhost:4321/api/auth/callback/auth0", matching_mode: strict, redirect_uri_type: authorization }
+        - { url: "https://servingdev.swissai.svc.cscs.ch", matching_mode: strict, redirect_uri_type: logout }
+        - { url: "http://localhost:4321", matching_mode: strict, redirect_uri_type: logout }
+      property_mappings:
+        - !KeyOf scope-serving-api-groups
+        - !Find [authentik_providers_oauth2.scopemapping, [managed, goauthentik.io/providers/oauth2/scope-openid]]
+        - !Find [authentik_providers_oauth2.scopemapping, [managed, goauthentik.io/providers/oauth2/scope-email]]
+        - !Find [authentik_providers_oauth2.scopemapping, [managed, goauthentik.io/providers/oauth2/scope-profile]]
+        - !Find [authentik_providers_oauth2.scopemapping, [managed, goauthentik.io/providers/oauth2/scope-offline_access]]
+        - !Find [authentik_providers_oauth2.scopemapping, [managed, goauthentik.io/providers/oauth2/scope-authentik_api]]
+        - !Find [authentik_providers_oauth2.scopemapping, [managed, goauthentik.io/providers/oauth2/scope-entitlements]]
+        - !Find [authentik_providers_oauth2.scopemapping, [managed, goauthentik.io/providers/proxy/scope-proxy]]
+
+  # ── Applications (bind each provider to a launch URL). ──────────────────────
+  - model: authentik_core.application
+    identifiers:
+      slug: serving-api-prod
+    attrs:
+      name: serving-api-prod
+      slug: serving-api-prod
+      launch_url: https://serving.swissai.svc.cscs.ch
+      provider: !KeyOf provider-serving-api-prod
+  - model: authentik_core.application
+    identifiers:
+      slug: serving-api-dev
+    attrs:
+      name: SwissAI Serving API (Dev)
+      slug: serving-api-dev
+      launch_url: https://servingdev.swissai.svc.cscs.ch/api/auth/signin
+      meta_launch_url: https://servingdev.swissai.svc.cscs.ch/api/auth/signin
+      provider: !KeyOf provider-serving-api-dev
+
+# NOTE — instance-global objects intentionally NOT re-applied here (they live on
+# the shared instance and re-applying would risk clobbering fields we didn't
+# capture): the default-authentication-identification stage also lists `cilogon`
+# under its sources (so CILogon appears on the main login). Managed in the UI;
+# see authentik/raw/stages_identification.json.

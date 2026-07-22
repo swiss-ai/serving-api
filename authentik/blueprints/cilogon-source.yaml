@@ -1,0 +1,40 @@
+# CILogon OIDC federation source (upstream identity provider).
+#
+# SEPARATE from serving-api.yaml on purpose: this source is shared,
+# pre-existing infrastructure on the CSCS Authentik and its consumer_secret is
+# write-only (it cannot be read back over the API). apply.py therefore does NOT
+# push this file — applying it sets the shared source's secret, which must only
+# happen where you actually hold that secret.
+#
+# Use it for:
+#   - fresh / self-hosted Authentik instances that need CILogon created;
+#   - the local test (the worker resolves !Env AUTHENTIK_CILOGON_CLIENT_SECRET
+#     from its environment).
+# serving-api.yaml references this source with !Find, so on any instance where
+# CILogon already exists this file is not needed.
+version: 1
+metadata:
+  name: serving-api-cilogon-source
+entries:
+  - model: authentik_sources_oauth.oauthsource
+    identifiers:
+      slug: cilogon
+    attrs:
+      name: CILogon
+      slug: cilogon
+      enabled: true
+      provider_type: openidconnect
+      consumer_key: "cilogon:/client_id/6268082fec2effc5a4bba9d76e32d2b0"
+      consumer_secret: !Env [AUTHENTIK_CILOGON_CLIENT_SECRET, ""]
+      authorization_url: https://cilogon.org/authorize
+      access_token_url: https://cilogon.org/oauth2/token
+      profile_url: https://cilogon.org/oauth2/userinfo
+      oidc_well_known_url: https://cilogon.org/.well-known/openid-configuration
+      oidc_jwks_url: https://cilogon.org/oauth2/certs
+      authorization_code_auth_method: post_body
+      pkce: S256
+      user_matching_mode: identifier
+      group_matching_mode: identifier
+      user_path_template: goauthentik.io/sources/%(slug)s
+      authentication_flow: !Find [authentik_flows.flow, [slug, default-source-authentication]]
+      enrollment_flow: !Find [authentik_flows.flow, [slug, default-source-enrollment]]

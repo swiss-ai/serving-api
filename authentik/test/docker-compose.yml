@@ -1,0 +1,68 @@
+# Disposable local Authentik for validating the serving-api blueprints.
+# Pinned to 2026.5.0 to match the live CSCS instance. Everything here is
+# throwaway (named volumes, dummy secrets) — never point this at prod data.
+#
+#   docker compose -f authentik/test/docker-compose.yml up -d
+# Base stack has NO blueprint mount — used to test apply.py (the API push path).
+# docker-compose.discovery.yml overlays a read-only mount into /blueprints so the
+# worker auto-discovers + applies the blueprint (the SDSC filesystem path). See
+# ./run.sh, which selects the right combination.
+x-env: &env
+  AUTHENTIK_SECRET_KEY: local-test-secret-key-not-for-prod
+  AUTHENTIK_POSTGRESQL__HOST: postgresql
+  AUTHENTIK_POSTGRESQL__USER: authentik
+  AUTHENTIK_POSTGRESQL__NAME: authentik
+  AUTHENTIK_POSTGRESQL__PASSWORD: authentik
+  AUTHENTIK_REDIS__HOST: redis
+  # Bootstrap an admin + a known API token so run.sh can assert immediately.
+  AUTHENTIK_BOOTSTRAP_TOKEN: local-test-bootstrap-token-0123456789
+  AUTHENTIK_BOOTSTRAP_PASSWORD: local-test-admin-password
+  AUTHENTIK_BOOTSTRAP_EMAIL: admin@localhost
+  # Dummy values for the blueprints' !Env secret references.
+  AUTHENTIK_CILOGON_CLIENT_SECRET: dummy-cilogon-secret
+  AUTHENTIK_SERVING_PROD_CLIENT_SECRET: dummy-prod-secret
+  AUTHENTIK_SERVING_DEV_CLIENT_SECRET: dummy-dev-secret
+
+services:
+  postgresql:
+    image: docker.io/library/postgres:16-alpine
+    environment:
+      POSTGRES_USER: authentik
+      POSTGRES_PASSWORD: authentik
+      POSTGRES_DB: authentik
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U authentik"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - db:/var/lib/postgresql/data
+
+  redis:
+    image: docker.io/library/redis:alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  server:
+    image: ghcr.io/goauthentik/server:2026.5.0
+    command: server
+    environment: *env
+    ports:
+      - "9000:9000"
+    depends_on:
+      postgresql: { condition: service_healthy }
+      redis: { condition: service_healthy }
+
+  worker:
+    image: ghcr.io/goauthentik/server:2026.5.0
+    command: worker
+    environment: *env
+    depends_on:
+      postgresql: { condition: service_healthy }
+      redis: { condition: service_healthy }
+
+volumes:
+  db:

@@ -1,0 +1,11 @@
+# Overlay for the discovery test: mount the repo blueprint read-only into
+# /blueprints so the worker auto-discovers and applies it (SDSC filesystem
+# path). The base stack has no mount so apply.py can own the instance instead.
+#   docker compose -f docker-compose.yml -f docker-compose.discovery.yml up -d
+services:
+  server:
+    volumes:
+      - ../blueprints:/blueprints/serving-api:ro
+  worker:
+    volumes:
+      - ../blueprints:/blueprints/serving-api:ro
