@@ -4,7 +4,14 @@ import time
 from typing import Dict, List, Literal, Optional, Union, Any
 import base64
 import struct
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    field_validator,
+    model_serializer,
+    model_validator,
+)
 
 
 def _generate_id():  # private helper function
@@ -139,8 +146,9 @@ class Message(BaseModel):
     role: Literal["assistant"] = "assistant"
     tool_calls: Optional[List[ChatCompletionMessageToolCall]] = None
     function_call: Optional[FunctionCall] = None
-    raw_prompt: Optional[str] = None
-    raw_output: Optional[str] = None
+    # Internal tracking, never part of the OpenAI response shape (#77).
+    raw_prompt: Optional[str] = Field(default=None, exclude=True)
+    raw_output: Optional[str] = Field(default=None, exclude=True)
 
     def get(self, key, default=None):
         return getattr(self, key, default)
@@ -204,9 +212,12 @@ class Choices(BaseModel):
 
     finish_reason: Optional[str] = "stop"
     index: int = 0
-    message: Message = Field(default_factory=Message)
+    # Default to None (not an empty Message stub) so /v1/completions choices,
+    # which carry `text` instead, don't emit a spurious chat-style `message` (#77).
+    message: Optional[Message] = None
     logprobs: Optional[ChoiceLogprobs] = None
-    enhancements: Optional[Any] = None
+    # Internal, non-spec field — never serialize it (#77).
+    enhancements: Optional[Any] = Field(default=None, exclude=True)
 
     def __contains__(self, key):
         return hasattr(self, key)
@@ -220,8 +231,22 @@ class Choices(BaseModel):
     def __setitem__(self, key, value):
         setattr(self, key, value)
 
+    @model_serializer(mode="wrap")
+    def _serialize(self, handler):
+        data = handler(self)
+        # Drop the `message` key entirely when absent (completions), rather
+        # than emitting `"message": null`.
+        if data.get("message") is None:
+            data.pop("message", None)
+        return data
+
 
 class Usage(BaseModel):
+    # Newer engines return prompt_tokens_details / completion_tokens_details
+    # (cached_tokens, reasoning_tokens, ...) per the OpenAI spec — keep them
+    # instead of silently dropping unmodeled fields (#74).
+    model_config = ConfigDict(extra="allow")
+
     prompt_tokens: Optional[int] = None
     completion_tokens: Optional[int] = None
     total_tokens: Optional[int] = None
@@ -246,7 +271,8 @@ class StreamingChoices(BaseModel):
     index: int = 0
     delta: Delta = Field(default_factory=Delta)
     logprobs: Optional[ChoiceLogprobs] = None
-    enhancements: Optional[Any] = None
+    # Internal, non-spec field — never serialize it (#77).
+    enhancements: Optional[Any] = Field(default=None, exclude=True)
 
     def __contains__(self, key):
         return hasattr(self, key)
@@ -287,21 +313,43 @@ class ModelResponse(BaseModel):
     model: Optional[str] = None
     object: str = "chat.completion"
     system_fingerprint: Optional[str] = None
-    raw_prompt: Optional[str] = None
-    raw_output: Optional[str] = None
+    # Internal tracking fields — never part of the OpenAI response shape (#77).
+    raw_prompt: Optional[str] = Field(default=None, exclude=True)
+    raw_output: Optional[str] = Field(default=None, exclude=True)
     usage: Optional[Usage] = None
     data: Optional[List[EmbeddingObject]] = None
 
     _hidden_params: dict = {}
 
-    # Validation headers from upstream
-    headers: Optional[Dict[str, str]] = None
+    # Upstream HTTP headers, kept for internal metrics (node id) only. Excluded
+    # from serialization so they never leak into the JSON response body (#77).
+    headers: Optional[Dict[str, str]] = Field(default=None, exclude=True)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _default_id_prefix(cls, data):
+        # When the upstream response omits an id, use the spec-correct prefix:
+        # `cmpl-` for /v1/completions (object == "text_completion"), else
+        # `chatcmpl-` (#77).
+        if isinstance(data, dict) and not data.get("id"):
+            prefix = "cmpl-" if data.get("object") == "text_completion" else "chatcmpl-"
+            data = {**data, "id": prefix + str(uuid.uuid4())}
+        return data
 
     def __init__(self, **data):
         super().__init__(**data)
 
         if not self.object:
             self.object = "chat.completion"
+
+    @model_serializer(mode="wrap")
+    def _serialize(self, handler):
+        data = handler(self)
+        # `data` is only populated for embeddings; drop it entirely otherwise
+        # instead of emitting `"data": null` on chat/completions responses (#77).
+        if data.get("data") is None:
+            data.pop("data", None)
+        return data
 
     def __contains__(self, key):
         return hasattr(self, key)
