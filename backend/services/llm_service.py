@@ -40,8 +40,6 @@ async def response_generator(response, metrics_ctx=None):
             if line.startswith(b"data: "):
                 data_str = line[6:].decode("utf-8")
                 if data_str == "[DONE]":
-                    # Re-emit the OpenAI SSE terminator instead of swallowing
-                    # it — many SSE clients hang waiting for the sentinel (#72).
                     yield "data: [DONE]\n\n"
                     continue
                 try:
@@ -51,9 +49,6 @@ async def response_generator(response, metrics_ctx=None):
                         if "delta" in choice and "content" in choice["delta"]:
                             original_content = choice["delta"]["content"]
                             if original_content:
-                                # Pass content through byte-identical — do not
-                                # lstrip() the first delta (#75). Still detect
-                                # the first real (non-whitespace) token for TTFT.
                                 if not has_started_content and original_content.strip():
                                     if not first_token_time:
                                         first_token_time = time.time()
