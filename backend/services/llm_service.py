@@ -40,6 +40,7 @@ async def response_generator(response, metrics_ctx=None):
             if line.startswith(b"data: "):
                 data_str = line[6:].decode("utf-8")
                 if data_str == "[DONE]":
+                    yield "data: [DONE]\n\n"
                     continue
                 try:
                     data = json.loads(data_str)
@@ -48,30 +49,20 @@ async def response_generator(response, metrics_ctx=None):
                         if "delta" in choice and "content" in choice["delta"]:
                             original_content = choice["delta"]["content"]
                             if original_content:
-                                processed_content = original_content
-                                if not has_started_content:
-                                    processed_content = original_content.lstrip()
-                                    if processed_content:
-                                        if not first_token_time:
-                                            first_token_time = time.time()
-                                        has_started_content = True
-                                choice["delta"]["content"] = processed_content
-                                if processed_content:
-                                    accumulated_content.append(processed_content)
+                                if not has_started_content and original_content.strip():
+                                    if not first_token_time:
+                                        first_token_time = time.time()
+                                    has_started_content = True
+                                accumulated_content.append(original_content)
 
                         elif "text" in choice:
                             original_content = choice["text"]
                             if original_content:
-                                processed_content = original_content
-                                if not has_started_content:
-                                    processed_content = original_content.lstrip()
-                                    if processed_content:
-                                        if not first_token_time:
-                                            first_token_time = time.time()
-                                        has_started_content = True
-                                choice["text"] = processed_content
-                                if processed_content:
-                                    accumulated_content.append(processed_content)
+                                if not has_started_content and original_content.strip():
+                                    if not first_token_time:
+                                        first_token_time = time.time()
+                                    has_started_content = True
+                                accumulated_content.append(original_content)
 
                     if data.get("usage", None) is not None:
                         if "completion_tokens" in data["usage"]:
