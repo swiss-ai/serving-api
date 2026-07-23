@@ -1,4 +1,4 @@
 -r requirements.txt
 pytest
 testcontainers
-ruff
+ruff>=0.15.22,<0.16
