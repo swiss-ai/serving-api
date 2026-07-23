@@ -1,6 +1,6 @@
 from backend.models.protocols import (
-    LLMRequest,
     LLMCompletionsRequest,
+    LLMRequest,
     ModelResponse,
     Usage,
 )

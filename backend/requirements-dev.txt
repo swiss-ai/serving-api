@@ -1,4 +1,6 @@
 -r requirements.txt
 pytest
 testcontainers
-ruff
+# Pin below 0.16: 0.16 enables UP typing rules by default and fails the whole
+# tree (~180 pre-existing findings). Revisit when upgrading intentionally.
+ruff>=0.15.22,<0.16
