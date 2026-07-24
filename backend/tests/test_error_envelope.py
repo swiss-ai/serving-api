@@ -13,14 +13,16 @@ from fastapi.testclient import TestClient
 from pydantic import BaseModel
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from backend.main import (
-    _openai_error_type,
-    http_exception_handler,
-    validation_exception_handler,
-)
+# NOTE: import backend.main lazily inside the tests, never at module top.
+# main.py binds `settings = get_settings()` at import time, and test_app.py's
+# `client` fixture only sets the test DATABASE_URL just before it imports
+# backend.main. A module-level import here would run during collection and
+# freeze main.settings to the .env default, breaking the DB-backed tests.
 
 
 def _make_client() -> TestClient:
+    from backend.main import http_exception_handler, validation_exception_handler
+
     app = FastAPI()
     app.add_exception_handler(StarletteHTTPException, http_exception_handler)
     app.add_exception_handler(RequestValidationError, validation_exception_handler)
@@ -66,6 +68,8 @@ def test_validation_error_uses_openai_envelope():
 
 
 def test_error_type_mapping():
+    from backend.main import _openai_error_type
+
     assert _openai_error_type(400) == "invalid_request_error"
     assert _openai_error_type(401) == "authentication_error"
     assert _openai_error_type(403) == "permission_error"
