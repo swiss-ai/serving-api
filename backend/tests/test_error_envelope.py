@@ -21,11 +21,16 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 
 def _make_client() -> TestClient:
-    from backend.main import http_exception_handler, validation_exception_handler
+    from backend.main import (
+        http_exception_handler,
+        unhandled_exception_handler,
+        validation_exception_handler,
+    )
 
     app = FastAPI()
     app.add_exception_handler(StarletteHTTPException, http_exception_handler)
     app.add_exception_handler(RequestValidationError, validation_exception_handler)
+    app.add_exception_handler(Exception, unhandled_exception_handler)
 
     @app.get("/boom")
     def boom():
@@ -37,6 +42,10 @@ def _make_client() -> TestClient:
     @app.post("/validate")
     def validate(body: Body):
         return {"ok": True}
+
+    @app.get("/crash")
+    def crash():
+        raise ValueError("secret internal detail")
 
     return TestClient(app, raise_server_exceptions=False)
 
@@ -65,6 +74,19 @@ def test_validation_error_uses_openai_envelope():
     assert err["type"] == "invalid_request_error"
     assert err["param"] == "x"
     assert err["code"] == "invalid_request"
+
+
+def test_unhandled_error_uses_openai_envelope_without_leaking_details():
+    client = _make_client()
+    resp = client.get("/crash")
+    assert resp.status_code == 500
+    payload = resp.json()
+    assert "detail" not in payload
+    err = payload["error"]
+    assert err["type"] == "api_error"
+    # The internal exception message must never reach the client.
+    assert "secret internal detail" not in resp.text
+    assert err["message"] == "Internal server error"
 
 
 def test_error_type_mapping():

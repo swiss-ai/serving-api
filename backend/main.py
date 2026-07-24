@@ -136,6 +136,15 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     return _openai_error_response(422, message, param=param, code="invalid_request")
 
 
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception):
+    # Unexpected gateway errors (500s) also follow the OpenAI error envelope.
+    # Log the real cause server-side, but return a generic message so internal
+    # details / tracebacks never leak to the client (#76).
+    logging.getLogger("backend").exception("Unhandled gateway error")
+    return _openai_error_response(500, "Internal server error", code="internal_error")
+
+
 app.include_router(completions.router)
 app.include_router(responses.router)
 app.include_router(embeddings.router)
