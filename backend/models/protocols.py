@@ -19,11 +19,14 @@ class LLMRequest(BaseModel):
     logprobs: bool = False
     top_logprobs: Optional[int] = None
     max_tokens: Optional[int] = None
-    temperature: float = 0.7
-    top_p: float = 1.0
-    seed: int = 42
-    presence_penalty: float = 0.0
-    frequency_penalty: float = 0.0
+    # Sampling params default to None so an omitted param defers to the engine
+    # default rather than being pinned by the gateway. to_payload() drops the
+    # None values before forwarding (#73).
+    temperature: Optional[float] = None
+    top_p: Optional[float] = None
+    seed: Optional[int] = None
+    presence_penalty: Optional[float] = None
+    frequency_penalty: Optional[float] = None
     extra_body: Dict = {}
 
     # Tracking fields
@@ -35,7 +38,8 @@ class LLMRequest(BaseModel):
     def to_payload(self) -> Dict:
         """Convert to payload for the LLM API"""
         data = self.model_dump(
-            exclude={"user_id", "opt_out", "app_title", "tags", "extra_body"}
+            exclude={"user_id", "opt_out", "app_title", "tags", "extra_body"},
+            exclude_none=True,
         )
         data.update(self.extra_body)
         return data
@@ -47,11 +51,12 @@ class LLMCompletionsRequest(BaseModel):
     stream: bool = False
     stream_options: Optional[Dict] = None
     max_tokens: Optional[int] = None
-    temperature: float = 0.7
-    top_p: float = 1.0
-    seed: int = 42
-    presence_penalty: float = 0.0
-    frequency_penalty: float = 0.0
+    # See LLMRequest: omitted sampling params defer to the engine default (#73).
+    temperature: Optional[float] = None
+    top_p: Optional[float] = None
+    seed: Optional[int] = None
+    presence_penalty: Optional[float] = None
+    frequency_penalty: Optional[float] = None
     extra_body: Dict = {}
 
     # Tracking fields
@@ -63,7 +68,8 @@ class LLMCompletionsRequest(BaseModel):
     def to_payload(self) -> Dict:
         """Convert to payload for the LLM API"""
         data = self.model_dump(
-            exclude={"user_id", "opt_out", "app_title", "tags", "extra_body"}
+            exclude={"user_id", "opt_out", "app_title", "tags", "extra_body"},
+            exclude_none=True,
         )
         data.update(self.extra_body)
         return data
