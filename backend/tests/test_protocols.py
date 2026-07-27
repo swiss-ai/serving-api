@@ -24,8 +24,6 @@ def test_llm_completions_request_to_payload():
 
 
 def test_omitted_sampling_params_are_not_injected():
-    # #73: params the client didn't send must not be forwarded, so the engine
-    # applies its own defaults instead of the gateway pinning temp/seed/etc.
     for req in (
         LLMRequest(model="m", messages=[{"role": "user", "content": "hi"}]),
         LLMCompletionsRequest(model="m", prompt="hi"),
@@ -42,7 +40,6 @@ def test_omitted_sampling_params_are_not_injected():
 
 
 def test_explicit_sampling_params_pass_through():
-    # Explicit values (including 0) are forwarded verbatim.
     req = LLMRequest(
         model="m",
         messages=[{"role": "user", "content": "hi"}],

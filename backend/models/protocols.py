@@ -19,9 +19,6 @@ class LLMRequest(BaseModel):
     logprobs: bool = False
     top_logprobs: Optional[int] = None
     max_tokens: Optional[int] = None
-    # Sampling params default to None so an omitted param defers to the engine
-    # default rather than being pinned by the gateway. to_payload() drops the
-    # None values before forwarding (#73).
     temperature: Optional[float] = None
     top_p: Optional[float] = None
     seed: Optional[int] = None
@@ -51,7 +48,6 @@ class LLMCompletionsRequest(BaseModel):
     stream: bool = False
     stream_options: Optional[Dict] = None
     max_tokens: Optional[int] = None
-    # See LLMRequest: omitted sampling params defer to the engine default (#73).
     temperature: Optional[float] = None
     top_p: Optional[float] = None
     seed: Optional[int] = None
