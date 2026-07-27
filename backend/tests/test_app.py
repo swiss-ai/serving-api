@@ -80,9 +80,6 @@ def test_chat_completions_requires_auth(client):
 
 
 def test_gateway_error_uses_openai_envelope(client):
-    """#76: errors the gateway itself raises are wrapped in the OpenAI error
-    envelope on the real app. This guards that the exception handlers are
-    actually registered on backend.main.app, not just importable."""
     response = client.post(
         "/v1/chat/completions", json={"model": "test", "messages": []}
     )
@@ -94,8 +91,6 @@ def test_gateway_error_uses_openai_envelope(client):
 
 
 def test_unhandled_exception_handler_registered(client):
-    """#76: the generic 500 handler is registered on the real app so unexpected
-    errors also get the OpenAI envelope instead of a raw framework 500."""
     assert Exception in client.app.exception_handlers
 
 

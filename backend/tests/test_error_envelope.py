@@ -1,23 +1,11 @@
-"""#76 — gateway-originated errors must use the OpenAI error envelope
-`{"error": {"message", "type", "param", "code"}}` instead of FastAPI's
-default `{"detail": ...}` shape.
-
-These tests mount the real exception handlers from `backend.main` onto a
-minimal app so they exercise the actual handler logic without needing the
-database-backed app fixture.
-"""
-
 from fastapi import FastAPI, HTTPException
 from fastapi.exceptions import RequestValidationError
 from fastapi.testclient import TestClient
 from pydantic import BaseModel
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-# NOTE: import backend.main lazily inside the tests, never at module top.
-# main.py binds `settings = get_settings()` at import time, and test_app.py's
-# `client` fixture only sets the test DATABASE_URL just before it imports
-# backend.main. A module-level import here would run during collection and
-# freeze main.settings to the .env default, breaking the DB-backed tests.
+# Import backend.main lazily inside the tests — a module-level import runs
+# during collection and freezes settings before test_app.py sets DATABASE_URL.
 
 
 def _make_client() -> TestClient:
@@ -84,7 +72,6 @@ def test_unhandled_error_uses_openai_envelope_without_leaking_details():
     assert "detail" not in payload
     err = payload["error"]
     assert err["type"] == "api_error"
-    # The internal exception message must never reach the client.
     assert "secret internal detail" not in resp.text
     assert err["message"] == "Internal server error"
 
