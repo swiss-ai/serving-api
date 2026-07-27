@@ -49,7 +49,10 @@ async def response_generator(response, metrics_ctx=None):
                         if "delta" in choice and "content" in choice["delta"]:
                             original_content = choice["delta"]["content"]
                             if original_content:
-                                if not has_started_content and original_content.strip() != "":
+                                if (
+                                    not has_started_content
+                                    and original_content.strip() != ""
+                                ):
                                     if not first_token_time:
                                         first_token_time = time.time()
                                     has_started_content = True
@@ -58,7 +61,10 @@ async def response_generator(response, metrics_ctx=None):
                         elif "text" in choice:
                             original_content = choice["text"]
                             if original_content:
-                                if not has_started_content and original_content.strip():
+                                if (
+                                    not has_started_content
+                                    and original_content.strip() != ""
+                                ):
                                     if not first_token_time:
                                         first_token_time = time.time()
                                     has_started_content = True
