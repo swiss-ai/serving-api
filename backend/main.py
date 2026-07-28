@@ -2,8 +2,10 @@ import json
 import logging
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import Response
+from fastapi.responses import JSONResponse, Response
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from sqlmodel import create_engine
 from backend.config import get_settings
 from backend.services.auth_service import dev_bypass_enabled
@@ -67,6 +69,67 @@ async def backend_http_error_handler(request: Request, exc: BackendHTTPError):
         media_type = "text/plain"
         content = exc.body
     return Response(content=content, status_code=exc.status_code, media_type=media_type)
+
+
+def _openai_error_type(status_code: int) -> str:
+    if status_code == 429:
+        return "rate_limit_error"
+    if status_code >= 500:
+        return "api_error"
+    if status_code == 401:
+        return "authentication_error"
+    if status_code == 403:
+        return "permission_error"
+    return "invalid_request_error"
+
+
+def _openai_error_response(
+    status_code: int,
+    message: str,
+    *,
+    code=None,
+    param=None,
+    headers=None,
+) -> JSONResponse:
+    return JSONResponse(
+        status_code=status_code,
+        content={
+            "error": {
+                "message": message,
+                "type": _openai_error_type(status_code),
+                "param": param,
+                "code": code,
+            }
+        },
+        headers=headers,
+    )
+
+
+@app.exception_handler(StarletteHTTPException)
+async def http_exception_handler(request: Request, exc: StarletteHTTPException):
+    detail = exc.detail
+    message = detail if isinstance(detail, str) else json.dumps(detail)
+    return _openai_error_response(
+        exc.status_code,
+        message,
+        headers=getattr(exc, "headers", None),
+    )
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    errors = exc.errors()
+    first = errors[0] if errors else {}
+    message = first.get("msg", "Invalid request")
+    loc = [str(p) for p in first.get("loc", []) if p not in ("body", "query", "path")]
+    param = ".".join(loc) if loc else None
+    return _openai_error_response(422, message, param=param, code="invalid_request")
+
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception):
+    logging.getLogger("backend").exception("Unhandled gateway error")
+    return _openai_error_response(500, "Internal server error", code="internal_error")
 
 
 app.include_router(completions.router)

@@ -79,6 +79,21 @@ def test_chat_completions_requires_auth(client):
     assert response.status_code in (401, 403)
 
 
+def test_gateway_error_uses_openai_envelope(client):
+    response = client.post(
+        "/v1/chat/completions", json={"model": "test", "messages": []}
+    )
+    assert response.status_code in (401, 403)
+    body = response.json()
+    assert "detail" not in body
+    assert set(body["error"]) >= {"message", "type", "param", "code"}
+    assert isinstance(body["error"]["message"], str) and body["error"]["message"]
+
+
+def test_unhandled_exception_handler_registered(client):
+    assert Exception in client.app.exception_handlers
+
+
 def test_responses_requires_auth(client):
     """/v1/responses should reject unauthenticated requests."""
     response = client.post("/v1/responses", json={"model": "test", "input": "hello"})
