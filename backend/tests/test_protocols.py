@@ -28,6 +28,37 @@ def test_llm_completions_request_to_payload():
     assert payload["prompt"] == "hello"
 
 
+def test_omitted_sampling_params_are_not_injected():
+    for req in (
+        LLMRequest(model="m", messages=[{"role": "user", "content": "hi"}]),
+        LLMCompletionsRequest(model="m", prompt="hi"),
+    ):
+        payload = req.to_payload()
+        for key in (
+            "temperature",
+            "top_p",
+            "seed",
+            "presence_penalty",
+            "frequency_penalty",
+        ):
+            assert key not in payload, key
+
+
+def test_explicit_sampling_params_pass_through():
+    req = LLMRequest(
+        model="m",
+        messages=[{"role": "user", "content": "hi"}],
+        temperature=0.0,
+        seed=123,
+        top_p=0.5,
+    )
+    payload = req.to_payload()
+    assert payload["temperature"] == 0.0
+    assert payload["seed"] == 123
+    assert payload["top_p"] == 0.5
+    assert "presence_penalty" not in payload
+
+
 def test_model_response_parses():
     data = {
         "id": "123",
