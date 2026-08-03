@@ -15,6 +15,7 @@ from backend.services.authorization_service import (
     _reset_cache_for_tests,
     ensure_model_access,
     grants_access,
+    normalize_policy,
 )
 
 
@@ -87,6 +88,16 @@ def test_email_match_is_case_insensitive_both_sides():
 
 def test_email_list_tolerates_whitespace():
     assert grants_access(" user1@epfl.ch , user2@ethz.ch ", "user2@ethz.ch") is True
+
+
+def test_normalize_policy_canonicalizes_label_strings():
+    """Conflict detection compares policies, not strings: order, case,
+    spacing, and the public spellings must all collapse."""
+    assert normalize_policy("") is None
+    assert normalize_policy("  ") is None
+    assert normalize_policy("Public") is None
+    assert normalize_policy("a@x.ch, B@Y.ch") == normalize_policy("b@y.ch,a@x.ch")
+    assert normalize_policy("a@x.ch") != normalize_policy("a@x.ch,b@y.ch")
 
 
 # ── DNT → auth map parsing ──────────────────────────────────────────────────
@@ -168,19 +179,92 @@ def test_unlisted_email_denied_with_403():
     assert "'m'" in exc_info.value.detail
 
 
-def test_any_entry_granting_is_enough():
-    """A model with several peer entries is usable if ANY entry grants
-    access — e.g. a restricted replica coexisting with a public one."""
-    data = {
-        "/p1": _dnt_peer("m", "someone-else@epfl.ch"),
+def test_same_policy_across_entries_is_not_a_conflict():
+    """Replicas, followers, and consecutive-chain handovers of one launch
+    all carry the same label — possibly in a different string form. Order,
+    case, spacing, and missing-vs-'public' must all normalize to one
+    policy and behave like a single entry."""
+    restricted = {
+        "/p1": _dnt_peer("m", "a@epfl.ch,B@ETHZ.ch"),
+        "/p2": _dnt_peer("m", " b@ethz.ch , a@epfl.ch "),
+    }
+    with (
+        _patch_no_passthrough(),
+        _patch_fetch_dnt(restricted),
+        _patch_email("b@ethz.ch"),
+    ):
+        _run(ensure_model_access(None, "sk-rc-x", "m"))
+
+    _reset_cache_for_tests()
+    public_forms = {
+        "/p1": _dnt_peer("m", None),
         "/p2": _dnt_peer("m", ""),
+        "/p3": _dnt_peer("m", "PUBLIC"),
+    }
+    with (
+        _patch_no_passthrough(),
+        _patch_fetch_dnt(public_forms),
+        _patch_email("anyone@epfl.ch"),
+    ):
+        _run(ensure_model_access(None, "sk-rc-x", "m"))
+
+
+def test_conflicting_policies_refuse_everyone():
+    """Two launches squatting one served name with different policies:
+    OpenTela load-balances across BOTH, so the gateway cannot keep a
+    request off the colliding replica. Nobody gets through — not the
+    restricted list's owner, and not callers the public entry would
+    admit (union semantics would let a same-named public launch widen
+    access to a restricted model)."""
+    data = {
+        "/p1": _dnt_peer("m", "alice@epfl.ch"),
+        "/p2": _dnt_peer("m", "public"),
+    }
+    for caller in ("alice@epfl.ch", "someone@ethz.ch"):
+        _reset_cache_for_tests()
+        with (
+            _patch_no_passthrough(),
+            _patch_fetch_dnt(data),
+            _patch_email(caller),
+        ):
+            with pytest.raises(HTTPException) as exc_info:
+                _run(ensure_model_access(None, "sk-rc-x", "m"))
+        assert exc_info.value.status_code == 403
+        assert "conflicting authorization" in exc_info.value.detail
+
+
+def test_legacy_unlabeled_entry_conflicts_with_a_restricted_one():
+    """A pre-feature (unlabeled = public) launch colliding with a new
+    restricted launch is the same ambiguity — refuse, don't widen."""
+    data = {
+        "/p1": _dnt_peer("m", None),
+        "/p2": _dnt_peer("m", "alice@epfl.ch"),
     }
     with (
         _patch_no_passthrough(),
         _patch_fetch_dnt(data),
-        _patch_email("caller@ethz.ch"),
+        _patch_email("alice@epfl.ch"),
     ):
-        _run(ensure_model_access(None, "sk-rc-x", "m"))
+        with pytest.raises(HTTPException) as exc_info:
+            _run(ensure_model_access(None, "sk-rc-x", "m"))
+    assert exc_info.value.status_code == 403
+    assert "conflicting authorization" in exc_info.value.detail
+
+
+def test_two_restricted_launches_with_different_lists_conflict():
+    data = {
+        "/p1": _dnt_peer("m", "alice@epfl.ch"),
+        "/p2": _dnt_peer("m", "alice@epfl.ch,mallory@evil.ch"),
+    }
+    with (
+        _patch_no_passthrough(),
+        _patch_fetch_dnt(data),
+        _patch_email("mallory@evil.ch"),
+    ):
+        with pytest.raises(HTTPException) as exc_info:
+            _run(ensure_model_access(None, "sk-rc-x", "m"))
+    assert exc_info.value.status_code == 403
+    assert "conflicting authorization" in exc_info.value.detail
 
 
 def test_passthrough_model_always_allowed():
