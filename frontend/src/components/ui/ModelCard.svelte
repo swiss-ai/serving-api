@@ -68,6 +68,28 @@
   // it to explain the model isn't generally visible.
   $: isRestricted = !!firstHead.authorization && firstHead.authorization !== "public";
 
+  // Same canonical form the backend's conflict check uses: "" / "public"
+  // (any case) → "public"; otherwise the email list sorted, lowercased.
+  function normalizedPolicy(auth: string | undefined): string {
+    const value = (auth || "").trim();
+    if (!value || value.toLowerCase() === "public") return "public";
+    // Dedupe like the backend's frozenset does, so a duplicated entry in
+    // one label can't show a conflict badge the backend doesn't act on.
+    const emails = value.split(",").map(p => p.trim().toLowerCase()).filter(Boolean);
+    return Array.from(new Set(emails)).sort().join(",");
+  }
+
+  // Peers of one launch always share one label, so disagreement means
+  // independent launches are squatting the same served name — the backend
+  // refuses to route those (403) until the collision is resolved. Badge
+  // it so the card explains why requests are failing.
+  $: hasAuthConflict = new Set(
+    entry.data.replicas
+      .flatMap(r => [r.head, ...(r.followers ?? [])])
+      .filter(Boolean)
+      .map(p => normalizedPolicy(p.authorization))
+  ).size > 1;
+
   // Aggregated status across all replicas:
   //   "ready"   — every replica's head is ready
   //   "pending" — at least one replica is still booting
@@ -204,7 +226,9 @@
         {:else if tier === "slurm"}
           <span class="slurm-badge" title="Model-launch Slurm job">Slurm</span>
         {/if}
-        {#if isRestricted}
+        {#if hasAuthConflict}
+          <span class="auth-conflict-badge" title="Independent launches are serving this model name with different authorization labels. The API refuses to route requests for it until the conflict is resolved (relaunch under a unique name or with matching authorization).">Auth conflict</span>
+        {:else if isRestricted}
           <span class="restricted-badge" title="Restricted model: only users on its authorization list can see and use it">Restricted</span>
         {/if}
         {#if entry.data.replicaCount > 1}
@@ -393,6 +417,7 @@
   .tile-pending .uptime-badge,
   .tile-pending .slurm-badge,
   .tile-pending .restricted-badge,
+  .tile-pending .auth-conflict-badge,
   .tile-pending .instance-count {
     filter: grayscale(1);
   }
@@ -421,6 +446,17 @@
 
   .restricted-badge {
     background-color: #d97706; /* amber-600 */
+    color: white;
+    font-weight: bold;
+    font-size: 0.75em;
+    padding: 0 6px;
+    border-radius: 4px;
+    flex-shrink: 0;
+    cursor: help;
+  }
+
+  .auth-conflict-badge {
+    background-color: #dc2626; /* red-600 */
     color: white;
     font-weight: bold;
     font-size: 0.75em;

@@ -68,6 +68,16 @@ additionally reveals models whose email list contains the key's owner; a
 present-but-unknown key gets 401. Every inference route enforces the same
 rule before proxying — an unauthorized caller gets a 403 `permission_error`.
 
+**Served-name collisions.** Independent launches may advertise the same
+served model name with *different* authorization labels (label strings are
+compared as normalized policies, so reordered/re-cased email lists or
+`public` vs a missing label are not a conflict). Because OpenTela
+load-balances a model name across every peer advertising it, the gateway
+cannot keep a request off the colliding launch's replica — so on a real
+policy conflict it refuses to route the model for **everyone** (403 naming
+the conflict) until one side is relaunched under a unique name or with a
+matching label. See ADR-0001 for the reasoning.
+
 ## Dev Quick Start
 
 ```bash
