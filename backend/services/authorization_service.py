@@ -53,21 +53,34 @@ def _reset_cache_for_tests() -> None:
     _cache["auth_map"] = None
 
 
-def grants_access(auth_value: str, email: str | None) -> bool:
-    """Does one entry's ``authorization`` label value admit this caller?
+def normalize_policy(auth_value: str) -> frozenset[str] | None:
+    """One entry's ``authorization`` label value as a canonical policy.
 
-    Empty/missing or "public" → anyone (incl. anonymous). Otherwise the
-    value is a comma-separated email list; only a matching caller passes.
-    Comparison is case-insensitive on both sides — SML normalizes before
-    launch, this is defense in depth.
+    None means public (missing/empty label or "public" in any case);
+    otherwise the granted email set, lowercased and stripped. Two label
+    strings that differ only in order, case, or spacing normalize to the
+    SAME policy — which is what conflict detection compares, so a
+    relaunch that reorders its list is not a conflict.
     """
     value = (auth_value or "").strip()
     if not value or value.lower() == "public":
+        return None
+    return frozenset(p.strip().lower() for p in value.split(",") if p.strip())
+
+
+def grants_access(auth_value: str, email: str | None) -> bool:
+    """Does one entry's ``authorization`` label value admit this caller?
+
+    Public policy → anyone (incl. anonymous). Otherwise only a listed
+    caller passes. Comparison is case-insensitive on both sides — SML
+    normalizes before launch, this is defense in depth.
+    """
+    policy = normalize_policy(auth_value)
+    if policy is None:
         return True
     if email is None:
         return False
-    allowed = {part.strip().lower() for part in value.split(",")}
-    return email.strip().lower() in allowed
+    return email.strip().lower() in policy
 
 
 def _dnt_endpoint() -> str:
@@ -106,8 +119,10 @@ def _build_auth_map(data: dict) -> dict[str, list[str]]:
     """model_id → the ``authorization`` label value of every peer entry
     serving it. Mirrors model_service.get_all_models id extraction: service
     identity_group "model=..." entries, plus the labels.served_model_name
-    fallback for pending/follower peers (they carry the same labels as
-    their head, so including them can only re-state an existing grant)."""
+    fallback for pending/follower peers. Peers of one launch carry the
+    same labels as their head, so they normalize to one policy; a peer
+    that disagrees belongs to a DIFFERENT launch squatting the same name,
+    which is exactly the conflict ensure_model_access refuses to route."""
     auth_map: dict[str, list[str]] = {}
     for node_info in data.values():
         labels = node_info.get("labels") or {}
@@ -159,8 +174,19 @@ async def ensure_model_access(engine, token: str, model_id: str) -> None:
 
     Allowed when: the model routes to a passthrough provider (always
     public), the id is unknown to the DNT (falls through to upstream which
-    404s — unchanged behavior), ANY of its peer entries grants access, or
-    the DNT has never been fetchable (fail open, logged)."""
+    404s — unchanged behavior), every peer entry agrees on one policy and
+    that policy grants the caller, or the DNT has never been fetchable
+    (fail open, logged).
+
+    Entries that disagree (after normalization) are an authorization
+    CONFLICT and everyone is refused — even a caller granted by all of
+    the policies. OpenTela load-balances a model id across every peer
+    advertising it, so on a name collision the gateway cannot keep a
+    request off the colliding launcher's replica; the union rule would
+    let a same-named public launch widen access to a restricted model,
+    and any allow at all would route callers' prompts to a replica they
+    never chose to trust. Refusing loudly turns a collision into a
+    visible operational error instead of a silent leak."""
     if not isinstance(model_id, str):
         # Several routes pass the raw body value unvalidated; a non-string
         # id can't be looked up (unhashable) — treat it like an unknown
@@ -179,8 +205,22 @@ async def ensure_model_access(engine, token: str, model_id: str) -> None:
     auth_values = auth_map.get(model_id)
     if auth_values is None:
         return
+    policies = {normalize_policy(value) for value in auth_values}
+    if len(policies) > 1:
+        raise HTTPException(
+            status_code=403,
+            detail=(
+                f"Access denied: model '{model_id}' is served by replicas with "
+                f"conflicting authorization labels; requests are refused until "
+                f"the conflict is resolved (relaunch under a unique "
+                f"--served-model-name or with a matching --authorization)."
+            ),
+        )
+    (policy,) = policies
+    if policy is None:
+        return
     email = get_email_for_token(engine, token)
-    if any(grants_access(value, email) for value in auth_values):
+    if email is not None and email.strip().lower() in policy:
         return
     raise HTTPException(
         status_code=403,

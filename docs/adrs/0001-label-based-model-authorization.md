@@ -21,7 +21,16 @@ A new OpenTela peer label `authorization` carries the access policy. Its grammar
 - `email1,email2,...` — only the listed users (normalized: stripped, lowercased; the gateway also compares case-insensitively as defense in depth).
 - **Missing/empty label — public.** Every model launched before this feature keeps working and stays visible; no migration, no flag day.
 
-The gateway derives a `model_id → [authorization values]` map from the same DNT table the models router already reads (including the `served_model_name` label fallback for pending/follower peers). A model with several peer entries is usable if **any** entry grants access — entries of one launch share labels, so this only matters across independent launches that reuse a name.
+The gateway derives a `model_id → [authorization values]` map from the same DNT table the models router already reads (including the `served_model_name` label fallback for pending/follower peers).
+
+### Multi-entry semantics: one policy or refuse
+
+A model id may be advertised by many peer entries. Each entry's label is normalized to a *policy* — public, or a set of lowercased emails — so reordered/re-cased lists, whitespace, and `public` vs a missing label all compare equal. Then:
+
+- **All entries share one policy** → apply it. This covers every legitimate multi-entry case: replicas and followers of one launch, consecutive-chain handovers, and a same-name relaunch with an unchanged list.
+- **Entries disagree** → the name is in **conflict** and the gateway refuses to route it for *everyone* (403 naming the conflict), until one side is relaunched under a unique name or with a matching label.
+
+Deny-all on conflict is deliberate. OpenTela load-balances a model name across every peer advertising it, and the gateway cannot pin a request to a particular launch's replicas — so once two launches with different policies share a name, *any* routed request may land on a replica its caller never chose to trust. The alternatives are all worse: **union** (any entry grants) lets a same-named `public` launch silently widen access to a restricted model — an attacker-triggerable bypass; **intersection** still routes an all-lists-approved caller's prompts to the colliding launcher's replica, which could log them. A collision with differing policies is either a misconfiguration or an attack; both deserve a loud, attributable failure (the DNT records each entry's `launched_by`) rather than best-effort routing. The cost is a denial-of-service handle — a colliding launch can make a name unroutable — but a same-named peer already receives a share of the traffic and can garbage it, so that handle exists with or without authorization.
 
 ### "private" is resolved by SML, never seen by the gateway
 
@@ -40,6 +49,8 @@ The authorization map is cached module-level with a ~10s TTL (one fetch retry pe
 ## Consequences
 
 - Authorization lives and dies with the peer: when the job ends, the policy disappears with the model. There is no ACL store to garbage-collect and no second source of truth.
+- **Labels are self-asserted; the mesh is the trust boundary.** Anyone who can join the mesh can set any labels — including copying a restricted model's exact `authorization` list onto their own same-named peer, which the gateway cannot distinguish from a legitimate relaunch. Conflict detection therefore protects against *accidental* collisions and *policy-changing* squatting, not against a peer that impersonates the policy verbatim. Closing that hole needs mesh-level name ownership / authenticated labels in OpenTela, which is out of scope here. `sml preconfigured` mitigates by salting generated names (`<model>-<4-char salt>`); `sml advanced` users choosing explicit names should treat them as claims on a shared namespace.
+- A conflicted name recovers by attrition: peers expire with their SLURM jobs, and the moment the surviving entries agree the model routes again — no gateway state to reset.
 - A permission change requires a relaunch (labels are set at peer start). Acceptable for SLURM-scheduled models whose lifetime is hours.
 - Identity is the API key's `owner_email`. Identity resolution (`get_email_for_token`) is cached ~5 min per process; key rotation evicts the rotated key from the cache so `/v1/whoami` and `/v1/models` stop honoring it immediately (other workers' entries age out within the TTL).
 - The label — including the collaborator email list — is visible to whoever can see the model, which is exactly the set of people on the list (or everyone, for public models).
@@ -55,6 +66,8 @@ The authorization map is cached module-level with a ~10s TTL (one fetch retry pe
 3. **Fail closed when the DNT is unreachable.** Rejected: it converts an infrastructure blip into a full inference outage for public and restricted models alike. Fail-open is bounded to the never-fetched cold-start state and logged.
 
 4. **Filter `/v1/models` client-side in the frontend.** Rejected: hiding is not access control, and anonymous visitors would receive restricted entries in the payload. The backend filters; the frontend only chooses which credential to send.
+
+5. **Union / intersection / first-launch-wins on a name collision.** All rejected in favor of deny-all — see "Multi-entry semantics" above. Union widens access under attacker control; intersection and priority rules still route prompts to replicas the caller never trusted, because routing (OpenTela's) and policy (the gateway's) are decided in different places.
 
 ## Related
 
