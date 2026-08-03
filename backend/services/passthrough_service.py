@@ -258,7 +258,11 @@ async def resolve_model(model_id: str) -> ResolvedModel | None:
     Back-compat: a bare upstream id that a provider advertises still routes
     (first provider in registration order wins), logged as deprecated.
     Remove after clients have migrated to prefixed ids."""
-    if not model_id:
+    if not model_id or not isinstance(model_id, str):
+        # Callers pass the raw body value straight through (data["model"]);
+        # a non-string id can't be a member of the advertised-id set (and
+        # would raise on lookup), so treat it as unresolvable and let the
+        # upstream reject it with its own 4xx.
         return None
     providers = registered_providers()
     first, _, rest = model_id.partition("/")
