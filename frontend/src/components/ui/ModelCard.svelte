@@ -8,6 +8,7 @@
     status?: string;
     device?: string;
     launched_by?: string;
+    authorization?: string;
     slurm_job_id?: string;
     started_at?: string;
     expires_at?: string;
@@ -61,6 +62,13 @@
   // same launcher/framework, but we render them per-replica below anyway.
   $: firstHead = entry.data.replicas[0]?.head ?? {};
   $: framework = firstHead.framework || "";
+
+  // The backend mirrors the peer's `authorization` label as a top-level
+  // convenience field (like launched_by). Empty or "public" means anyone
+  // can use the model; anything else is an email allowlist — the entry
+  // only reached us because the backend authorized this viewer, so badge
+  // it to explain the model isn't generally visible.
+  $: isRestricted = !!firstHead.authorization && firstHead.authorization !== "public";
 
   // Aggregated status across all replicas:
   //   "ready"   — every replica's head is ready
@@ -197,6 +205,9 @@
           <span class="uptime-badge" title="This service is running on CSCS L2 Kubernetes">24/7</span>
         {:else if tier === "slurm"}
           <span class="slurm-badge" title="Model-launch Slurm job">Slurm</span>
+        {/if}
+        {#if isRestricted}
+          <span class="restricted-badge" title="Restricted model: only users on its authorization list can see and use it">Restricted</span>
         {/if}
         {#if entry.data.replicaCount > 1}
           <span class="instance-count" title="Replicas of this model (separately-launched instances)">
@@ -383,6 +394,7 @@
   .tile-pending img,
   .tile-pending .uptime-badge,
   .tile-pending .slurm-badge,
+  .tile-pending .restricted-badge,
   .tile-pending .instance-count {
     filter: grayscale(1);
   }
@@ -400,6 +412,17 @@
 
   .slurm-badge {
     background-color: #9333ea;
+    color: white;
+    font-weight: bold;
+    font-size: 0.75em;
+    padding: 0 6px;
+    border-radius: 4px;
+    flex-shrink: 0;
+    cursor: help;
+  }
+
+  .restricted-badge {
+    background-color: #d97706; /* amber-600 */
     color: white;
     font-weight: bold;
     font-size: 0.75em;

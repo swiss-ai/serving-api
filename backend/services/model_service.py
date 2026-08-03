@@ -27,6 +27,7 @@ def _peer_metadata(node_info: dict) -> dict:
         # without having to dig into labels every time.
         "worker_group_id": labels.get("worker_group_id", ""),
         "launched_by": labels.get("launched_by", ""),
+        "authorization": labels.get("authorization", ""),
         "slurm_job_id": labels.get("slurm_job_id", ""),
         "framework": labels.get("framework", ""),
         "started_at": labels.get("started_at", ""),
