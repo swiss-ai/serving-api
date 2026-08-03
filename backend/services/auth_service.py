@@ -1,5 +1,6 @@
 import json
 import secrets
+import time
 from functools import lru_cache
 from pathlib import Path
 
@@ -54,6 +55,7 @@ def rotate_key(engine, key: str) -> APIKey:
             raise ValueError("Invalid key")
 
         token_cache.remove_token(key)
+        _email_cache.pop(key, None)
 
         api_key.key = f"sk-rc-{secrets.token_urlsafe(16)}"
         session.add(api_key)
@@ -73,6 +75,7 @@ def rotate_key_by_email(engine, owner_email: str) -> APIKey:
             raise ValueError("No API key for this user")
 
         token_cache.remove_token(api_key.key)
+        _email_cache.pop(api_key.key, None)
 
         api_key.key = f"sk-rc-{secrets.token_urlsafe(16)}"
         session.add(api_key)
@@ -96,6 +99,41 @@ def verify_token(engine, token: str) -> bool:
 
         token_cache.add_token(token, ttl=3600 * 7 * 30)
         return True
+
+
+# Token → owner_email, resolved once per TTL instead of per request. The
+# redis token cache only stores *validity*, so per-model authorization
+# checks on the inference hot path would otherwise hit the DB every call.
+_EMAIL_CACHE_TTL_SECONDS = 300.0
+# Keyed by token → (cached_at, owner_email).
+_email_cache: dict[str, tuple[float, str]] = {}
+
+
+def _reset_email_cache_for_tests() -> None:
+    """Test helper — clears the cache so tests don't leak identities."""
+    _email_cache.clear()
+
+
+def get_email_for_token(engine, token: str) -> str | None:
+    """Resolve an API key to its owner's email, or None for an unknown key.
+
+    Identity only — no budget gate; verify_token already gates usability.
+    Negative results are not cached so a freshly created key resolves
+    immediately. Rotation evicts the old key from this cache (whoami and
+    the models filter authenticate with identity alone, no require_auth);
+    the cache is per-process, so in a multi-worker deployment other
+    workers' entries age out within the TTL."""
+    now = time.time()
+    slot = _email_cache.get(token)
+    if slot is not None and (now - slot[0]) < _EMAIL_CACHE_TTL_SECONDS:
+        return slot[1]
+
+    with Session(engine) as session:
+        api_key = session.exec(select(APIKey).where(APIKey.key == token)).first()
+    if api_key is None:
+        return None
+    _email_cache[token] = (now, api_key.owner_email)
+    return api_key.owner_email
 
 
 def dev_bypass_enabled() -> bool:

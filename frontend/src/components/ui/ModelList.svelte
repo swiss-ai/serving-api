@@ -15,9 +15,59 @@
     let search = "";
     let activeFilter = "all"; // "all" | "24/7" | "slurm"
 
+    // auth-astro mounts its endpoints under the default /api/auth prefix
+    // (auth.config.ts sets no override); /session returns the session JSON,
+    // or null for anonymous visitors.
+    const SESSION_ENDPOINT = "/api/auth/session";
+
+    // Resolve the bearer sent with /v1/models_detailed so the backend can
+    // include restricted models this viewer is authorized for. Order: key
+    // cached by api_key.astro (localStorage 'apiKey') → exchange the
+    // auth-astro session accessToken via /v1/profile (caching under the
+    // same keys api_key.astro uses) → anonymous. Every failure degrades to
+    // anonymous — the public list must render for logged-out visitors.
+    async function resolveApiKey(apiUrl) {
+        const stored = localStorage.getItem("apiKey");
+        if (stored) return stored;
+        try {
+            const sessionRes = await fetch(SESSION_ENDPOINT);
+            if (!sessionRes.ok) return null;
+            const session = await sessionRes.json();
+            if (!session?.accessToken) return null;
+            const profileRes = await fetch(`${apiUrl}/v1/profile`, {
+                headers: { Authorization: `Bearer ${session.accessToken}` },
+            });
+            if (!profileRes.ok) return null;
+            const profile = await profileRes.json();
+            if (!profile.api_key) return null;
+            localStorage.setItem("apiKey", profile.api_key);
+            localStorage.setItem("apiBudget", String(profile.budget));
+            return profile.api_key;
+        } catch {
+            return null;
+        }
+    }
+
+    function fetchModels(apiUrl, apiKey) {
+        return fetch(
+            `${apiUrl}/v1/models_detailed`,
+            apiKey ? { headers: { Authorization: `Bearer ${apiKey}` } } : undefined,
+        );
+    }
+
     onMount(async () => {
         try {
-            const response = await fetch(`${getApiUrl()}/v1/models_detailed`);
+            const apiUrl = getApiUrl();
+            const apiKey = await resolveApiKey(apiUrl);
+            let response = await fetchModels(apiUrl, apiKey);
+            if (response.status === 401 && apiKey) {
+                // Stale/rotated stored key — drop the cache (api_key.astro
+                // will re-fetch a fresh one on next visit) and retry
+                // anonymously so the public models still render.
+                localStorage.removeItem("apiKey");
+                localStorage.removeItem("apiBudget");
+                response = await fetchModels(apiUrl, null);
+            }
             const data = await response.json();
             const rawModels = data.data;
 

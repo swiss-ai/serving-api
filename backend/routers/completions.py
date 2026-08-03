@@ -2,6 +2,7 @@ from fastapi import APIRouter, Request, Depends
 from fastapi.responses import StreamingResponse
 from backend.middleware.auth import require_auth
 from backend.middleware.body import json_body
+from backend.services.authorization_service import ensure_model_access
 from backend.services.llm_service import (
     llm_proxy,
     llm_proxy_completions,
@@ -91,6 +92,7 @@ async def chat_completion(
         user_id=token, opt_out=opt_out, app_title=app_title, **reorg_data
     )
 
+    await ensure_model_access(request.app.state.engine, token, llm_request.model)
     endpoint, api_key = await _resolve_endpoint_and_key(llm_request.model, token)
     response = await llm_proxy(
         endpoint=endpoint,
@@ -142,6 +144,7 @@ async def completion(
         user_id=token, opt_out=opt_out, app_title=app_title, **reorg_data
     )
 
+    await ensure_model_access(request.app.state.engine, token, llm_request.model)
     endpoint, api_key = await _resolve_endpoint_and_key(llm_request.model, token)
     response = await llm_proxy_completions(
         endpoint=endpoint,

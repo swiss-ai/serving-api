@@ -1,4 +1,9 @@
-from fastapi import APIRouter
+from typing import Annotated
+from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.security import HTTPAuthorizationCredentials
+from backend.middleware.auth import optional_security
+from backend.services.auth_service import get_email_for_token
+from backend.services.authorization_service import grants_access
 from backend.services.model_service import get_all_models
 from backend.services.passthrough_service import get_synthetic_entries
 from backend.config import get_settings
@@ -26,21 +31,59 @@ async def _with_passthrough(models: list[dict], with_details: bool) -> list[dict
     return models
 
 
+def _caller_email(
+    request: Request, credentials: HTTPAuthorizationCredentials | None
+) -> str | None:
+    """The bearer token is OPTIONAL here: no header → anonymous caller
+    (sees public entries only). A header that IS present must resolve to a
+    known API key, though — a typo'd key should surface as 401, not as a
+    silently narrower model list."""
+    if credentials is None:
+        return None
+    email = get_email_for_token(request.app.state.engine, credentials.credentials)
+    if email is None:
+        raise HTTPException(status_code=401, detail="Invalid access token")
+    return email
+
+
+def _visible_to(models: list[dict], email: str | None) -> list[dict]:
+    """Filter each entry by its OWN ``authorization`` label (pending and
+    follower peers carry the same labels as their head). Synthetic
+    passthrough entries have no such label, so they read as public."""
+    return [
+        m
+        for m in models
+        if grants_access((m.get("labels") or {}).get("authorization", ""), email)
+    ]
+
+
 @router.get("/v1/models_detailed")
-async def list_models_detailed():
+async def list_models_detailed(
+    request: Request,
+    credentials: Annotated[
+        HTTPAuthorizationCredentials | None, Depends(optional_security)
+    ] = None,
+):
+    email = _caller_email(request, credentials)
     models = get_all_models(_dnt_endpoint(), with_details=True)
     models = await _with_passthrough(models, with_details=True)
     return dict(
         object="list",
-        data=models,
+        data=_visible_to(models, email),
     )
 
 
 @router.get("/v1/models")
-async def list_models():
+async def list_models(
+    request: Request,
+    credentials: Annotated[
+        HTTPAuthorizationCredentials | None, Depends(optional_security)
+    ] = None,
+):
+    email = _caller_email(request, credentials)
     models = get_all_models(_dnt_endpoint(), with_details=False)
     models = await _with_passthrough(models, with_details=False)
     return dict(
         object="list",
-        data=models,
+        data=_visible_to(models, email),
     )

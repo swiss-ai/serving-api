@@ -214,7 +214,9 @@ async def resolve_provider(model_id: str) -> Provider | None:
     First match in registration order wins on id collisions. With no
     provider configured this is always None, so passthrough model ids fall
     through instead of producing an opaque connection error."""
-    if not model_id:
+    if not model_id or not isinstance(model_id, str):
+        # Callers pass the raw body value; a non-string id can't be a
+        # member of the advertised-id set (and would raise on lookup).
         return None
     for provider in registered_providers():
         if model_id in await _get_cached_ids(provider):
