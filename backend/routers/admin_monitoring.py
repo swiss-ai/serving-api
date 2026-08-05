@@ -62,6 +62,21 @@ class MonitoringRuleIn(BaseModel):
     note: str = ""
 
 
+@router.get("/v1/admin/metrics/users")
+async def user_activity(
+    request: Request,
+    admin: str = Depends(require_admin),
+    days: int = 30,
+):
+    """Most-active-users leaderboard (requests + tokens per user). Admin
+    only: user emails are PII and must not be public."""
+    from backend.services.langfuse_service import get_user_activity
+
+    if days < 1 or days > 365:
+        raise HTTPException(status_code=422, detail="days must be 1..365")
+    return await get_user_activity(days=days)
+
+
 @router.get("/v1/admin/monitoring/users")
 async def list_monitoring_rules(
     request: Request,

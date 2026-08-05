@@ -2,7 +2,6 @@ import os
 import json
 import logging
 import base64
-import urllib.parse
 import time
 import requests
 import aiohttp
@@ -79,8 +78,33 @@ def get_hardware_spec(node_id: str, dnt_endpoint: str) -> str:
 _metrics_cache = {}
 
 
+def summarize_daily_usage(days: list[dict]) -> dict:
+    """Daily-metrics rows -> the leaderboard shape the frontend expects
+    ({data: [{providedModelName, sum_totalTokens}]}, tokens descending)."""
+    per_model: dict[str, int] = defaultdict(int)
+    for day in days:
+        for u in day.get("usage") or []:
+            model = u.get("model")
+            if not model:
+                continue
+            total = u.get("totalUsage")
+            if total is None:
+                total = (u.get("inputUsage") or 0) + (u.get("outputUsage") or 0)
+            per_model[model] += int(total or 0)
+    data = [
+        {"providedModelName": m, "sum_totalTokens": str(n)}
+        for m, n in sorted(per_model.items(), key=lambda kv: -kv[1])
+    ]
+    return {"data": data}
+
+
 async def get_langfuse_metrics(query_json: dict, ttl_hash: int = None):
-    """Fetch metrics from Langfuse with async caching."""
+    """Serve the leaderboard query from Langfuse's daily-metrics API.
+
+    The frontend sends a v2-metrics-style query (sum totalTokens by model
+    over a window), but that API is v4-only and the self-hosted instance
+    runs v3. The daily API exists on both and carries usage-by-model, so we
+    aggregate server-side and answer in the shape the frontend expects."""
     settings = get_settings()
     if not settings.langfuse_public_key or not settings.langfuse_secret_key:
         return {}
@@ -93,33 +117,46 @@ async def get_langfuse_metrics(query_json: dict, ttl_hash: int = None):
     if cache_key in _metrics_cache:
         return _metrics_cache[cache_key]
 
-    encoded_query = urllib.parse.quote(query_str)
-    url = f"{settings.langfuse_host}/api/public/v2/metrics?query={encoded_query}"
+    params = {"limit": "100"}
+    if query_json.get("fromTimestamp"):
+        params["fromTimestamp"] = query_json["fromTimestamp"]
+    if query_json.get("toTimestamp"):
+        params["toTimestamp"] = query_json["toTimestamp"]
 
     auth_s = f"{settings.langfuse_public_key}:{settings.langfuse_secret_key}"
     auth_b64 = base64.b64encode(auth_s.encode()).decode()
     headers = {"Authorization": f"Basic {auth_b64}"}
+    base = f"{settings.langfuse_host.rstrip('/')}/api/public/metrics/daily"
 
+    days: list[dict] = []
     try:
         async with aiohttp.ClientSession() as session:
-            async with session.get(url, headers=headers) as resp:
-                if resp.status != 200:
-                    # Self-hosted Langfuse v3 has no v2-metrics API (v4-only)
-                    # — degrade to empty data instead of surfacing Langfuse's
-                    # error body to the leaderboard/arena pages.
-                    logger.warning(
-                        "Langfuse v2 metrics unavailable (%s): %s",
-                        resp.status,
-                        (await resp.text())[:200],
-                    )
-                    data = {}
-                else:
-                    data = await resp.json()
+            for page in range(1, 11):  # up to 1000 days — effectively all
+                async with session.get(
+                    base,
+                    params={**params, "page": str(page)},
+                    headers=headers,
+                    timeout=aiohttp.ClientTimeout(total=15),
+                ) as resp:
+                    if resp.status != 200:
+                        logger.warning(
+                            "Langfuse daily metrics unavailable (%s): %s",
+                            resp.status,
+                            (await resp.text())[:200],
+                        )
+                        return {}
+                    payload = await resp.json()
+                days.extend(payload.get("data") or [])
+                meta = payload.get("meta") or {}
+                if page >= (meta.get("totalPages") or 1):
+                    break
     except Exception as exc:
         # Never let a Langfuse outage 500 the leaderboard; don't cache so a
         # recovered Langfuse is picked up on the next request.
-        logger.warning("Langfuse v2 metrics request failed: %s", exc)
+        logger.warning("Langfuse daily metrics request failed: %s", exc)
         return {}
+
+    data = summarize_daily_usage(days)
     _metrics_cache[cache_key] = data
     return data
 
