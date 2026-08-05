@@ -29,6 +29,11 @@ def client(postgres):
     SQLModel.metadata.create_all(engine)
 
     with TestClient(app) as c:
+        # main.py's lifespan builds the engine from the module-level settings
+        # captured at FIRST import — under a full suite run that is another
+        # test module's (already torn down) postgres container. Point the app
+        # at this module's container explicitly.
+        c.app.state.engine = engine
         yield c
 
 
