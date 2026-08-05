@@ -53,6 +53,11 @@ class Settings(BaseSettings):
     #   EPFL RCP: another OpenAI-compatible upstream.
     rcp_base_url: str = ""
     rcp_api_key: str = ""
+    # Per-user request limit on the inference routes, requests/minute;
+    # 0 disables. Redis overrides (rl:limit:<identity>, rl:limit:default)
+    # take precedence so admins can adjust live without a redeploy — see
+    # backend/services/rate_limit_service.py.
+    rate_limit_rpm: int = 0
     langfuse_host: str = ""
     langfuse_public_key: str = ""
     langfuse_secret_key: str = ""

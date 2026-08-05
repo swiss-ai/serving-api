@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends
-from backend.middleware.auth import require_auth
+from backend.middleware.ratelimit import rate_limited
 from backend.middleware.body import json_body
 from backend.services.llm_service import llm_proxy_tokenize, llm_proxy_detokenize
 from backend.config import get_settings
@@ -14,7 +14,7 @@ settings = get_settings()
 
 @router.post("/v1/tokenize")
 async def tokenize(
-    token: str = Depends(require_auth),
+    token: str = Depends(rate_limited),
     data: dict = Depends(json_body),
 ):
     response = await llm_proxy_tokenize(
@@ -28,7 +28,7 @@ async def tokenize(
 
 @router.post("/v1/detokenize")
 async def detokenize(
-    token: str = Depends(require_auth),
+    token: str = Depends(rate_limited),
     data: dict = Depends(json_body),
 ):
     response = await llm_proxy_detokenize(

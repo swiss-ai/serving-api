@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Request, Depends
 from fastapi.responses import StreamingResponse
-from backend.middleware.auth import require_auth
+from backend.middleware.ratelimit import rate_limited
 from backend.middleware.body import json_body
 from backend.services.llm_service import (
     llm_proxy,
@@ -63,7 +63,7 @@ COMPLETION_RESERVED_KEYS = [
 @router.post("/v1/chat/completions")
 async def chat_completion(
     request: Request,
-    token: str = Depends(require_auth),
+    token: str = Depends(rate_limited),
     data: dict = Depends(json_body),
 ):
     opt_out = request.headers.get("X-OPTOUT-TRACKING", "false").lower() in (
@@ -113,7 +113,7 @@ async def chat_completion(
 @router.post("/v1/completions")
 async def completion(
     request: Request,
-    token: str = Depends(require_auth),
+    token: str = Depends(rate_limited),
     data: dict = Depends(json_body),
 ):
     opt_out = request.headers.get("X-OPTOUT-TRACKING", "").lower() in (
