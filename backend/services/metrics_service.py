@@ -320,11 +320,15 @@ class MetricsCollector:
         ttft: float,
         latency: float,
         throughput: float,
+        hardware: Optional[str] = None,
     ):
+        """`hardware` override: passthrough providers (CSCS L1, RCP) expose
+        no node info, so their display label is recorded as the "served on"
+        dimension instead of a doomed hardware lookup."""
         if self._get_engine() is None:
             return
 
-        hardware = get_hardware_spec(node_id, dnt_endpoint)
+        hardware = hardware or get_hardware_spec(node_id, dnt_endpoint)
 
         if concurrency <= 1:
             conc_bucket = "1"

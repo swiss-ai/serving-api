@@ -74,7 +74,7 @@
   <!-- Filters -->
   <div class="flex flex-col sm:flex-row gap-4 p-4 bg-white dark:bg-slate-900 rounded-xl border border-gray-100 dark:border-gray-800 shadow-sm">
       <div class="flex-1">
-          <label for="hardware-filter" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Hardware</label>
+          <label for="hardware-filter" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Served on</label>
           <select 
             id="hardware-filter" 
             bind:value={filterHardware}
@@ -126,7 +126,7 @@
                             Model {sortBy === 'model' ? (sortDesc ? '↓' : '↑') : ''}
                         </th>
                         <th class="px-6 py-4 font-semibold cursor-pointer hover:bg-gray-100 dark:hover:bg-slate-700 transition" on:click={() => toggleSort('hardware')}>
-                            Hardware {sortBy === 'hardware' ? (sortDesc ? '↓' : '↑') : ''}
+                            Served on {sortBy === 'hardware' ? (sortDesc ? '↓' : '↑') : ''}
                         </th>
                         <th class="px-6 py-4 font-semibold cursor-pointer hover:bg-gray-100 dark:hover:bg-slate-700 transition" on:click={() => toggleSort('concurrency')}>
                             Concurrency {sortBy === 'concurrency' ? (sortDesc ? '↓' : '↑') : ''}
