@@ -15,7 +15,8 @@ from backend.services.llm_service import (
     response_generator,
 )
 from backend.services.passthrough_service import (
-    resolve_provider,
+    ResolvedModel,
+    resolve_model,
     endpoint as passthrough_endpoint,
 )
 from backend.models.protocols import LLMRequest, LLMCompletionsRequest
@@ -25,24 +26,31 @@ router = APIRouter()
 settings = get_settings()
 
 
-async def _resolve_endpoint_and_key(
+async def _resolve_route(
     model: str, user_token: str
-) -> tuple[str, str, str]:
-    """Models hosted by a passthrough provider (CSCS L1, RCP, ...) go to
+) -> tuple[str, str, str | None, ResolvedModel | None]:
+    """Prefixed passthrough ids (SwissAIResearch/..., RCP-AIaaS/...) go to
     that provider's upstream endpoint with its shared key; everything else
     stays on the OpenTela proxy with the user's bearer token forwarded
     as-is. The third element is the provider's display label (None for
-    OpenTela) — recorded as the perf "served on" dimension.
+    OpenTela) — recorded as the perf "served on" dimension; the fourth is
+    the resolution itself — callers forward ``resolved.upstream_id`` and
+    surface ``resolved.public_id`` in responses.
 
     Rate limiting happens here, only on the passthrough arm: external
     providers are a shared, platform-accountable resource (shared API
     key, external quota), while OpenTela models run on the user's own
     GPU allocation and stay unlimited."""
-    provider = await resolve_provider(model)
-    if provider is not None:
+    resolved = await resolve_model(model)
+    if resolved is not None:
         enforce_rate_limit(user_token)
-        return passthrough_endpoint(provider), provider.api_key, provider.device
-    return settings.otela_head_addr + "/v1/service/llm/v1/", user_token, None
+        return (
+            passthrough_endpoint(resolved.provider),
+            resolved.provider.api_key,
+            resolved.provider.device,
+            resolved,
+        )
+    return settings.otela_head_addr + "/v1/service/llm/v1/", user_token, None, None
 
 
 CHAT_RESERVED_KEYS = [
@@ -107,9 +115,14 @@ async def chat_completion(
         user_id=token, opt_out=opt_out, app_title=app_title, **reorg_data
     )
 
-    endpoint, api_key, provider_label = await _resolve_endpoint_and_key(
+    endpoint, api_key, provider_label, resolved = await _resolve_route(
         llm_request.model, token
     )
+    # Traces/monitoring keep the public (prefixed) id the client asked
+    # for; only the forwarded request carries the upstream's own id.
+    public_model = llm_request.model
+    if resolved is not None:
+        llm_request.model = resolved.upstream_id
     trace_ctx = None
     if data["stream"]:
         # Streamed: the complete trace (output/usage/TTFT included) is
@@ -117,7 +130,7 @@ async def chat_completion(
         trace_ctx = prepare_stream_trace(
             request.app.state.engine,
             api_key=token,
-            model=llm_request.model,
+            model=public_model,
             request_data=data,
             app_title=app_title,
         )
@@ -132,7 +145,7 @@ async def chat_completion(
         record_if_monitored(
             request.app.state.engine,
             api_key=token,
-            model=llm_request.model,
+            model=public_model,
             request_data=data,
             response_data=getattr(response, "data", None) or response,
             streamed=False,
@@ -140,17 +153,23 @@ async def chat_completion(
             latency_ms=(time.monotonic() - proxy_started) * 1000,
         )
     if "stream" in data and data["stream"]:
+        model_override = resolved.public_id if resolved is not None else None
 
         async def stream_generator():
             metrics_ctx = getattr(response, "metrics_ctx", None)
             async for chunk in response_generator(
-                response, metrics_ctx=metrics_ctx, trace_ctx=trace_ctx
+                response,
+                metrics_ctx=metrics_ctx,
+                trace_ctx=trace_ctx,
+                model_override=model_override,
             ):
                 yield chunk
 
         return StreamingResponse(
             stream_generator(), media_type="text/event-stream", headers=response.headers
         )
+    if resolved is not None:
+        response.model = resolved.public_id
     return response
 
 
@@ -186,9 +205,14 @@ async def completion(
         user_id=token, opt_out=opt_out, app_title=app_title, **reorg_data
     )
 
-    endpoint, api_key, provider_label = await _resolve_endpoint_and_key(
+    endpoint, api_key, provider_label, resolved = await _resolve_route(
         llm_request.model, token
     )
+    # Traces/monitoring keep the public (prefixed) id the client asked
+    # for; only the forwarded request carries the upstream's own id.
+    public_model = llm_request.model
+    if resolved is not None:
+        llm_request.model = resolved.upstream_id
     trace_ctx = None
     if data["stream"]:
         # Streamed: the complete trace (output/usage/TTFT included) is
@@ -196,7 +220,7 @@ async def completion(
         trace_ctx = prepare_stream_trace(
             request.app.state.engine,
             api_key=token,
-            model=llm_request.model,
+            model=public_model,
             request_data=data,
             app_title=app_title,
         )
@@ -211,7 +235,7 @@ async def completion(
         record_if_monitored(
             request.app.state.engine,
             api_key=token,
-            model=llm_request.model,
+            model=public_model,
             request_data=data,
             response_data=getattr(response, "data", None) or response,
             streamed=False,
@@ -219,15 +243,21 @@ async def completion(
             latency_ms=(time.monotonic() - proxy_started) * 1000,
         )
     if "stream" in data and data["stream"]:
+        model_override = resolved.public_id if resolved is not None else None
 
         async def stream_generator():
             metrics_ctx = getattr(response, "metrics_ctx", None)
             async for chunk in response_generator(
-                response, metrics_ctx=metrics_ctx, trace_ctx=trace_ctx
+                response,
+                metrics_ctx=metrics_ctx,
+                trace_ctx=trace_ctx,
+                model_override=model_override,
             ):
                 yield chunk
 
         return StreamingResponse(
             stream_generator(), media_type="text/event-stream", headers=response.headers
         )
+    if resolved is not None:
+        response.model = resolved.public_id
     return response

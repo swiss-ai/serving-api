@@ -237,15 +237,14 @@ def test_models_router_merges_passthrough_entries():
         merged = asyncio.run(_with_passthrough(list(base), with_details=True))
     ids = {e["id"] for e in merged}
     assert "some/local-model" in ids
-    assert "swiss-ai/Apertus-8B-Instruct-2509" in ids
-    assert "swiss-ai/Apertus-70B-Instruct-2509" in ids
+    assert "CSCS-Inference/swiss-ai/Apertus-8B-Instruct-2509" in ids
+    assert "CSCS-Inference/swiss-ai/Apertus-70B-Instruct-2509" in ids
 
 
-def test_models_router_dedupes_passthrough_against_dnt():
-    """If a model is already advertised by OpenTela (e.g. mid-migration
-    we still have a k8s replica running), don't double-list it from the
-    passthrough provider. The DNT entry wins — it carries real peer
-    metadata."""
+def test_models_router_lists_local_and_passthrough_as_distinct_rows():
+    """Provider prefixes end the shadowing problem: a locally-served model
+    and the same upstream model behind a passthrough provider are two
+    distinct ids, both listed, each carrying its own metadata."""
     import asyncio
 
     from backend.routers.models import _with_passthrough
@@ -262,9 +261,13 @@ def test_models_router_dedupes_passthrough_against_dnt():
         _patch_passthrough_fetch(["swiss-ai/Apertus-8B-Instruct-2509"]),
     ):
         merged = asyncio.run(_with_passthrough(list(base), with_details=True))
-    apertus_8b = [e for e in merged if e["id"] == "swiss-ai/Apertus-8B-Instruct-2509"]
-    assert len(apertus_8b) == 1
-    assert apertus_8b[0]["launched_by"] == "rosmith"  # DNT entry kept
+    ids = sorted(e["id"] for e in merged)
+    assert ids == [
+        "CSCS-Inference/swiss-ai/Apertus-8B-Instruct-2509",
+        "swiss-ai/Apertus-8B-Instruct-2509",
+    ]
+    local = [e for e in merged if e["id"] == "swiss-ai/Apertus-8B-Instruct-2509"]
+    assert local[0]["launched_by"] == "rosmith"  # DNT metadata untouched
 
 
 def test_models_router_skips_passthrough_when_unconfigured():

@@ -16,9 +16,14 @@ def _dnt_endpoint() -> str:
 
 
 async def _with_passthrough(models: list[dict], with_details: bool) -> list[dict]:
-    """Append synthetic passthrough-provider entries (CSCS L1, RCP, ...),
-    skipping ids already present in the OpenTela result so we don't
-    double-list a model that's still launched locally during a migration."""
+    """Append synthetic passthrough-provider entries (CSCS-Inference/...,
+    RCP-AIaaS/...). Provider prefixes keep these ids disjoint from
+    OpenTela-served ones, so a local launch and its passthrough twin are
+    both listed. The id-collision skip below only fires if something
+    launches locally under a reserved provider prefix (squatting): the
+    local entry keeps the listing but resolve_model still routes the id
+    to the provider, so don't name local launches after provider
+    prefixes."""
     existing = {m["id"] for m in models if m.get("id")}
     for entry in await get_synthetic_entries(with_details=with_details):
         if entry["id"] not in existing:
