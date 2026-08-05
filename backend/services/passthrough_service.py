@@ -17,7 +17,7 @@ the very first fetch, so its rows aren't completely missing during a
 brief outage.
 
 Every id a provider surfaces is namespaced under its reserved prefix
-(``CSCS-Inference/...``, ``RCP-AIaaS/...``), so ids are structurally
+(``SwissAIResearch/...``, ``RCP-AIaaS/...``), so ids are structurally
 collision-free across providers and against OpenTela-served models: the
 first path segment of a requested id selects the provider, the remainder
 is forwarded verbatim as the upstream id (see ``resolve_model``).
@@ -118,7 +118,7 @@ def registered_providers() -> list[Provider]:
                 base_url=s.cscs_l1_base_url,
                 api_key=s.cscs_l1_api_key,
                 device="CSCS L1",
-                prefix="CSCS-Inference",
+                prefix="SwissAIResearch",
                 fallback_ids=_CSCS_L1_FALLBACK_IDS,
             )
         )

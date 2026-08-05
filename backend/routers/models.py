@@ -16,7 +16,7 @@ def _dnt_endpoint() -> str:
 
 
 async def _with_passthrough(models: list[dict], with_details: bool) -> list[dict]:
-    """Append synthetic passthrough-provider entries (CSCS-Inference/...,
+    """Append synthetic passthrough-provider entries (SwissAIResearch/...,
     RCP-AIaaS/...). Provider prefixes keep these ids disjoint from
     OpenTela-served ones, so a local launch and its passthrough twin are
     both listed. The id-collision skip below only fires if something

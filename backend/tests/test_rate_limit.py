@@ -269,23 +269,33 @@ def test_passthrough_routing_enforces_limit(fake_redis):
     from fastapi import HTTPException
 
     from backend.routers import completions
-    from backend.services.passthrough_service import Provider
+    from backend.services.passthrough_service import Provider, ResolvedModel
 
     provider = Provider(
-        name="cscs_L1", base_url="https://l1/v1", api_key="pk", device="CSCS L1"
+        name="cscs_L1",
+        base_url="https://l1/v1",
+        api_key="pk",
+        device="CSCS L1",
+        prefix="SwissAIResearch",
+    )
+    resolved = ResolvedModel(
+        provider=provider,
+        upstream_id="swiss-ai/x",
+        public_id="SwissAIResearch/swiss-ai/x",
     )
     with (
         patch.object(
-            completions, "resolve_provider", new=AsyncMock(return_value=provider)
+            completions, "resolve_model", new=AsyncMock(return_value=resolved)
         ),
         _settings_rpm(1),
     ):
-        endpoint, api_key, label = asyncio.run(
-            completions._resolve_endpoint_and_key("swiss-ai/x", "tok")
+        endpoint, api_key, label, res = asyncio.run(
+            completions._resolve_route("SwissAIResearch/swiss-ai/x", "tok")
         )
         assert (endpoint, api_key, label) == ("https://l1/v1", "pk", "CSCS L1")
+        assert res is resolved
         with pytest.raises(HTTPException) as exc:
-            asyncio.run(completions._resolve_endpoint_and_key("swiss-ai/x", "tok"))
+            asyncio.run(completions._resolve_route("SwissAIResearch/swiss-ai/x", "tok"))
     assert exc.value.status_code == 429
 
 
@@ -295,14 +305,15 @@ def test_opentela_routing_is_never_limited(fake_redis):
     from backend.routers import completions
 
     with (
-        patch.object(completions, "resolve_provider", new=AsyncMock(return_value=None)),
+        patch.object(completions, "resolve_model", new=AsyncMock(return_value=None)),
         _settings_rpm(1),
     ):
         for _ in range(5):
-            endpoint, api_key, label = asyncio.run(
-                completions._resolve_endpoint_and_key("some/local-model", "tok")
+            endpoint, api_key, label, res = asyncio.run(
+                completions._resolve_route("some/local-model", "tok")
             )
     assert label is None
+    assert res is None
     assert api_key == "tok"
     # No counter was ever touched for this caller.
     ident = rate_limit_service._identity("tok")

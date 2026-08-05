@@ -71,10 +71,10 @@ def test_stream_model_override_rewrites_each_chunk():
         b'data: {"model": "swiss-ai/Apertus-8B", "choices": [{"delta": {"content": "!"}}]}',
         b"data: [DONE]",
     ]
-    chunks = _collect_with_override(lines, "CSCS-Inference/swiss-ai/Apertus-8B")
+    chunks = _collect_with_override(lines, "SwissAIResearch/swiss-ai/Apertus-8B")
     for chunk in chunks[:-1]:
         payload = json.loads(chunk[len("data: ") :])
-        assert payload["model"] == "CSCS-Inference/swiss-ai/Apertus-8B"
+        assert payload["model"] == "SwissAIResearch/swiss-ai/Apertus-8B"
     assert chunks[-1] == "data: [DONE]\n\n"
 
 
@@ -84,7 +84,7 @@ def test_stream_model_override_skips_chunks_without_model_field():
         b'data: {"choices": [{"delta": {"content": "hi"}}]}',
         b"data: [DONE]",
     ]
-    chunks = _collect_with_override(lines, "CSCS-Inference/x")
+    chunks = _collect_with_override(lines, "SwissAIResearch/x")
     payload = json.loads(chunks[0][len("data: ") :])
     assert "model" not in payload
 
