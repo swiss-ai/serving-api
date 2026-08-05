@@ -1,7 +1,13 @@
+import time
+
 from fastapi import APIRouter, Request, Depends
 from fastapi.responses import StreamingResponse
 from backend.middleware.auth import require_auth
 from backend.middleware.body import json_body
+from backend.services.langfuse_service import (
+    prepare_stream_trace,
+    record_if_monitored,
+)
 from backend.services.llm_service import (
     llm_proxy,
     llm_proxy_completions,
@@ -92,16 +98,41 @@ async def chat_completion(
     )
 
     endpoint, api_key = await _resolve_endpoint_and_key(llm_request.model, token)
+    trace_ctx = None
+    if data["stream"]:
+        # Streamed: the complete trace (output/usage/TTFT included) is
+        # emitted by response_generator after the last chunk.
+        trace_ctx = prepare_stream_trace(
+            request.app.state.engine,
+            api_key=token,
+            model=llm_request.model,
+            request_data=data,
+            app_title=app_title,
+        )
+    proxy_started = time.monotonic()
     response = await llm_proxy(
         endpoint=endpoint,
         api_key=api_key,
         request=llm_request,
     )
+    if not data["stream"]:
+        record_if_monitored(
+            request.app.state.engine,
+            api_key=token,
+            model=llm_request.model,
+            request_data=data,
+            response_data=getattr(response, "data", None),
+            streamed=False,
+            app_title=app_title,
+            latency_ms=(time.monotonic() - proxy_started) * 1000,
+        )
     if "stream" in data and data["stream"]:
 
         async def stream_generator():
             metrics_ctx = getattr(response, "metrics_ctx", None)
-            async for chunk in response_generator(response, metrics_ctx=metrics_ctx):
+            async for chunk in response_generator(
+                response, metrics_ctx=metrics_ctx, trace_ctx=trace_ctx
+            ):
                 yield chunk
 
         return StreamingResponse(
@@ -143,16 +174,41 @@ async def completion(
     )
 
     endpoint, api_key = await _resolve_endpoint_and_key(llm_request.model, token)
+    trace_ctx = None
+    if data["stream"]:
+        # Streamed: the complete trace (output/usage/TTFT included) is
+        # emitted by response_generator after the last chunk.
+        trace_ctx = prepare_stream_trace(
+            request.app.state.engine,
+            api_key=token,
+            model=llm_request.model,
+            request_data=data,
+            app_title=app_title,
+        )
+    proxy_started = time.monotonic()
     response = await llm_proxy_completions(
         endpoint=endpoint,
         api_key=api_key,
         request=llm_request,
     )
+    if not data["stream"]:
+        record_if_monitored(
+            request.app.state.engine,
+            api_key=token,
+            model=llm_request.model,
+            request_data=data,
+            response_data=getattr(response, "data", None),
+            streamed=False,
+            app_title=app_title,
+            latency_ms=(time.monotonic() - proxy_started) * 1000,
+        )
     if "stream" in data and data["stream"]:
 
         async def stream_generator():
             metrics_ctx = getattr(response, "metrics_ctx", None)
-            async for chunk in response_generator(response, metrics_ctx=metrics_ctx):
+            async for chunk in response_generator(
+                response, metrics_ctx=metrics_ctx, trace_ctx=trace_ctx
+            ):
                 yield chunk
 
         return StreamingResponse(

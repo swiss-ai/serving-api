@@ -22,7 +22,12 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
-base_endpoint = "https://cloud.langfuse.com/api/public/metrics/daily"
+
+def _daily_metrics_endpoint() -> str:
+    """Daily-metrics API on the configured Langfuse (self-hosted since
+    2026-08-05); cloud remains the fallback when no host is configured."""
+    host = get_settings().langfuse_host.rstrip("/") or "https://cloud.langfuse.com"
+    return f"{host}/api/public/metrics/daily"
 
 
 def get_ttl_hash(seconds=24 * 3600):
@@ -37,7 +42,7 @@ def get_statistics(api_key: Optional[str] = None, ttl_hash=None):
     password = os.getenv("LANGFUSE_SECRET_KEY")
     if not username or not password:
         return {}
-    lf_endpoint = base_endpoint
+    lf_endpoint = _daily_metrics_endpoint()
     if api_key is not None:
         lf_endpoint += f"?userId={api_key}"
     data = {}
@@ -95,7 +100,18 @@ async def get_langfuse_metrics(query_json: dict, ttl_hash: int = None):
 
     async with aiohttp.ClientSession() as session:
         async with session.get(url, headers=headers) as resp:
-            data = await resp.json()
+            if resp.status != 200:
+                # Self-hosted Langfuse v3 has no v2-metrics API (v4-only) —
+                # degrade to empty data instead of surfacing Langfuse's error
+                # body to the leaderboard/arena pages.
+                logger.warning(
+                    "Langfuse v2 metrics unavailable (%s): %s",
+                    resp.status,
+                    (await resp.text())[:200],
+                )
+                data = {}
+            else:
+                data = await resp.json()
     _metrics_cache[cache_key] = data
     return data
 
