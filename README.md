@@ -34,6 +34,51 @@ Frontend and backend API proxy for SwissAI LLM serving. For examples on how to l
         └─────────────────┘
 ```
 
+## Model Namespaces & Passthrough Providers
+
+Model ids are namespaced by their **first path segment**, which selects who
+serves the model. Bare `{org}/{model}` ids always mean locally-served
+(OpenTela); externally-hosted (passthrough) models carry a reserved
+provider prefix:
+
+| First segment | Serves | Example |
+| :- | :- | :- |
+| *(none — bare id)* | OpenTela (locally-launched on our GPUs) | `swiss-ai/Apertus-70B-Instruct-2509` |
+| `SwissAIResearch/` | CSCS L1 inference service (`api.inference.cscs.ch`) | `SwissAIResearch/swiss-ai/Apertus-70B-Instruct-2509` |
+| `RCP-AIaaS/` | EPFL RCP AIaaS (`inference-rcp.epfl.ch`) | `RCP-AIaaS/swiss-ai/Apertus-8B-Instruct-2509` |
+
+Requests are forwarded to the provider with the prefix stripped (the
+upstream only knows its own id) and responses — including streamed
+chunks — are rewritten back to the prefixed id. The same upstream model
+on two providers is two distinct, individually-routable entries; a
+prefixed id can never collide with (or shadow) a local model. Prefixes
+are reserved names: never launch a local model whose id starts with one.
+
+**Curation.** What each provider surfaces is governed by its
+`allowed_ids` in `backend/services/passthrough_service.py`:
+
+- **CSCS L1** — unrestricted: everything its `/models` endpoint
+  advertises is listed and routable (tracked live, ~30 s discovery TTL).
+- **EPFL RCP** — allowlisted to the two Apertus Instruct models only.
+  RCP's `/models` advertises many more (quant variants, scale-to-zero
+  deployments that cold-start on first request); surfacing them would
+  advertise capacity that responds slowly or misleadingly, so the
+  allowlist stays deliberately narrow.
+
+**Rate limiting** applies only to passthrough traffic: external
+providers are a shared, platform-accountable resource, while
+OpenTela-served models run on the caller's own GPU allocation. See
+`backend/services/rate_limit_service.py`.
+
+**Back-compat.** Un-prefixed passthrough ids (the historical form) still
+route during a deprecation window — logged, first provider in
+registration order wins — and responses already return the prefixed id
+to advertise the migration target.
+
+Planned (not yet implemented): `$OWNER/{org}/{model}` for private
+user/group launches, and per-model health status for passthrough
+entries.
+
 ## Repo Structure
 
 ```
