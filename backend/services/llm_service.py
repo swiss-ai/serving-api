@@ -13,7 +13,7 @@ import time
 active_requests = 0
 
 
-async def response_generator(response, metrics_ctx=None):
+async def response_generator(response, metrics_ctx=None, trace_ctx=None):
     accumulated_content = []
     has_started_content = False
     first_token_time = None
@@ -78,6 +78,19 @@ async def response_generator(response, metrics_ctx=None):
                 except json.JSONDecodeError:
                     continue
     finally:
+        if trace_ctx:
+            # Langfuse trace for the finished (or aborted) stream — reuses the
+            # content/usage this generator already accumulates for metrics.
+            from backend.services.langfuse_service import record_stream_result
+
+            record_stream_result(
+                trace_ctx,
+                output_text="".join(accumulated_content),
+                completion_tokens=token_count,
+                ttft_s=(first_token_time - trace_ctx["start_time"])
+                if first_token_time
+                else None,
+            )
         if metrics_ctx and start_time and node_id:
             full_content = "".join(accumulated_content)
             end_time = time.time()

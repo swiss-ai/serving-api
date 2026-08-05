@@ -13,6 +13,7 @@ from backend.services.metrics_service import metrics_collector
 from backend.middleware.logging import AccessLogMiddleware
 from backend.models.protocols import BackendHTTPError
 from backend.routers import (
+    admin_monitoring,
     completions,
     responses,
     embeddings,
@@ -142,6 +143,7 @@ app.include_router(rerank.router)
 app.include_router(classify.router)
 app.include_router(tokenization.router)
 app.include_router(mcp.router)
+app.include_router(admin_monitoring.router)
 
 if __name__ == "__main__":
     import uvicorn
