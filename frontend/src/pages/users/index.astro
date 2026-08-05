@@ -1,0 +1,33 @@
+---
+import PageLayout from "@layouts/PageLayout.astro";
+import Container from "@components/Container.astro";
+import UserActivity from "@components/UserActivity.svelte";
+
+export const prerender = false;
+---
+
+<PageLayout title="User Activity" description="Most active users (admin only)">
+    <Container>
+        <div class="space-y-10">
+            <div class="text-center space-y-4">
+                <h1
+                    class="text-4xl font-bold tracking-tight text-slate-900 dark:text-white sm:text-5xl"
+                >
+                    User Activity
+                </h1>
+                <p
+                    class="mx-auto max-w-2xl text-lg text-slate-600 dark:text-slate-400"
+                >
+                    Most active users by requests and token usage. Admin
+                    access required.
+                </p>
+            </div>
+
+            <div class="card p-1">
+                <div class="p-6 bg-white dark:bg-slate-900 rounded-xl">
+                    <UserActivity client:load />
+                </div>
+            </div>
+        </div>
+    </Container>
+</PageLayout>

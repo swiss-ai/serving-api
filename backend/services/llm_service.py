@@ -18,6 +18,7 @@ async def response_generator(response, metrics_ctx=None, trace_ctx=None):
     has_started_content = False
     first_token_time = None
     token_count = 0
+    last_usage = None
 
     start_time = None
     model = None
@@ -71,6 +72,7 @@ async def response_generator(response, metrics_ctx=None, trace_ctx=None):
                                 accumulated_content.append(original_content)
 
                     if data.get("usage", None) is not None:
+                        last_usage = data["usage"]
                         if "completion_tokens" in data["usage"]:
                             token_count = data["usage"]["completion_tokens"]
 
@@ -86,7 +88,7 @@ async def response_generator(response, metrics_ctx=None, trace_ctx=None):
             record_stream_result(
                 trace_ctx,
                 output_text="".join(accumulated_content),
-                completion_tokens=token_count,
+                usage=last_usage,
                 ttft_s=(first_token_time - trace_ctx["start_time"])
                 if first_token_time
                 else None,

@@ -20,8 +20,9 @@ try {
             metrics: [{ measure: "totalTokens", aggregation: "sum" }],
             dimensions: [{ field: "providedModelName" }],
             filters: [],
-            fromTimestamp: "2025-12-01T00:00:00Z",
-            toTimestamp: "2025-12-16T00:00:00Z",
+            // Rolling 30-day window (was a hardcoded Dec 2025 range).
+            fromTimestamp: new Date(Date.now() - 30 * 86400 * 1000).toISOString(),
+            toTimestamp: new Date().toISOString(),
         }),
     });
 

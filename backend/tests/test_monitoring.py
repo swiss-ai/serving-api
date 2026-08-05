@@ -281,3 +281,60 @@ def test_profile_monitoring_roundtrip(client, monkeypatch):
 
     off = client.delete("/v1/profile/monitoring", headers=headers)
     assert off.json()["removed"] == 1
+
+
+# ---------- usage metrics helpers ----------
+
+
+def test_normalize_usage_openai_keys():
+    from backend.services.langfuse_service import _normalize_usage
+
+    assert _normalize_usage({"prompt_tokens": 10, "completion_tokens": 5}) == {
+        "promptTokens": 10,
+        "completionTokens": 5,
+        "totalTokens": 15,
+    }
+    assert _normalize_usage({"total_tokens": 7}) == {"totalTokens": 7}
+    assert _normalize_usage({}) is None
+    assert _normalize_usage(None) is None
+
+
+def test_summarize_daily_usage_shapes_leaderboard():
+    from backend.services.metrics_service import summarize_daily_usage
+
+    days = [
+        {"usage": [{"model": "a", "totalUsage": 100}, {"model": "b", "totalUsage": 5}]},
+        {"usage": [{"model": "a", "inputUsage": 20, "outputUsage": 30}]},
+        {"usage": []},
+    ]
+    out = summarize_daily_usage(days)
+    assert out == {
+        "data": [
+            {"providedModelName": "a", "sum_totalTokens": "150"},
+            {"providedModelName": "b", "sum_totalTokens": "5"},
+        ]
+    }
+
+
+def test_aggregate_user_activity_orders_and_sums():
+    from backend.services.langfuse_service import aggregate_user_activity
+
+    traces = [
+        {
+            "userId": "a@x.ch",
+            "metadata": {"usage": {"total_tokens": 10}},
+            "timestamp": "2026-08-05T10:00:00Z",
+        },
+        {
+            "userId": "b@x.ch",
+            "metadata": {"usage": {"completion_tokens": 3}},
+            "timestamp": "2026-08-05T11:00:00Z",
+        },
+        {"userId": "a@x.ch", "metadata": {}, "timestamp": "2026-08-05T12:00:00Z"},
+        {"userId": None, "metadata": {}},
+    ]
+    out = aggregate_user_activity(traces)
+    assert [u["user"] for u in out] == ["a@x.ch", "b@x.ch"]
+    assert out[0]["requests"] == 2 and out[0]["total_tokens"] == 10
+    assert out[0]["last_active"] == "2026-08-05T12:00:00Z"
+    assert out[1]["total_tokens"] == 3
