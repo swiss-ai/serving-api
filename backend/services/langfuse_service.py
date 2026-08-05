@@ -173,8 +173,15 @@ def record_if_monitored(
                 "source": "serving-api",
             },
         }
+        # Non-streamed responses may be pydantic models (ModelResponse), not
+        # dicts — normalize before reading usage/choices.
+        if response_data is not None and not isinstance(response_data, dict):
+            if hasattr(response_data, "model_dump"):
+                response_data = response_data.model_dump()
+            else:
+                response_data = None
         usage = None
-        if response_data is not None and isinstance(response_data, dict):
+        if response_data is not None:
             usage = response_data.get("usage")
         if usage:
             body["metadata"]["usage"] = usage
