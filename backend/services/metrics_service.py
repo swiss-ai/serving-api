@@ -171,17 +171,17 @@ def merged_averages(prev_count: int, prev_avgs: dict, stats: dict) -> tuple[int,
 # NOTE on the storage choice: postgres suits this workload — a small keyed
 # set of aggregates behind a public page (bounded rows, upserts, no time
 # axis rendered). For time-resolved questions (p95 latency, "did this model
-# get slower after a deploy?", regression alerting) a TSDB is the right
-# tool: the cluster already runs Prometheus + Grafana, and the vLLM/SGLang
+# get slower after a deploy?", load/concurrency-performance curves,
+# regression alerting) a TSDB is the right tool: the cluster already runs Prometheus + Grafana, and the vLLM/SGLang
 # engines natively expose per-model metrics — build such views there (or
 # add a /metrics endpoint here with model/hardware-labelled histograms)
 # rather than growing this table into a homemade time series.
 
 
-def sync_benchmark(engine, model: str, hardware: str, conc_bucket: str, stats: dict):
-    """Upsert this month's (model, hardware, concurrency) row with merged
-    averages. Monthly buckets keep the page fresh: old months age out of
-    the read window instead of biasing an all-time average forever."""
+def sync_benchmark(engine, model: str, hardware: str, stats: dict):
+    """Upsert this month's (model, hardware) row with merged averages.
+    Monthly buckets keep the page fresh: old months age out of the read
+    window instead of biasing an all-time average forever."""
     from datetime import datetime
 
     from sqlmodel import Session, select
@@ -195,13 +195,10 @@ def sync_benchmark(engine, model: str, hardware: str, conc_bucket: str, stats: d
             .where(PerfBenchmark.month == month)
             .where(PerfBenchmark.model == model)
             .where(PerfBenchmark.hardware == hardware)
-            .where(PerfBenchmark.concurrency == conc_bucket)
             .with_for_update()
         ).first()
         if row is None:
-            row = PerfBenchmark(
-                month=month, model=model, hardware=hardware, concurrency=conc_bucket
-            )
+            row = PerfBenchmark(month=month, model=model, hardware=hardware)
         new_count, merged = merged_averages(
             row.count,
             {
@@ -223,8 +220,8 @@ def sync_benchmark(engine, model: str, hardware: str, conc_bucket: str, stats: d
 def fetch_benchmarks(
     engine, model: Optional[str] = None, months: int = 3
 ) -> list[Dict[str, Any]]:
-    """Merge the last `months` monthly buckets per (model, hardware,
-    concurrency) into one weighted-average row each."""
+    """Merge the last `months` monthly buckets per (model, hardware) into
+    one weighted-average row each."""
     from datetime import datetime
 
     from sqlmodel import Session, select
@@ -247,13 +244,12 @@ def fetch_benchmarks(
 
     merged: Dict[tuple, Dict[str, Any]] = {}
     for r in rows:
-        key = (r.model, r.hardware, r.concurrency)
+        key = (r.model, r.hardware)
         agg = merged.get(key)
         if agg is None:
             agg = {
                 "model": r.model,
                 "hardware": r.hardware,
-                "concurrency": r.concurrency,
                 "count": 0,
                 "avg_ttft": 0.0,
                 "avg_latency": 0.0,
@@ -316,28 +312,20 @@ class MetricsCollector:
         model: str,
         node_id: str,
         dnt_endpoint: str,
-        concurrency: int,
         ttft: float,
         latency: float,
         throughput: float,
+        hardware: Optional[str] = None,
     ):
+        """`hardware` override: passthrough providers (CSCS L1, RCP) expose
+        no node info, so their display label is recorded as the "served on"
+        dimension instead of a doomed hardware lookup."""
         if self._get_engine() is None:
             return
 
-        hardware = get_hardware_spec(node_id, dnt_endpoint)
+        hardware = hardware or get_hardware_spec(node_id, dnt_endpoint)
 
-        if concurrency <= 1:
-            conc_bucket = "1"
-        elif concurrency <= 10:
-            conc_bucket = "2-10"
-        elif concurrency <= 50:
-            conc_bucket = "11-50"
-        elif concurrency <= 100:
-            conc_bucket = "51-100"
-        else:
-            conc_bucket = "101+"
-
-        key = (model, hardware, conc_bucket)
+        key = (model, hardware)
 
         should_sync = False
         with self.buffer_lock:
@@ -360,12 +348,12 @@ class MetricsCollector:
 
             threading.Thread(
                 target=self._sync_to_db,
-                args=(model, hardware, conc_bucket, stats_to_sync),
+                args=(model, hardware, stats_to_sync),
             ).start()
 
-    def _sync_to_db(self, model, hardware, conc_bucket, stats):
+    def _sync_to_db(self, model, hardware, stats):
         try:
-            sync_benchmark(self._get_engine(), model, hardware, conc_bucket, stats)
+            sync_benchmark(self._get_engine(), model, hardware, stats)
         except Exception as e:
             logger.error(f"Error syncing benchmark to postgres: {e}")
 

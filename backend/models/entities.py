@@ -17,24 +17,20 @@ class APIKey(SQLModel, table=True):
 
 
 class PerfBenchmark(SQLModel, table=True):
-    """Running averages for the Performance page, per
-    (month, model, hardware, concurrency bucket). Monthly buckets so old
-    data ages out of the page instead of biasing an all-time average
-    forever. Maintained by MetricsCollector; replaced the disabled
-    Firestore sync."""
+    """Running averages for the Performance page, per (month, model,
+    served-on). Monthly buckets so old data ages out of the page instead
+    of biasing an all-time average forever. Maintained by
+    MetricsCollector; replaced the disabled Firestore sync."""
 
     __tablename__ = "perf_benchmark"
     __table_args__ = (
-        UniqueConstraint(
-            "month", "model", "hardware", "concurrency", name="uq_perf_benchmark_key"
-        ),
+        UniqueConstraint("month", "model", "hardware", name="uq_perf_benchmark_key"),
     )
 
     id: Optional[int] = Field(default=None, primary_key=True)
     month: str  # "YYYY-MM"
     model: str
-    hardware: str
-    concurrency: str  # bucket: '1' | '2-10' | '11-50' | '51-100' | '101+'
+    hardware: str  # real hardware (self-hosted) or provider label (passthrough)
     count: int = Field(default=0)
     avg_ttft: float = Field(default=0.0)
     avg_latency: float = Field(default=0.0)

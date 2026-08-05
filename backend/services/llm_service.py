@@ -24,14 +24,12 @@ async def response_generator(response, metrics_ctx=None, trace_ctx=None):
     model = None
     node_id = None
     dnt_endpoint = None
-    concurrency = 0
 
     if metrics_ctx:
         start_time = metrics_ctx.get("start_time")
         model = metrics_ctx.get("model")
         node_id = metrics_ctx.get("node_id")
         dnt_endpoint = metrics_ctx.get("dnt_endpoint")
-        concurrency = metrics_ctx.get("concurrency")
 
     try:
         async for line in response:
@@ -108,10 +106,10 @@ async def response_generator(response, metrics_ctx=None, trace_ctx=None):
                 model=model,
                 node_id=node_id,
                 dnt_endpoint=dnt_endpoint,
-                concurrency=concurrency,
                 ttft=ttft,
                 latency=latency,
                 throughput=throughput,
+                hardware=metrics_ctx.get("provider"),
             )
 
         global active_requests
@@ -208,11 +206,11 @@ async def _shared_proxy_handler(
     full_url: str,
     model: str,
     raw_response: bool = False,
+    provider_label: str = None,
 ) -> Union[ModelResponse, StreamWrapper, RawResponse]:
     global active_requests
     active_requests += 1
     start_time = time.time()
-    snapshot_concurrency = active_requests
 
     headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
     headers.update(headers_extra)
@@ -239,7 +237,9 @@ async def _shared_proxy_handler(
                 "model": model,
                 "node_id": node_id,
                 "dnt_endpoint": dnt_endpoint,
-                "concurrency": snapshot_concurrency,
+                # Passthrough upstreams (CSCS L1, RCP) expose no node info;
+                # their display label becomes the "served on" dimension.
+                "provider": provider_label,
             }
 
         else:
@@ -258,10 +258,10 @@ async def _shared_proxy_handler(
                 model=model,
                 node_id=node_id,
                 dnt_endpoint=dnt_endpoint,
-                concurrency=snapshot_concurrency,
                 ttft=latency,
                 latency=latency,
                 throughput=throughput,
+                hardware=provider_label,
             )
             active_requests -= 1
 
@@ -279,7 +279,9 @@ async def _shared_proxy_handler(
         raise
 
 
-async def llm_proxy(endpoint, api_key, request: LLMRequest) -> ModelResponse:
+async def llm_proxy(
+    endpoint, api_key, request: LLMRequest, provider_label: str = None
+) -> ModelResponse:
     return await _shared_proxy_handler(
         endpoint=endpoint,
         api_key=api_key,
@@ -288,11 +290,12 @@ async def llm_proxy(endpoint, api_key, request: LLMRequest) -> ModelResponse:
         stream=request.stream,
         full_url=endpoint.rstrip("/") + "/chat/completions",
         model=request.model,
+        provider_label=provider_label,
     )
 
 
 async def llm_proxy_completions(
-    endpoint, api_key, request: LLMCompletionsRequest
+    endpoint, api_key, request: LLMCompletionsRequest, provider_label: str = None
 ) -> ModelResponse:
     return await _shared_proxy_handler(
         endpoint=endpoint,
@@ -302,6 +305,7 @@ async def llm_proxy_completions(
         stream=request.stream,
         full_url=endpoint.rstrip("/") + "/completions",
         model=request.model,
+        provider_label=provider_label,
     )
 
 

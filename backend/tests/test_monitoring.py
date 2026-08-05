@@ -369,8 +369,8 @@ def test_sync_and_fetch_benchmarks(engine):
         "total_latency": 50.0,
         "total_throughput": 500.0,
     }
-    sync_benchmark(engine, "model-x", "4x GH200", "2-10", stats)
-    sync_benchmark(engine, "model-x", "4x GH200", "2-10", stats)
+    sync_benchmark(engine, "model-x", "4x GH200", stats)
+    sync_benchmark(engine, "model-x", "4x GH200", stats)
 
     rows = fetch_benchmarks(engine, "model-x")
     assert len(rows) == 1

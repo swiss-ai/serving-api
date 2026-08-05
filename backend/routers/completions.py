@@ -24,15 +24,18 @@ router = APIRouter()
 settings = get_settings()
 
 
-async def _resolve_endpoint_and_key(model: str, user_token: str) -> tuple[str, str]:
+async def _resolve_endpoint_and_key(
+    model: str, user_token: str
+) -> tuple[str, str, str]:
     """Models hosted by a passthrough provider (CSCS L1, RCP, ...) go to
     that provider's upstream endpoint with its shared key; everything else
     stays on the OpenTela proxy with the user's bearer token forwarded
-    as-is."""
+    as-is. The third element is the provider's display label (None for
+    OpenTela) — recorded as the perf "served on" dimension."""
     provider = await resolve_provider(model)
     if provider is not None:
-        return passthrough_endpoint(provider), provider.api_key
-    return settings.otela_head_addr + "/v1/service/llm/v1/", user_token
+        return passthrough_endpoint(provider), provider.api_key, provider.device
+    return settings.otela_head_addr + "/v1/service/llm/v1/", user_token, None
 
 
 CHAT_RESERVED_KEYS = [
@@ -97,7 +100,9 @@ async def chat_completion(
         user_id=token, opt_out=opt_out, app_title=app_title, **reorg_data
     )
 
-    endpoint, api_key = await _resolve_endpoint_and_key(llm_request.model, token)
+    endpoint, api_key, provider_label = await _resolve_endpoint_and_key(
+        llm_request.model, token
+    )
     trace_ctx = None
     if data["stream"]:
         # Streamed: the complete trace (output/usage/TTFT included) is
@@ -114,6 +119,7 @@ async def chat_completion(
         endpoint=endpoint,
         api_key=api_key,
         request=llm_request,
+        provider_label=provider_label,
     )
     if not data["stream"]:
         record_if_monitored(
@@ -173,7 +179,9 @@ async def completion(
         user_id=token, opt_out=opt_out, app_title=app_title, **reorg_data
     )
 
-    endpoint, api_key = await _resolve_endpoint_and_key(llm_request.model, token)
+    endpoint, api_key, provider_label = await _resolve_endpoint_and_key(
+        llm_request.model, token
+    )
     trace_ctx = None
     if data["stream"]:
         # Streamed: the complete trace (output/usage/TTFT included) is
@@ -190,6 +198,7 @@ async def completion(
         endpoint=endpoint,
         api_key=api_key,
         request=llm_request,
+        provider_label=provider_label,
     )
     if not data["stream"]:
         record_if_monitored(
