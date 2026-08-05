@@ -25,9 +25,9 @@ jobs:
       postgres:
         image: postgres:17-alpine
         env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: ai_proxy
+          POSTGRES_USER: serving
+          POSTGRES_PASSWORD: serving
+          POSTGRES_DB: serving
         ports:
           - 5432:5432
         options: >-
@@ -36,7 +36,7 @@ jobs:
           --health-timeout 5s
           --health-retries 5
     env:
-      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/ai_proxy
+      DATABASE_URL: postgresql://serving:serving@localhost:5432/serving
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-python@v6

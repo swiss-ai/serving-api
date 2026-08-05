@@ -50,7 +50,7 @@ db-up:
 				-e POSTGRES_PASSWORD=$(PG_PASS) \
 				-e POSTGRES_DB=$(PG_DB) \
 				-p $(PG_PORT):5432 \
-				postgres:16 > /dev/null; \
+				postgres:17 > /dev/null; \
 		fi; \
 	fi
 	@printf "waiting for postgres"; \
