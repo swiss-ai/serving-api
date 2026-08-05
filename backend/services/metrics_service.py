@@ -84,6 +84,8 @@ async def get_langfuse_metrics(query_json: dict, ttl_hash: int = None):
     settings = get_settings()
     if not settings.langfuse_public_key or not settings.langfuse_secret_key:
         return {}
+    if not settings.langfuse_host:
+        return {}
 
     query_str = json.dumps(query_json, sort_keys=True)
     cache_key = (query_str, ttl_hash)
@@ -98,20 +100,26 @@ async def get_langfuse_metrics(query_json: dict, ttl_hash: int = None):
     auth_b64 = base64.b64encode(auth_s.encode()).decode()
     headers = {"Authorization": f"Basic {auth_b64}"}
 
-    async with aiohttp.ClientSession() as session:
-        async with session.get(url, headers=headers) as resp:
-            if resp.status != 200:
-                # Self-hosted Langfuse v3 has no v2-metrics API (v4-only) —
-                # degrade to empty data instead of surfacing Langfuse's error
-                # body to the leaderboard/arena pages.
-                logger.warning(
-                    "Langfuse v2 metrics unavailable (%s): %s",
-                    resp.status,
-                    (await resp.text())[:200],
-                )
-                data = {}
-            else:
-                data = await resp.json()
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url, headers=headers) as resp:
+                if resp.status != 200:
+                    # Self-hosted Langfuse v3 has no v2-metrics API (v4-only)
+                    # — degrade to empty data instead of surfacing Langfuse's
+                    # error body to the leaderboard/arena pages.
+                    logger.warning(
+                        "Langfuse v2 metrics unavailable (%s): %s",
+                        resp.status,
+                        (await resp.text())[:200],
+                    )
+                    data = {}
+                else:
+                    data = await resp.json()
+    except Exception as exc:
+        # Never let a Langfuse outage 500 the leaderboard; don't cache so a
+        # recovered Langfuse is picked up on the next request.
+        logger.warning("Langfuse v2 metrics request failed: %s", exc)
+        return {}
     _metrics_cache[cache_key] = data
     return data
 
