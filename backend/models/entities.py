@@ -16,6 +16,29 @@ class APIKey(SQLModel, table=True):
     is_admin: bool = Field(default=False)
 
 
+class PerfBenchmark(SQLModel, table=True):
+    """Running averages for the Performance page, per
+    (model, hardware, concurrency bucket). Maintained by MetricsCollector;
+    replaced the disabled Firestore sync."""
+
+    __tablename__ = "perf_benchmark"
+    __table_args__ = (
+        UniqueConstraint(
+            "model", "hardware", "concurrency", name="uq_perf_benchmark_key"
+        ),
+    )
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    model: str
+    hardware: str
+    concurrency: str  # bucket: '1' | '2-10' | '11-50' | '51-100' | '101+'
+    count: int = Field(default=0)
+    avg_ttft: float = Field(default=0.0)
+    avg_latency: float = Field(default=0.0)
+    avg_throughput: float = Field(default=0.0)
+    last_updated: datetime = Field(default_factory=datetime.now)
+
+
 class UserMonitoringRule(SQLModel, table=True):
     """Turns on Langfuse tracing for one user's requests.
 
