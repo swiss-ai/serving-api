@@ -41,12 +41,12 @@ who serves the model. Three namespaces exist today:
 
 | First segment | Serves | Example |
 | :- | :- | :- |
-| `SwissAIResearch/` | **This platform** — models we serve ourselves via OpenTela | `SwissAIResearch/swiss-ai/Apertus-70B-Instruct-2509` |
+| `SwissAI-Research/` | **This platform** — models we serve ourselves via OpenTela | `SwissAI-Research/swiss-ai/Apertus-70B-Instruct-2509` |
 | `CSCS-Inference/` | CSCS L1 inference service (`api.inference.cscs.ch`) | `CSCS-Inference/swiss-ai/Apertus-70B-Instruct-2509` |
 | `RCP-AIaaS/` | EPFL RCP AIaaS (`inference-rcp.epfl.ch`) | `RCP-AIaaS/swiss-ai/Apertus-8B-Instruct-2509` |
 
 Bare `{org}/{model}` ids remain accepted and equivalent to
-`SwissAIResearch/{org}/{model}` — the model list currently shows the bare
+`SwissAI-Research/{org}/{model}` — the model list currently shows the bare
 form; flipping the listing to the prefixed form is a pending decision
 (it changes every advertised id, so clients need a migration window).
 

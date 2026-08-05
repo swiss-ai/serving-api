@@ -36,7 +36,7 @@ async def create_response(
             resolved.provider.api_key,
         )
     else:
-        # Bare ids and SwissAIResearch/ (our own namespace) → OpenTela.
+        # Bare ids and SwissAI-Research/ (our own namespace) → OpenTela.
         endpoint, api_key = settings.otela_head_addr + "/v1/service/llm/v1/", token
 
     response = await llm_proxy_responses(

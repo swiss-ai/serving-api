@@ -222,10 +222,10 @@ async def _discover_ids(provider: Provider) -> set[str]:
         return set(provider.fallback_ids)
 
 
-# This platform's own namespace: SwissAIResearch/<org>/<model> is the
+# This platform's own namespace: SwissAI-Research/<org>/<model> is the
 # canonical alias for a model served by us (OpenTela). Reserved alongside
 # the provider prefixes — no HF org, username, or provider may claim it.
-PLATFORM_PREFIX = "SwissAIResearch"
+PLATFORM_PREFIX = "SwissAI-Research"
 
 
 @dataclass(frozen=True)
@@ -250,7 +250,7 @@ async def resolve_model(model_id: str) -> ResolvedModel | None:
     None so the caller falls through to OpenTela (which 404s cleanly).
 
     Namespaces, selected by the first path segment:
-    - ``SwissAIResearch/<org>/<model>`` — our own OpenTela-served models
+    - ``SwissAI-Research/<org>/<model>`` — our own OpenTela-served models
       (provider=None). No advertised-set check: OpenTela 404s unknown ids
       itself.
     - ``<provider prefix>/<upstream id>`` (CSCS-Inference/...,

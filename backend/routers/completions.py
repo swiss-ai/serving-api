@@ -30,7 +30,7 @@ async def _resolve_route(
     model: str, user_token: str
 ) -> tuple[str, str, str | None, ResolvedModel | None]:
     """Prefixed passthrough ids (CSCS-Inference/..., RCP-AIaaS/...) go to
-    that provider's upstream endpoint with its shared key; SwissAIResearch/
+    that provider's upstream endpoint with its shared key; SwissAI-Research/
     ids (this platform's own namespace) and bare ids stay on the OpenTela
     proxy with the user's bearer token forwarded as-is. The third element
     is the provider's display label (None for OpenTela) — recorded as the
@@ -41,7 +41,7 @@ async def _resolve_route(
     Rate limiting happens here, only on the passthrough arm: external
     providers are a shared, platform-accountable resource (shared API
     key, external quota), while OpenTela models (bare or under
-    SwissAIResearch/) run on the user's own GPU allocation and stay
+    SwissAI-Research/) run on the user's own GPU allocation and stay
     unlimited."""
     resolved = await resolve_model(model)
     if resolved is not None and resolved.provider is not None:

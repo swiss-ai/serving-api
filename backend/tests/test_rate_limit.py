@@ -321,7 +321,7 @@ def test_opentela_routing_is_never_limited(fake_redis):
 
 
 def test_platform_namespace_is_never_limited(fake_redis):
-    """SwissAIResearch/... resolves to our own OpenTela network — same
+    """SwissAI-Research/... resolves to our own OpenTela network — same
     no-limit treatment as bare ids, but the resolution is returned so the
     routes still rewrite ids."""
     from backend.routers import completions
@@ -330,7 +330,7 @@ def test_platform_namespace_is_never_limited(fake_redis):
     resolved = ResolvedModel(
         provider=None,
         upstream_id="some/local-model",
-        public_id="SwissAIResearch/some/local-model",
+        public_id="SwissAI-Research/some/local-model",
     )
     with (
         patch.object(
@@ -340,7 +340,7 @@ def test_platform_namespace_is_never_limited(fake_redis):
     ):
         for _ in range(5):
             endpoint, api_key, label, res = asyncio.run(
-                completions._resolve_route("SwissAIResearch/some/local-model", "tok")
+                completions._resolve_route("SwissAI-Research/some/local-model", "tok")
             )
     assert label is None
     assert res is resolved

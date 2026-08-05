@@ -124,26 +124,26 @@ def test_unknown_prefix_falls_through():
 
 
 def test_platform_prefix_resolves_to_opentela():
-    """SwissAIResearch/... is this platform's own namespace: provider is
+    """SwissAI-Research/... is this platform's own namespace: provider is
     None (caller routes to OpenTela), the forwarded id is bare, and the
     public id is preserved for response rewriting."""
     with _patch_settings(_FakeSettings()), _patch_fetch([APERTUS_8B]):
-        resolved = _run(resolve_model(f"SwissAIResearch/{APERTUS_8B}"))
+        resolved = _run(resolve_model(f"SwissAI-Research/{APERTUS_8B}"))
     assert resolved is not None
     assert resolved.provider is None
     assert resolved.upstream_id == APERTUS_8B
-    assert resolved.public_id == f"SwissAIResearch/{APERTUS_8B}"
+    assert resolved.public_id == f"SwissAI-Research/{APERTUS_8B}"
 
 
 def test_platform_prefix_works_without_any_provider_configured():
     """The platform namespace is independent of passthrough config — it
     must resolve even when no external provider env is set."""
     with _patch_settings(_FakeSettings(cscs_l1_base_url="", cscs_l1_api_key="")):
-        resolved = _run(resolve_model("SwissAIResearch/some/local-model"))
+        resolved = _run(resolve_model("SwissAI-Research/some/local-model"))
         assert resolved is not None and resolved.provider is None
         assert resolved.upstream_id == "some/local-model"
-        assert _run(resolve_model("SwissAIResearch")) is None
-        assert _run(resolve_model("SwissAIResearch/")) is None
+        assert _run(resolve_model("SwissAI-Research")) is None
+        assert _run(resolve_model("SwissAI-Research/")) is None
 
 
 def test_bare_upstream_id_still_routes_for_back_compat():
