@@ -2,7 +2,8 @@ import time
 
 from fastapi import APIRouter, Request, Depends
 from fastapi.responses import StreamingResponse
-from backend.middleware.ratelimit import rate_limited
+from backend.middleware.auth import require_auth
+from backend.middleware.ratelimit import enforce_rate_limit
 from backend.middleware.body import json_body
 from backend.services.langfuse_service import (
     prepare_stream_trace,
@@ -31,9 +32,15 @@ async def _resolve_endpoint_and_key(
     that provider's upstream endpoint with its shared key; everything else
     stays on the OpenTela proxy with the user's bearer token forwarded
     as-is. The third element is the provider's display label (None for
-    OpenTela) — recorded as the perf "served on" dimension."""
+    OpenTela) — recorded as the perf "served on" dimension.
+
+    Rate limiting happens here, only on the passthrough arm: external
+    providers are a shared, platform-accountable resource (shared API
+    key, external quota), while OpenTela models run on the user's own
+    GPU allocation and stay unlimited."""
     provider = await resolve_provider(model)
     if provider is not None:
+        enforce_rate_limit(user_token)
         return passthrough_endpoint(provider), provider.api_key, provider.device
     return settings.otela_head_addr + "/v1/service/llm/v1/", user_token, None
 
@@ -72,7 +79,7 @@ COMPLETION_RESERVED_KEYS = [
 @router.post("/v1/chat/completions")
 async def chat_completion(
     request: Request,
-    token: str = Depends(rate_limited),
+    token: str = Depends(require_auth),
     data: dict = Depends(json_body),
 ):
     opt_out = request.headers.get("X-OPTOUT-TRACKING", "false").lower() in (
@@ -150,7 +157,7 @@ async def chat_completion(
 @router.post("/v1/completions")
 async def completion(
     request: Request,
-    token: str = Depends(rate_limited),
+    token: str = Depends(require_auth),
     data: dict = Depends(json_body),
 ):
     opt_out = request.headers.get("X-OPTOUT-TRACKING", "").lower() in (

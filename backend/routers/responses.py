@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
-from backend.middleware.ratelimit import rate_limited
+from backend.middleware.auth import require_auth
+from backend.middleware.ratelimit import enforce_rate_limit
 from backend.middleware.body import json_body
 from backend.services.llm_service import llm_proxy_responses, response_generator_raw
 from backend.services.passthrough_service import (
@@ -15,7 +16,7 @@ settings = get_settings()
 
 @router.post("/v1/responses")
 async def create_response(
-    token: str = Depends(rate_limited),
+    token: str = Depends(require_auth),
     data: dict = Depends(json_body),
 ):
     stream = data.get("stream", False)
@@ -23,6 +24,9 @@ async def create_response(
 
     provider = await resolve_provider(model)
     if provider is not None:
+        # Only passthrough (externally-hosted) traffic is rate limited —
+        # see _resolve_endpoint_and_key in routers/completions.py.
+        enforce_rate_limit(token)
         endpoint, api_key = passthrough_endpoint(provider), provider.api_key
     else:
         endpoint, api_key = settings.otela_head_addr + "/v1/service/llm/v1/", token
