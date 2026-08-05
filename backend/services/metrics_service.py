@@ -11,14 +11,6 @@ from threading import Lock
 from functools import lru_cache
 from backend.config import parse_hardware_info, get_settings
 
-try:
-    import firebase_admin
-    from firebase_admin import credentials, firestore
-
-    FIREBASE_AVAILABLE = True
-except ImportError:
-    FIREBASE_AVAILABLE = False
-
 logger = logging.getLogger(__name__)
 
 
@@ -161,6 +153,123 @@ async def get_langfuse_metrics(query_json: dict, ttl_hash: int = None):
     return data
 
 
+def merged_averages(prev_count: int, prev_avgs: dict, stats: dict) -> tuple[int, dict]:
+    """Fold a buffered batch (count + totals) into running averages."""
+    new_count = prev_count + stats["count"]
+    merged = {}
+    for key, total_key in (
+        ("avg_ttft", "total_ttft"),
+        ("avg_latency", "total_latency"),
+        ("avg_throughput", "total_throughput"),
+    ):
+        merged[key] = (
+            prev_avgs.get(key, 0.0) * prev_count + stats[total_key]
+        ) / new_count
+    return new_count, merged
+
+
+# NOTE on the storage choice: postgres suits this workload — a small keyed
+# set of aggregates behind a public page (bounded rows, upserts, no time
+# axis rendered). For time-resolved questions (p95 latency, "did this model
+# get slower after a deploy?", regression alerting) a TSDB is the right
+# tool: the cluster already runs Prometheus + Grafana, and the vLLM/SGLang
+# engines natively expose per-model metrics — build such views there (or
+# add a /metrics endpoint here with model/hardware-labelled histograms)
+# rather than growing this table into a homemade time series.
+
+
+def sync_benchmark(engine, model: str, hardware: str, conc_bucket: str, stats: dict):
+    """Upsert this month's (model, hardware, concurrency) row with merged
+    averages. Monthly buckets keep the page fresh: old months age out of
+    the read window instead of biasing an all-time average forever."""
+    from datetime import datetime
+
+    from sqlmodel import Session, select
+
+    from backend.models.entities import PerfBenchmark
+
+    month = datetime.now().strftime("%Y-%m")
+    with Session(engine) as session:
+        row = session.exec(
+            select(PerfBenchmark)
+            .where(PerfBenchmark.month == month)
+            .where(PerfBenchmark.model == model)
+            .where(PerfBenchmark.hardware == hardware)
+            .where(PerfBenchmark.concurrency == conc_bucket)
+            .with_for_update()
+        ).first()
+        if row is None:
+            row = PerfBenchmark(
+                month=month, model=model, hardware=hardware, concurrency=conc_bucket
+            )
+        new_count, merged = merged_averages(
+            row.count,
+            {
+                "avg_ttft": row.avg_ttft,
+                "avg_latency": row.avg_latency,
+                "avg_throughput": row.avg_throughput,
+            },
+            stats,
+        )
+        row.count = new_count
+        row.avg_ttft = merged["avg_ttft"]
+        row.avg_latency = merged["avg_latency"]
+        row.avg_throughput = merged["avg_throughput"]
+        row.last_updated = datetime.now()
+        session.add(row)
+        session.commit()
+
+
+def fetch_benchmarks(
+    engine, model: Optional[str] = None, months: int = 3
+) -> list[Dict[str, Any]]:
+    """Merge the last `months` monthly buckets per (model, hardware,
+    concurrency) into one weighted-average row each."""
+    from datetime import datetime
+
+    from sqlmodel import Session, select
+
+    from backend.models.entities import PerfBenchmark
+
+    now = datetime.now()
+    # "YYYY-MM" sorts lexicographically, so a string cutoff works.
+    y, m = now.year, now.month - (months - 1)
+    while m < 1:
+        m += 12
+        y -= 1
+    cutoff = f"{y:04d}-{m:02d}"
+
+    with Session(engine) as session:
+        query = select(PerfBenchmark).where(PerfBenchmark.month >= cutoff)
+        if model:
+            query = query.where(PerfBenchmark.model == model)
+        rows = session.exec(query).all()
+
+    merged: Dict[tuple, Dict[str, Any]] = {}
+    for r in rows:
+        key = (r.model, r.hardware, r.concurrency)
+        agg = merged.get(key)
+        if agg is None:
+            agg = {
+                "model": r.model,
+                "hardware": r.hardware,
+                "concurrency": r.concurrency,
+                "count": 0,
+                "avg_ttft": 0.0,
+                "avg_latency": 0.0,
+                "avg_throughput": 0.0,
+                "last_updated": r.last_updated,
+            }
+            merged[key] = agg
+        total = agg["count"] + r.count
+        if total:
+            for f in ("avg_ttft", "avg_latency", "avg_throughput"):
+                agg[f] = (agg[f] * agg["count"] + getattr(r, f) * r.count) / total
+        agg["count"] = total
+        agg["last_updated"] = max(agg["last_updated"], r.last_updated)
+    return list(merged.values())
+
+
 class MetricsCollector:
     _instance = None
 
@@ -174,7 +283,7 @@ class MetricsCollector:
         if self.initialized:
             return
 
-        self.db = None
+        self._engine = None
 
         self.local_buffer = defaultdict(
             lambda: {
@@ -188,44 +297,19 @@ class MetricsCollector:
         )
         self.buffer_lock = Lock()
         self.sync_threshold = 5
-
-        # Firebase disabled — to re-enable, set ENABLE_FIREBASE=true
-        if os.environ.get("ENABLE_FIREBASE", "").lower() in ("true", "1"):
-            self._init_firebase()
         self.initialized = True
 
-    def _init_firebase(self):
-        if not FIREBASE_AVAILABLE:
-            logger.warning(
-                "firebase-admin not installed. Metrics will not be synced to Firestore."
-            )
-            return
+    def _get_engine(self):
+        """Lazy engine: the collector is constructed at import time, before
+        settings/DB are necessarily ready."""
+        if self._engine is None:
+            from sqlmodel import create_engine
 
-        cred_json = os.environ.get("FIREBASE_SERVICE_ACCOUNT_JSON")
-        if not cred_json:
-            logger.warning(
-                "FIREBASE_SERVICE_ACCOUNT_JSON not set. Metrics will not be synced."
-            )
-            return
-
-        try:
-            if cred_json.strip().startswith("{"):
-                service_account_info = json.loads(cred_json)
-                cred = credentials.Certificate(service_account_info)
-            elif os.path.isfile(cred_json):
-                cred = credentials.Certificate(cred_json)
-            else:
-                service_account_info = json.loads(cred_json)
-                cred = credentials.Certificate(service_account_info)
-            try:
-                firebase_admin.get_app()
-            except ValueError:
-                firebase_admin.initialize_app(cred)
-
-            self.db = firestore.client()
-            logger.info("Firebase initialized successfully.")
-        except Exception as e:
-            logger.error(f"Failed to initialize Firebase: {e}")
+            settings = get_settings()
+            if not settings.database_url:
+                return None
+            self._engine = create_engine(settings.database_url, pool_pre_ping=True)
+        return self._engine
 
     def record(
         self,
@@ -237,7 +321,7 @@ class MetricsCollector:
         latency: float,
         throughput: float,
     ):
-        if not self.db:
+        if self._get_engine() is None:
             return
 
         hardware = get_hardware_spec(node_id, dnt_endpoint)
@@ -275,84 +359,22 @@ class MetricsCollector:
             import threading
 
             threading.Thread(
-                target=self._sync_to_firestore,
+                target=self._sync_to_db,
                 args=(model, hardware, conc_bucket, stats_to_sync),
             ).start()
 
-    def _sync_to_firestore(self, model, hardware, conc_bucket, stats):
+    def _sync_to_db(self, model, hardware, conc_bucket, stats):
         try:
-            doc_id = f"{model}_{hardware}_{conc_bucket}".replace("/", "_")
-            doc_ref = self.db.collection("llm_benchmarks").document(doc_id)
-
-            @firestore.transactional
-            def update_in_transaction(transaction, doc_ref, stats):
-                snapshot = doc_ref.get(transaction=transaction)
-                if snapshot.exists:
-                    existing = snapshot.to_dict()
-                    new_count = existing.get("count", 0) + stats["count"]
-                    new_avg_ttft = (
-                        existing.get("avg_ttft", 0) * existing.get("count", 0)
-                        + stats["total_ttft"]
-                    ) / new_count
-                    new_avg_latency = (
-                        existing.get("avg_latency", 0) * existing.get("count", 0)
-                        + stats["total_latency"]
-                    ) / new_count
-                    new_avg_throughput = (
-                        existing.get("avg_throughput", 0) * existing.get("count", 0)
-                        + stats["total_throughput"]
-                    ) / new_count
-
-                    transaction.update(
-                        doc_ref,
-                        {
-                            "count": new_count,
-                            "avg_ttft": new_avg_ttft,
-                            "avg_latency": new_avg_latency,
-                            "avg_throughput": new_avg_throughput,
-                            "last_updated": firestore.SERVER_TIMESTAMP,
-                        },
-                    )
-                else:
-                    new_count = stats["count"]
-                    transaction.set(
-                        doc_ref,
-                        {
-                            "model": model,
-                            "hardware": hardware,
-                            "concurrency": conc_bucket,
-                            "count": new_count,
-                            "avg_ttft": stats["total_ttft"] / new_count,
-                            "avg_latency": stats["total_latency"] / new_count,
-                            "avg_throughput": stats["total_throughput"] / new_count,
-                            "last_updated": firestore.SERVER_TIMESTAMP,
-                        },
-                    )
-
-            transaction = self.db.transaction()
-            update_in_transaction(transaction, doc_ref, stats)
-            logger.info(f"Synced stats for {doc_id}")
-
+            sync_benchmark(self._get_engine(), model, hardware, conc_bucket, stats)
         except Exception as e:
-            logger.error(f"Error syncing to Firestore: {e}")
+            logger.error(f"Error syncing benchmark to postgres: {e}")
 
     def get_benchmark_data(self, model: Optional[str] = None) -> list[Dict[str, Any]]:
-        if not self.db:
+        engine = self._get_engine()
+        if engine is None:
             return []
-
         try:
-            ref = self.db.collection("llm_benchmarks")
-            if model:
-                query = ref.where("model", "==", model)
-                docs = query.stream()
-            else:
-                docs = ref.stream()
-
-            results = []
-            for doc in docs:
-                data = doc.to_dict()
-                results.append(data)
-            return results
+            return fetch_benchmarks(engine, model)
         except Exception as e:
             logger.error(f"Error fetching benchmark data: {e}")
             return []

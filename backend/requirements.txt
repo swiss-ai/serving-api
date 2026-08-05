@@ -15,5 +15,4 @@ pyjwt[crypto]
 pydantic-settings
 redis
 hiredis
-firebase-admin
 alembic

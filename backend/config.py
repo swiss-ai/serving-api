@@ -63,7 +63,6 @@ class Settings(BaseSettings):
     langfuse_secret_key: str = ""
     vite_auth0_client_id: str = ""
     vite_auth0_domain: str = ""
-    firebase_service_account_json: str = ""
     access_log: bool = False
     # LOCAL DEV ONLY. When true, the backend accepts the frontend's
     # `dev-dummy-token` (see frontend api_key.astro dev session) without

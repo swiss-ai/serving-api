@@ -338,3 +338,45 @@ def test_aggregate_user_activity_orders_and_sums():
     assert out[0]["requests"] == 2 and out[0]["total_tokens"] == 10
     assert out[0]["last_active"] == "2026-08-05T12:00:00Z"
     assert out[1]["total_tokens"] == 3
+
+
+# ---------- perf benchmarks (postgres-backed) ----------
+
+
+def test_merged_averages_math():
+    from backend.services.metrics_service import merged_averages
+
+    count, avgs = merged_averages(
+        2,
+        {"avg_ttft": 1.0, "avg_latency": 10.0, "avg_throughput": 100.0},
+        {
+            "count": 2,
+            "total_ttft": 6.0,
+            "total_latency": 20.0,
+            "total_throughput": 100.0,
+        },
+    )
+    assert count == 4
+    assert avgs == {"avg_ttft": 2.0, "avg_latency": 10.0, "avg_throughput": 75.0}
+
+
+def test_sync_and_fetch_benchmarks(engine):
+    from backend.services.metrics_service import fetch_benchmarks, sync_benchmark
+
+    stats = {
+        "count": 5,
+        "total_ttft": 5.0,
+        "total_latency": 50.0,
+        "total_throughput": 500.0,
+    }
+    sync_benchmark(engine, "model-x", "4x GH200", "2-10", stats)
+    sync_benchmark(engine, "model-x", "4x GH200", "2-10", stats)
+
+    rows = fetch_benchmarks(engine, "model-x")
+    assert len(rows) == 1
+    r = rows[0]
+    assert r["count"] == 10
+    assert r["avg_ttft"] == 1.0
+    assert r["avg_latency"] == 10.0
+    assert r["avg_throughput"] == 100.0
+    assert fetch_benchmarks(engine, "other-model") == []
