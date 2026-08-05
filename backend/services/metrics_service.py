@@ -168,24 +168,40 @@ def merged_averages(prev_count: int, prev_avgs: dict, stats: dict) -> tuple[int,
     return new_count, merged
 
 
+# NOTE on the storage choice: postgres suits this workload — a small keyed
+# set of aggregates behind a public page (bounded rows, upserts, no time
+# axis rendered). For time-resolved questions (p95 latency, "did this model
+# get slower after a deploy?", regression alerting) a TSDB is the right
+# tool: the cluster already runs Prometheus + Grafana, and the vLLM/SGLang
+# engines natively expose per-model metrics — build such views there (or
+# add a /metrics endpoint here with model/hardware-labelled histograms)
+# rather than growing this table into a homemade time series.
+
+
 def sync_benchmark(engine, model: str, hardware: str, conc_bucket: str, stats: dict):
-    """Upsert one (model, hardware, concurrency) row with merged averages."""
+    """Upsert this month's (model, hardware, concurrency) row with merged
+    averages. Monthly buckets keep the page fresh: old months age out of
+    the read window instead of biasing an all-time average forever."""
     from datetime import datetime
 
     from sqlmodel import Session, select
 
     from backend.models.entities import PerfBenchmark
 
+    month = datetime.now().strftime("%Y-%m")
     with Session(engine) as session:
         row = session.exec(
             select(PerfBenchmark)
+            .where(PerfBenchmark.month == month)
             .where(PerfBenchmark.model == model)
             .where(PerfBenchmark.hardware == hardware)
             .where(PerfBenchmark.concurrency == conc_bucket)
             .with_for_update()
         ).first()
         if row is None:
-            row = PerfBenchmark(model=model, hardware=hardware, concurrency=conc_bucket)
+            row = PerfBenchmark(
+                month=month, model=model, hardware=hardware, concurrency=conc_bucket
+            )
         new_count, merged = merged_averages(
             row.count,
             {
@@ -204,17 +220,54 @@ def sync_benchmark(engine, model: str, hardware: str, conc_bucket: str, stats: d
         session.commit()
 
 
-def fetch_benchmarks(engine, model: Optional[str] = None) -> list[Dict[str, Any]]:
+def fetch_benchmarks(
+    engine, model: Optional[str] = None, months: int = 3
+) -> list[Dict[str, Any]]:
+    """Merge the last `months` monthly buckets per (model, hardware,
+    concurrency) into one weighted-average row each."""
+    from datetime import datetime
+
     from sqlmodel import Session, select
 
     from backend.models.entities import PerfBenchmark
 
+    now = datetime.now()
+    # "YYYY-MM" sorts lexicographically, so a string cutoff works.
+    y, m = now.year, now.month - (months - 1)
+    while m < 1:
+        m += 12
+        y -= 1
+    cutoff = f"{y:04d}-{m:02d}"
+
     with Session(engine) as session:
-        query = select(PerfBenchmark)
+        query = select(PerfBenchmark).where(PerfBenchmark.month >= cutoff)
         if model:
             query = query.where(PerfBenchmark.model == model)
         rows = session.exec(query).all()
-    return [r.model_dump(exclude={"id"}) for r in rows]
+
+    merged: Dict[tuple, Dict[str, Any]] = {}
+    for r in rows:
+        key = (r.model, r.hardware, r.concurrency)
+        agg = merged.get(key)
+        if agg is None:
+            agg = {
+                "model": r.model,
+                "hardware": r.hardware,
+                "concurrency": r.concurrency,
+                "count": 0,
+                "avg_ttft": 0.0,
+                "avg_latency": 0.0,
+                "avg_throughput": 0.0,
+                "last_updated": r.last_updated,
+            }
+            merged[key] = agg
+        total = agg["count"] + r.count
+        if total:
+            for f in ("avg_ttft", "avg_latency", "avg_throughput"):
+                agg[f] = (agg[f] * agg["count"] + getattr(r, f) * r.count) / total
+        agg["count"] = total
+        agg["last_updated"] = max(agg["last_updated"], r.last_updated)
+    return list(merged.values())
 
 
 class MetricsCollector:

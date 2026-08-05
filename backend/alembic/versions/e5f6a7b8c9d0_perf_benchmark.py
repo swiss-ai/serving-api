@@ -30,6 +30,7 @@ def upgrade() -> None:
     op.create_table(
         "perf_benchmark",
         sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
+        sa.Column("month", sqlmodel.sql.sqltypes.AutoString(), nullable=False),
         sa.Column("model", sqlmodel.sql.sqltypes.AutoString(), nullable=False),
         sa.Column("hardware", sqlmodel.sql.sqltypes.AutoString(), nullable=False),
         sa.Column("concurrency", sqlmodel.sql.sqltypes.AutoString(), nullable=False),
@@ -40,7 +41,7 @@ def upgrade() -> None:
         sa.Column("last_updated", sa.DateTime(), nullable=False),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint(
-            "model", "hardware", "concurrency", name="uq_perf_benchmark_key"
+            "month", "model", "hardware", "concurrency", name="uq_perf_benchmark_key"
         ),
     )
 
