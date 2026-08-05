@@ -85,7 +85,7 @@ def test_resolve_none_when_unconfigured():
     """No provider configured → even a known prefixed id falls through to
     OpenTela (which 404s cleanly)."""
     with _patch_settings(_FakeSettings(cscs_l1_base_url="", cscs_l1_api_key="")):
-        assert _run(resolve_model(f"SwissAIResearch/{APERTUS_8B}")) is None
+        assert _run(resolve_model(f"CSCS-Inference/{APERTUS_8B}")) is None
         assert _run(resolve_model(APERTUS_8B)) is None
 
 
@@ -99,11 +99,11 @@ def test_synthetic_entries_empty_when_unconfigured():
 
 def test_prefixed_id_resolves_to_provider_and_upstream_id():
     with _patch_settings(_FakeSettings()), _patch_fetch([APERTUS_8B, APERTUS_70B]):
-        resolved = _run(resolve_model(f"SwissAIResearch/{APERTUS_8B}"))
+        resolved = _run(resolve_model(f"CSCS-Inference/{APERTUS_8B}"))
     assert resolved is not None
     assert resolved.provider.name == "cscs_L1"
     assert resolved.upstream_id == APERTUS_8B
-    assert resolved.public_id == f"SwissAIResearch/{APERTUS_8B}"
+    assert resolved.public_id == f"CSCS-Inference/{APERTUS_8B}"
 
 
 def test_prefixed_id_with_unknown_remainder_does_not_route():
@@ -111,9 +111,9 @@ def test_prefixed_id_with_unknown_remainder_does_not_route():
     fall through to OpenTela under another name — None here means the full
     (never-launched) id 404s downstream."""
     with _patch_settings(_FakeSettings()), _patch_fetch([APERTUS_8B]):
-        assert _run(resolve_model("SwissAIResearch/not-hosted")) is None
-        assert _run(resolve_model("SwissAIResearch/")) is None
-        assert _run(resolve_model("SwissAIResearch")) is None
+        assert _run(resolve_model("CSCS-Inference/not-hosted")) is None
+        assert _run(resolve_model("CSCS-Inference/")) is None
+        assert _run(resolve_model("CSCS-Inference")) is None
 
 
 def test_unknown_prefix_falls_through():
@@ -121,6 +121,29 @@ def test_unknown_prefix_falls_through():
         assert _run(resolve_model("Nonexistent-Provider/some/model")) is None
         assert _run(resolve_model("some/local-model")) is None
         assert _run(resolve_model("")) is None
+
+
+def test_platform_prefix_resolves_to_opentela():
+    """SwissAIResearch/... is this platform's own namespace: provider is
+    None (caller routes to OpenTela), the forwarded id is bare, and the
+    public id is preserved for response rewriting."""
+    with _patch_settings(_FakeSettings()), _patch_fetch([APERTUS_8B]):
+        resolved = _run(resolve_model(f"SwissAIResearch/{APERTUS_8B}"))
+    assert resolved is not None
+    assert resolved.provider is None
+    assert resolved.upstream_id == APERTUS_8B
+    assert resolved.public_id == f"SwissAIResearch/{APERTUS_8B}"
+
+
+def test_platform_prefix_works_without_any_provider_configured():
+    """The platform namespace is independent of passthrough config — it
+    must resolve even when no external provider env is set."""
+    with _patch_settings(_FakeSettings(cscs_l1_base_url="", cscs_l1_api_key="")):
+        resolved = _run(resolve_model("SwissAIResearch/some/local-model"))
+        assert resolved is not None and resolved.provider is None
+        assert resolved.upstream_id == "some/local-model"
+        assert _run(resolve_model("SwissAIResearch")) is None
+        assert _run(resolve_model("SwissAIResearch/")) is None
 
 
 def test_bare_upstream_id_still_routes_for_back_compat():
@@ -132,7 +155,7 @@ def test_bare_upstream_id_still_routes_for_back_compat():
     assert resolved is not None
     assert resolved.provider.name == "cscs_L1"
     assert resolved.upstream_id == APERTUS_8B
-    assert resolved.public_id == f"SwissAIResearch/{APERTUS_8B}"
+    assert resolved.public_id == f"CSCS-Inference/{APERTUS_8B}"
 
 
 # ── listing ─────────────────────────────────────────────────────────────────
@@ -146,8 +169,8 @@ def test_synthetic_entries_are_prefixed():
         entries = _run(get_synthetic_entries(with_details=True))
     ids = {e["id"] for e in entries}
     assert ids == {
-        "SwissAIResearch/foo/new-model",
-        f"SwissAIResearch/{APERTUS_8B}",
+        "CSCS-Inference/foo/new-model",
+        f"CSCS-Inference/{APERTUS_8B}",
     }
     for e in entries:
         assert e["launched_by"] == "cscs_L1"
@@ -169,10 +192,10 @@ def test_same_upstream_id_on_two_providers_lists_two_rows():
     with _patch_settings(settings), _patch_fetch([APERTUS_8B]):
         entries = _run(get_synthetic_entries())
         ids = {e["id"] for e in entries}
-        via_cscs = _run(resolve_model(f"SwissAIResearch/{APERTUS_8B}"))
+        via_cscs = _run(resolve_model(f"CSCS-Inference/{APERTUS_8B}"))
         via_rcp = _run(resolve_model(f"RCP-AIaaS/{APERTUS_8B}"))
         bare = _run(resolve_model(APERTUS_8B))
-    assert ids == {f"SwissAIResearch/{APERTUS_8B}", f"RCP-AIaaS/{APERTUS_8B}"}
+    assert ids == {f"CSCS-Inference/{APERTUS_8B}", f"RCP-AIaaS/{APERTUS_8B}"}
     assert via_cscs.provider.name == "cscs_L1"
     assert via_rcp.provider.name == "rcp"
     assert via_rcp.provider.api_key == "rcp-key"
@@ -190,9 +213,9 @@ def test_fetch_cached_within_ttl():
         _patch_settings(_FakeSettings()),
         patch.object(passthrough_service, "_fetch_model_ids", new=fake),
     ):
-        _run(resolve_model(f"SwissAIResearch/{APERTUS_8B}"))
-        _run(resolve_model(f"SwissAIResearch/{APERTUS_8B}"))
-        _run(resolve_model("SwissAIResearch/anything"))
+        _run(resolve_model(f"CSCS-Inference/{APERTUS_8B}"))
+        _run(resolve_model(f"CSCS-Inference/{APERTUS_8B}"))
+        _run(resolve_model("CSCS-Inference/anything"))
     assert fake.await_count == 1
 
 
@@ -211,9 +234,9 @@ def test_cscs_l1_is_unrestricted():
     with _patch_settings(_FakeSettings()), _patch_fetch(upstream):
         listed = {e["id"] for e in _run(get_synthetic_entries())}
         for model_id in upstream:
-            resolved = _run(resolve_model(f"SwissAIResearch/{model_id}"))
+            resolved = _run(resolve_model(f"CSCS-Inference/{model_id}"))
             assert resolved is not None and resolved.provider.name == "cscs_L1"
-    assert listed == {f"SwissAIResearch/{m}" for m in upstream}
+    assert listed == {f"CSCS-Inference/{m}" for m in upstream}
 
 
 def test_off_allowlist_ids_are_filtered_from_rcp_listing_and_routing():
@@ -252,7 +275,7 @@ def test_cold_start_fetch_failure_falls_back_for_cscs_l1():
     with _patch_settings(_FakeSettings()), _patch_fetch(None):
         entries = _run(get_synthetic_entries())
     assert {e["id"] for e in entries} == {
-        f"SwissAIResearch/{m}" for m in _CSCS_L1_FALLBACK_IDS
+        f"CSCS-Inference/{m}" for m in _CSCS_L1_FALLBACK_IDS
     }
 
 
@@ -282,8 +305,8 @@ def test_stale_cache_preferred_over_fallback_after_initial_success():
         # Expire the cache and call again; second fetch fails.
         passthrough_service._cache["cscs_L1"]["fetched_at"] = 0.0
         second = _run(get_synthetic_entries())
-    assert {e["id"] for e in first} == {f"SwissAIResearch/{APERTUS_8B}"}
-    assert {e["id"] for e in second} == {f"SwissAIResearch/{APERTUS_8B}"}
+    assert {e["id"] for e in first} == {f"CSCS-Inference/{APERTUS_8B}"}
+    assert {e["id"] for e in second} == {f"CSCS-Inference/{APERTUS_8B}"}
 
 
 # ── helpers ─────────────────────────────────────────────────────────────────

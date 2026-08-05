@@ -276,12 +276,12 @@ def test_passthrough_routing_enforces_limit(fake_redis):
         base_url="https://l1/v1",
         api_key="pk",
         device="CSCS L1",
-        prefix="SwissAIResearch",
+        prefix="CSCS-Inference",
     )
     resolved = ResolvedModel(
         provider=provider,
         upstream_id="swiss-ai/x",
-        public_id="SwissAIResearch/swiss-ai/x",
+        public_id="CSCS-Inference/swiss-ai/x",
     )
     with (
         patch.object(
@@ -290,12 +290,12 @@ def test_passthrough_routing_enforces_limit(fake_redis):
         _settings_rpm(1),
     ):
         endpoint, api_key, label, res = asyncio.run(
-            completions._resolve_route("SwissAIResearch/swiss-ai/x", "tok")
+            completions._resolve_route("CSCS-Inference/swiss-ai/x", "tok")
         )
         assert (endpoint, api_key, label) == ("https://l1/v1", "pk", "CSCS L1")
         assert res is resolved
         with pytest.raises(HTTPException) as exc:
-            asyncio.run(completions._resolve_route("SwissAIResearch/swiss-ai/x", "tok"))
+            asyncio.run(completions._resolve_route("CSCS-Inference/swiss-ai/x", "tok"))
     assert exc.value.status_code == 429
 
 
@@ -316,5 +316,34 @@ def test_opentela_routing_is_never_limited(fake_redis):
     assert res is None
     assert api_key == "tok"
     # No counter was ever touched for this caller.
+    ident = rate_limit_service._identity("tok")
+    assert not any(k.startswith(f"rl:req:{ident}") for k in fake_redis.store)
+
+
+def test_platform_namespace_is_never_limited(fake_redis):
+    """SwissAIResearch/... resolves to our own OpenTela network — same
+    no-limit treatment as bare ids, but the resolution is returned so the
+    routes still rewrite ids."""
+    from backend.routers import completions
+    from backend.services.passthrough_service import ResolvedModel
+
+    resolved = ResolvedModel(
+        provider=None,
+        upstream_id="some/local-model",
+        public_id="SwissAIResearch/some/local-model",
+    )
+    with (
+        patch.object(
+            completions, "resolve_model", new=AsyncMock(return_value=resolved)
+        ),
+        _settings_rpm(1),
+    ):
+        for _ in range(5):
+            endpoint, api_key, label, res = asyncio.run(
+                completions._resolve_route("SwissAIResearch/some/local-model", "tok")
+            )
+    assert label is None
+    assert res is resolved
+    assert api_key == "tok"
     ident = rate_limit_service._identity("tok")
     assert not any(k.startswith(f"rl:req:{ident}") for k in fake_redis.store)

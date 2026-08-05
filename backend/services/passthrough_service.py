@@ -17,7 +17,7 @@ the very first fetch, so its rows aren't completely missing during a
 brief outage.
 
 Every id a provider surfaces is namespaced under its reserved prefix
-(``SwissAIResearch/...``, ``RCP-AIaaS/...``), so ids are structurally
+(``CSCS-Inference/...``, ``RCP-AIaaS/...``), so ids are structurally
 collision-free across providers and against OpenTela-served models: the
 first path segment of a requested id selects the provider, the remainder
 is forwarded verbatim as the upstream id (see ``resolve_model``).
@@ -118,7 +118,7 @@ def registered_providers() -> list[Provider]:
                 base_url=s.cscs_l1_base_url,
                 api_key=s.cscs_l1_api_key,
                 device="CSCS L1",
-                prefix="SwissAIResearch",
+                prefix="CSCS-Inference",
                 fallback_ids=_CSCS_L1_FALLBACK_IDS,
             )
         )
@@ -222,29 +222,42 @@ async def _discover_ids(provider: Provider) -> set[str]:
         return set(provider.fallback_ids)
 
 
+# This platform's own namespace: SwissAIResearch/<org>/<model> is the
+# canonical alias for a model served by us (OpenTela). Reserved alongside
+# the provider prefixes — no HF org, username, or provider may claim it.
+PLATFORM_PREFIX = "SwissAIResearch"
+
+
 @dataclass(frozen=True)
 class ResolvedModel:
-    """A model id resolved to a passthrough route.
+    """A model id resolved through the namespace registry.
 
-    ``upstream_id`` is what the provider knows the model as (goes in the
-    forwarded request body); ``public_id`` is the prefixed form we expose
-    (rewritten back into responses so clients see the id they asked for).
+    ``provider`` is the passthrough upstream serving it, or None when the
+    id is under ``PLATFORM_PREFIX`` (served by our own OpenTela network).
+    ``upstream_id`` is what the serving side knows the model as (goes in
+    the forwarded request body); ``public_id`` is the prefixed form we
+    expose (rewritten back into responses so clients see the id they
+    asked for).
     """
 
-    provider: Provider
+    provider: Provider | None
     upstream_id: str
     public_id: str
 
 
 async def resolve_model(model_id: str) -> ResolvedModel | None:
-    """Resolve a requested model id to a passthrough route, or None so the
-    caller falls through to OpenTela (which 404s cleanly).
+    """Resolve a requested model id through the namespace registry, or
+    None so the caller falls through to OpenTela (which 404s cleanly).
 
-    Primary form: ``<provider prefix>/<upstream id>`` — the first path
-    segment selects the provider, the remainder must be an id it currently
-    advertises. A prefixed id whose remainder is unknown does NOT fall
-    through to OpenTela by another name; it returns None and 404s there
-    under its full (never-launched) id.
+    Namespaces, selected by the first path segment:
+    - ``SwissAIResearch/<org>/<model>`` — our own OpenTela-served models
+      (provider=None). No advertised-set check: OpenTela 404s unknown ids
+      itself.
+    - ``<provider prefix>/<upstream id>`` (CSCS-Inference/...,
+      RCP-AIaaS/...) — the remainder must be an id the provider currently
+      advertises. A prefixed id whose remainder is unknown does NOT fall
+      through to OpenTela by another name; it returns None and 404s there
+      under its full (never-launched) id.
 
     Back-compat: a bare upstream id that a provider advertises still routes
     (first provider in registration order wins), logged as deprecated.
@@ -253,6 +266,10 @@ async def resolve_model(model_id: str) -> ResolvedModel | None:
         return None
     providers = registered_providers()
     first, _, rest = model_id.partition("/")
+    if first == PLATFORM_PREFIX:
+        if not rest:
+            return None
+        return ResolvedModel(provider=None, upstream_id=rest, public_id=model_id)
     for provider in providers:
         if provider.prefix and first == provider.prefix:
             if rest and rest in await _get_cached_ids(provider):

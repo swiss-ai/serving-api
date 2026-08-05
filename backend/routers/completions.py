@@ -29,20 +29,22 @@ settings = get_settings()
 async def _resolve_route(
     model: str, user_token: str
 ) -> tuple[str, str, str | None, ResolvedModel | None]:
-    """Prefixed passthrough ids (SwissAIResearch/..., RCP-AIaaS/...) go to
-    that provider's upstream endpoint with its shared key; everything else
-    stays on the OpenTela proxy with the user's bearer token forwarded
-    as-is. The third element is the provider's display label (None for
-    OpenTela) — recorded as the perf "served on" dimension; the fourth is
-    the resolution itself — callers forward ``resolved.upstream_id`` and
-    surface ``resolved.public_id`` in responses.
+    """Prefixed passthrough ids (CSCS-Inference/..., RCP-AIaaS/...) go to
+    that provider's upstream endpoint with its shared key; SwissAIResearch/
+    ids (this platform's own namespace) and bare ids stay on the OpenTela
+    proxy with the user's bearer token forwarded as-is. The third element
+    is the provider's display label (None for OpenTela) — recorded as the
+    perf "served on" dimension; the fourth is the resolution itself —
+    callers forward ``resolved.upstream_id`` and surface
+    ``resolved.public_id`` in responses.
 
     Rate limiting happens here, only on the passthrough arm: external
     providers are a shared, platform-accountable resource (shared API
-    key, external quota), while OpenTela models run on the user's own
-    GPU allocation and stay unlimited."""
+    key, external quota), while OpenTela models (bare or under
+    SwissAIResearch/) run on the user's own GPU allocation and stay
+    unlimited."""
     resolved = await resolve_model(model)
-    if resolved is not None:
+    if resolved is not None and resolved.provider is not None:
         enforce_rate_limit(user_token)
         return (
             passthrough_endpoint(resolved.provider),
@@ -50,7 +52,7 @@ async def _resolve_route(
             resolved.provider.device,
             resolved,
         )
-    return settings.otela_head_addr + "/v1/service/llm/v1/", user_token, None, None
+    return settings.otela_head_addr + "/v1/service/llm/v1/", user_token, None, resolved
 
 
 CHAT_RESERVED_KEYS = [

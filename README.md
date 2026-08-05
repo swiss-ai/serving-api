@@ -36,23 +36,26 @@ Frontend and backend API proxy for SwissAI LLM serving. For examples on how to l
 
 ## Model Namespaces & Passthrough Providers
 
-Model ids are namespaced by their **first path segment**, which selects who
-serves the model. Bare `{org}/{model}` ids always mean locally-served
-(OpenTela); externally-hosted (passthrough) models carry a reserved
-provider prefix:
+Model ids are namespaced by their **first path segment**, which selects
+who serves the model. Three namespaces exist today:
 
 | First segment | Serves | Example |
 | :- | :- | :- |
-| *(none — bare id)* | OpenTela (locally-launched on our GPUs) | `swiss-ai/Apertus-70B-Instruct-2509` |
-| `SwissAIResearch/` | CSCS L1 inference service (`api.inference.cscs.ch`) | `SwissAIResearch/swiss-ai/Apertus-70B-Instruct-2509` |
+| `SwissAIResearch/` | **This platform** — models we serve ourselves via OpenTela | `SwissAIResearch/swiss-ai/Apertus-70B-Instruct-2509` |
+| `CSCS-Inference/` | CSCS L1 inference service (`api.inference.cscs.ch`) | `CSCS-Inference/swiss-ai/Apertus-70B-Instruct-2509` |
 | `RCP-AIaaS/` | EPFL RCP AIaaS (`inference-rcp.epfl.ch`) | `RCP-AIaaS/swiss-ai/Apertus-8B-Instruct-2509` |
 
-Requests are forwarded to the provider with the prefix stripped (the
-upstream only knows its own id) and responses — including streamed
-chunks — are rewritten back to the prefixed id. The same upstream model
-on two providers is two distinct, individually-routable entries; a
-prefixed id can never collide with (or shadow) a local model. Prefixes
-are reserved names: never launch a local model whose id starts with one.
+Bare `{org}/{model}` ids remain accepted and equivalent to
+`SwissAIResearch/{org}/{model}` — the model list currently shows the bare
+form; flipping the listing to the prefixed form is a pending decision
+(it changes every advertised id, so clients need a migration window).
+
+Requests are forwarded with the prefix stripped (the serving side only
+knows its own id) and responses — including streamed chunks — are
+rewritten back to the prefixed id. The same upstream model on two
+providers is two distinct, individually-routable entries; a prefixed id
+can never collide with (or shadow) a local model. All three prefixes are
+reserved names: never launch a local model whose id starts with one.
 
 **Curation.** What each provider surfaces is governed by its
 `allowed_ids` in `backend/services/passthrough_service.py`:

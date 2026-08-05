@@ -24,6 +24,10 @@ async def create_response(
 
     resolved = await resolve_model(model)
     if resolved is not None:
+        # The serving side only knows the un-prefixed id.
+        model = resolved.upstream_id
+        data["model"] = resolved.upstream_id
+    if resolved is not None and resolved.provider is not None:
         # Only passthrough (externally-hosted) traffic is rate limited —
         # see _resolve_route in routers/completions.py.
         enforce_rate_limit(token)
@@ -31,10 +35,8 @@ async def create_response(
             passthrough_endpoint(resolved.provider),
             resolved.provider.api_key,
         )
-        # The upstream only knows the un-prefixed id.
-        model = resolved.upstream_id
-        data["model"] = resolved.upstream_id
     else:
+        # Bare ids and SwissAIResearch/ (our own namespace) → OpenTela.
         endpoint, api_key = settings.otela_head_addr + "/v1/service/llm/v1/", token
 
     response = await llm_proxy_responses(

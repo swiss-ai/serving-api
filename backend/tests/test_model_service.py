@@ -237,8 +237,8 @@ def test_models_router_merges_passthrough_entries():
         merged = asyncio.run(_with_passthrough(list(base), with_details=True))
     ids = {e["id"] for e in merged}
     assert "some/local-model" in ids
-    assert "SwissAIResearch/swiss-ai/Apertus-8B-Instruct-2509" in ids
-    assert "SwissAIResearch/swiss-ai/Apertus-70B-Instruct-2509" in ids
+    assert "CSCS-Inference/swiss-ai/Apertus-8B-Instruct-2509" in ids
+    assert "CSCS-Inference/swiss-ai/Apertus-70B-Instruct-2509" in ids
 
 
 def test_models_router_lists_local_and_passthrough_as_distinct_rows():
@@ -263,7 +263,7 @@ def test_models_router_lists_local_and_passthrough_as_distinct_rows():
         merged = asyncio.run(_with_passthrough(list(base), with_details=True))
     ids = sorted(e["id"] for e in merged)
     assert ids == [
-        "SwissAIResearch/swiss-ai/Apertus-8B-Instruct-2509",
+        "CSCS-Inference/swiss-ai/Apertus-8B-Instruct-2509",
         "swiss-ai/Apertus-8B-Instruct-2509",
     ]
     local = [e for e in merged if e["id"] == "swiss-ai/Apertus-8B-Instruct-2509"]
