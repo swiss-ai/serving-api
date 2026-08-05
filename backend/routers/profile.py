@@ -11,8 +11,8 @@ from backend.services.monitoring_service import (
     TTL_CHOICES,
     LEVEL_RANK,
     delete_rule,
-    get_effective_level,
     get_rules_for,
+    resolve_trace_level,
     upsert_rule,
 )
 
@@ -95,9 +95,13 @@ async def get_own_monitoring(
         for r in get_rules_for(engine, email, active_only=False)
         if r["source"] == "self"
     ]
+    # resolve_trace_level knows the metadata-for-everyone default, so this
+    # reports what is actually applied to the caller's traffic.
+    level, is_default = resolve_trace_level(engine, email)
     return {
         "self_rule": self_rules[0] if self_rules else None,
-        "effective_level": get_effective_level(engine, email),
+        "effective_level": level,
+        "default": is_default,
         "levels": sorted(LEVEL_RANK),
         "ttls": sorted(TTL_CHOICES),
     }

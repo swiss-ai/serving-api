@@ -262,7 +262,9 @@ def test_profile_monitoring_roundtrip(client, monkeypatch):
 
     empty = client.get("/v1/profile/monitoring", headers=headers).json()
     assert empty["self_rule"] is None
-    assert empty["effective_level"] is None
+    # No rule still means the default metadata tier applies.
+    assert empty["effective_level"] == "metadata"
+    assert empty["default"] is True
 
     put = client.put(
         "/v1/profile/monitoring",
@@ -275,6 +277,7 @@ def test_profile_monitoring_roundtrip(client, monkeypatch):
     state = client.get("/v1/profile/monitoring", headers=headers).json()
     assert state["self_rule"]["level"] == "full"
     assert state["effective_level"] == "full"
+    assert state["default"] is False
 
     off = client.delete("/v1/profile/monitoring", headers=headers)
     assert off.json()["removed"] == 1
