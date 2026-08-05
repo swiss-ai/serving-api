@@ -8,7 +8,7 @@ services:
     depends_on:
       - postgres
     environment:
-      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/ai_proxy
+      - DATABASE_URL=postgresql://serving:serving@postgres:5432/serving
       - AUTH0_DOMAIN=${AUTH0_DOMAIN}
       - AUTH0_ISSUER=${AUTH0_ISSUER}
     restart: unless-stopped
@@ -42,13 +42,13 @@ services:
     restart: unless-stopped
 
   postgres:
-    image: postgres:16-alpine
+    image: postgres:17-alpine
     ports:
       - "5432:5432"
     environment:
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
-      - POSTGRES_DB=ai_proxy
+      - POSTGRES_USER=serving
+      - POSTGRES_PASSWORD=serving
+      - POSTGRES_DB=serving
     volumes:
       - postgres_data:/var/lib/postgresql/data
     restart: unless-stopped

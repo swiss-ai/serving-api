@@ -6,7 +6,7 @@ from sqlmodel import SQLModel, create_engine
 
 @pytest.fixture(scope="module")
 def postgres():
-    with PostgresContainer("postgres:16-alpine") as pg:
+    with PostgresContainer("postgres:17-alpine") as pg:
         yield pg
 
 
