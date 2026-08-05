@@ -24,14 +24,12 @@ async def response_generator(response, metrics_ctx=None, trace_ctx=None):
     model = None
     node_id = None
     dnt_endpoint = None
-    concurrency = 0
 
     if metrics_ctx:
         start_time = metrics_ctx.get("start_time")
         model = metrics_ctx.get("model")
         node_id = metrics_ctx.get("node_id")
         dnt_endpoint = metrics_ctx.get("dnt_endpoint")
-        concurrency = metrics_ctx.get("concurrency")
 
     try:
         async for line in response:
@@ -108,7 +106,6 @@ async def response_generator(response, metrics_ctx=None, trace_ctx=None):
                 model=model,
                 node_id=node_id,
                 dnt_endpoint=dnt_endpoint,
-                concurrency=concurrency,
                 ttft=ttft,
                 latency=latency,
                 throughput=throughput,
@@ -214,7 +211,6 @@ async def _shared_proxy_handler(
     global active_requests
     active_requests += 1
     start_time = time.time()
-    snapshot_concurrency = active_requests
 
     headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
     headers.update(headers_extra)
@@ -241,7 +237,6 @@ async def _shared_proxy_handler(
                 "model": model,
                 "node_id": node_id,
                 "dnt_endpoint": dnt_endpoint,
-                "concurrency": snapshot_concurrency,
                 # Passthrough upstreams (CSCS L1, RCP) expose no node info;
                 # their display label becomes the "served on" dimension.
                 "provider": provider_label,
@@ -263,7 +258,6 @@ async def _shared_proxy_handler(
                 model=model,
                 node_id=node_id,
                 dnt_endpoint=dnt_endpoint,
-                concurrency=snapshot_concurrency,
                 ttft=latency,
                 latency=latency,
                 throughput=throughput,

@@ -128,9 +128,6 @@
                         <th class="px-6 py-4 font-semibold cursor-pointer hover:bg-gray-100 dark:hover:bg-slate-700 transition" on:click={() => toggleSort('hardware')}>
                             Served on {sortBy === 'hardware' ? (sortDesc ? '↓' : '↑') : ''}
                         </th>
-                        <th class="px-6 py-4 font-semibold cursor-pointer hover:bg-gray-100 dark:hover:bg-slate-700 transition" on:click={() => toggleSort('concurrency')}>
-                            Concurrency {sortBy === 'concurrency' ? (sortDesc ? '↓' : '↑') : ''}
-                        </th>
                          <th class="px-6 py-4 font-semibold cursor-pointer hover:bg-gray-100 dark:hover:bg-slate-700 transition text-right w-40" on:click={() => toggleSort('avg_throughput')}>
                             Throughput (tok/s) {sortBy === 'avg_throughput' ? (sortDesc ? '↓' : '↑') : ''}
                         </th>
@@ -155,9 +152,6 @@
                             </td>
                              <td class="px-6 py-4 text-gray-600 dark:text-gray-400">
                                 {row.hardware}
-                            </td>
-                             <td class="px-6 py-4 text-gray-600 dark:text-gray-400">
-                                {row.concurrency}
                             </td>
                             <td class="px-6 py-4 text-right">
                                 <div class="flex flex-col items-end">
@@ -225,12 +219,9 @@
                     </div>
                     
                     <div class="grid grid-cols-2 gap-y-3 text-sm">
-                        <div class="text-gray-500 dark:text-gray-400">Hardware:</div>
+                        <div class="text-gray-500 dark:text-gray-400">Served on:</div>
                         <div class="text-right text-gray-900 dark:text-gray-200 text-xs">{row.hardware}</div>
                         
-                        <div class="text-gray-500 dark:text-gray-400">Concurrency:</div>
-                        <div class="text-right text-gray-900 dark:text-gray-200">{row.concurrency}</div>
-
                         <div class="col-span-2 border-t border-gray-100 dark:border-gray-800 my-1"></div>
 
                         <div class="text-gray-500 dark:text-gray-400 self-center">Throughput:</div>
