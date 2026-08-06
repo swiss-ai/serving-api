@@ -7,6 +7,7 @@ from backend.services.llm_service import (
     llm_proxy_completions,
     response_generator,
 )
+from backend.services.namespace_service import ensure_namespace_ok
 from backend.services.passthrough_service import (
     resolve_provider,
     endpoint as passthrough_endpoint,
@@ -91,6 +92,7 @@ async def chat_completion(
         user_id=token, opt_out=opt_out, app_title=app_title, **reorg_data
     )
 
+    await ensure_namespace_ok(llm_request.model)
     endpoint, api_key = await _resolve_endpoint_and_key(llm_request.model, token)
     response = await llm_proxy(
         endpoint=endpoint,
@@ -142,6 +144,7 @@ async def completion(
         user_id=token, opt_out=opt_out, app_title=app_title, **reorg_data
     )
 
+    await ensure_namespace_ok(llm_request.model)
     endpoint, api_key = await _resolve_endpoint_and_key(llm_request.model, token)
     response = await llm_proxy_completions(
         endpoint=endpoint,

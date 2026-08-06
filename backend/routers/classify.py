@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends
 from backend.middleware.auth import require_auth
 from backend.middleware.body import json_body
 from backend.services.llm_service import llm_proxy_classify
+from backend.services.namespace_service import ensure_namespace_ok
 from backend.config import get_settings
 
 router = APIRouter()
@@ -17,6 +18,7 @@ async def classify(
     token: str = Depends(require_auth),
     data: dict = Depends(json_body),
 ):
+    await ensure_namespace_ok(data.get("model", "unknown"))
     response = await llm_proxy_classify(
         endpoint=settings.otela_head_addr + "/v1/service/llm/",
         api_key=token,

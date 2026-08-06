@@ -1,5 +1,6 @@
 from fastapi import APIRouter
 from backend.services.model_service import get_all_models
+from backend.services.namespace_service import namespace_matches
 from backend.services.passthrough_service import get_synthetic_entries
 from backend.config import get_settings
 
@@ -26,9 +27,23 @@ async def _with_passthrough(models: list[dict], with_details: bool) -> list[dict
     return models
 
 
+def _own_namespace_only(models: list[dict]) -> list[dict]:
+    """Drop peers publishing a served name under someone else's username.
+
+    A name like "alice/swiss-ai/X" coming from a job that ran as bob is a
+    namespace squat; we don't advertise it, and ensure_namespace_ok refuses
+    to route the id for anyone. Unnamespaced (pre-namespacing) ids and peers
+    with no ``launched_by`` label are left alone — see namespace_matches."""
+    return [
+        m
+        for m in models
+        if namespace_matches(m.get("id", ""), m.get("launched_by", ""))
+    ]
+
+
 @router.get("/v1/models_detailed")
 async def list_models_detailed():
-    models = get_all_models(_dnt_endpoint(), with_details=True)
+    models = _own_namespace_only(get_all_models(_dnt_endpoint(), with_details=True))
     models = await _with_passthrough(models, with_details=True)
     return dict(
         object="list",
@@ -38,7 +53,7 @@ async def list_models_detailed():
 
 @router.get("/v1/models")
 async def list_models():
-    models = get_all_models(_dnt_endpoint(), with_details=False)
+    models = _own_namespace_only(get_all_models(_dnt_endpoint(), with_details=False))
     models = await _with_passthrough(models, with_details=False)
     return dict(
         object="list",

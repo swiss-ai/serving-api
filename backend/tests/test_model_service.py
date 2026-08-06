@@ -338,3 +338,27 @@ def test_upgraded_payload_groups_multinode_replica():
     ids = {e["id"] for e in pair}
     assert ids != {""}, pair
     assert len(ids) == 1, f"peers in one worker group should share one model id: {ids}"
+
+
+# ── served-name namespace filtering (routers.models) ────────────────────────
+
+
+def test_listing_drops_peers_serving_outside_their_own_namespace():
+    """A peer advertising "alice/..." from a job that ran as bob is squatting
+    the namespace — it never reaches the model list. The legitimate peer and
+    pre-namespacing (2-segment) ids are untouched."""
+    from backend.routers.models import _own_namespace_only
+
+    entries = [
+        {"id": "alice/swiss-ai/Apertus-8B", "launched_by": "alice"},
+        {"id": "alice/swiss-ai/Apertus-8B", "launched_by": "bob"},
+        {"id": "swiss-ai/Apertus-8B", "launched_by": "bob"},
+        # OpenTela <v0.0.6 emits no labels: nothing to check against.
+        {"id": "alice/swiss-ai/Apertus-70B", "launched_by": ""},
+    ]
+    kept = _own_namespace_only(entries)
+    assert [(e["id"], e["launched_by"]) for e in kept] == [
+        ("alice/swiss-ai/Apertus-8B", "alice"),
+        ("swiss-ai/Apertus-8B", "bob"),
+        ("alice/swiss-ai/Apertus-70B", ""),
+    ]

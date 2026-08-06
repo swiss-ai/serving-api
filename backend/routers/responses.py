@@ -3,6 +3,7 @@ from fastapi.responses import StreamingResponse
 from backend.middleware.auth import require_auth
 from backend.middleware.body import json_body
 from backend.services.llm_service import llm_proxy_responses, response_generator_raw
+from backend.services.namespace_service import ensure_namespace_ok
 from backend.services.passthrough_service import (
     resolve_provider,
     endpoint as passthrough_endpoint,
@@ -20,6 +21,8 @@ async def create_response(
 ):
     stream = data.get("stream", False)
     model = data.get("model", "unknown")
+
+    await ensure_namespace_ok(model)
 
     provider = await resolve_provider(model)
     if provider is not None:
