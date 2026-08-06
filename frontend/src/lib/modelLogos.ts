@@ -59,14 +59,19 @@ const specificModels: Record<string, string | null> = {
 };
 
 /**
- * Get the appropriate logo for a model based on its organization name
+ * Get the appropriate logo for a model based on its organization name.
+ * The org is the second-to-last path segment — namespace-agnostic, so
+ * `swiss-ai/Apertus-70B`, `CSCS-Inference/swiss-ai/Apertus-70B`, and any
+ * future `owner/org/model` all resolve to the same org logo.
  */
 export function getModelLogo(modelName: string): string | null {
   // Check specific model mappings first
   if (specificModels[modelName]) return specificModels[modelName];
-  
+
   // If no slash, default to HF
   if (!modelName.includes('/')) return orgLogos['hf'];
 
-  return orgLogos[modelName.split('/')[0]] || orgLogos['hf'];
+  const parts = modelName.split('/');
+  const org = parts[parts.length - 2];
+  return orgLogos[org] || orgLogos['hf'];
 }
