@@ -13,7 +13,7 @@ date: "June 4 2026"
 Grab a key from the [API key page](/api_key). You'll use it as the OpenAI API key in the steps below.
 
 ```bash
-export CSCS_SERVING_API="sk-rc-..."   # your key from the API key page
+export SWISSAI_RESEARCH_API_KEY="sk-rc-..."   # your key from the API key page
 ```
 
 ### 2. Run Open WebUI with Docker
@@ -24,7 +24,7 @@ The quickest path is to bake the connection details straight into the `docker ru
 docker run -d \
   -p 3000:8080 \
   -e OPENAI_API_BASE_URL=https://api.swissai.svc.cscs.ch/v1 \
-  -e OPENAI_API_KEY=$CSCS_SERVING_API \
+  -e OPENAI_API_KEY=$SWISSAI_RESEARCH_API_KEY \
   -v open-webui:/app/backend/data \
   --name open-webui \
   --restart always \
@@ -59,7 +59,7 @@ The available list changes over time — the model picker always reflects what's
 
 ```bash
 curl https://api.swissai.svc.cscs.ch/v1/models \
-  -H "Authorization: Bearer $CSCS_SERVING_API"
+  -H "Authorization: Bearer $SWISSAI_RESEARCH_API_KEY"
 ```
 
 ### Verify the endpoint directly
@@ -69,7 +69,7 @@ If something isn't connecting, confirm the API works on its own before debugging
 ```bash
 curl -X POST https://api.swissai.svc.cscs.ch/v1/chat/completions \
   -H "Content-Type: application/json" \
-  -H "Authorization: Bearer $CSCS_SERVING_API" \
+  -H "Authorization: Bearer $SWISSAI_RESEARCH_API_KEY" \
   -d '{
     "model": "swiss-ai/Apertus-8B-Instruct-2509",
     "messages": [{"role": "user", "content": "Who is Pablo Picasso?"}],
