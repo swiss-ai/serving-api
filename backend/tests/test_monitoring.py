@@ -380,3 +380,66 @@ def test_sync_and_fetch_benchmarks(engine):
     assert r["avg_latency"] == 10.0
     assert r["avg_throughput"] == 100.0
     assert fetch_benchmarks(engine, "other-model") == []
+
+
+# ---------- model listing curation ----------
+
+
+def _peer(model_id, version="sai-v0.0.6"):
+    return {"id": model_id, "otela_version": version}
+
+
+def test_listing_keeps_platform_and_recent_user_launches(monkeypatch):
+    from backend.config import get_settings
+    from backend.services.model_service import platform_namespaced
+
+    get_settings.cache_clear()
+    monkeypatch.setenv("ENFORCE_MODEL_NAMESPACE", "true")
+    monkeypatch.setenv("MIN_USER_OTELA_VERSION", "sai-v0.0.6")
+    peers = [
+        _peer(
+            "SwissAI-Research/swiss-ai/Apertus-v1.5-8B", ""
+        ),  # ours: version irrelevant
+        _peer("rsmith/swiss-ai/Apertus-v1.5-8B"),  # user, current version
+        _peer("rsmith/Qwen/Qwen3-32B", "sai-v0.0.10"),  # user, newer (numeric compare)
+        _peer("olduser/meta-llama/Llama-3.3-70B", "sai-v0.0.5"),  # user, too old
+        _peer("nover/meta-llama/Llama-3.3-70B", ""),  # user, no version
+        _peer("swiss-ai/Apertus-v1.5-8B"),  # two segments
+        _peer("judge-qwen36-35b"),  # bare name
+        _peer("/capstor/store/cscs/swissai/models"),  # checkpoint path
+        _peer("SwissAI-Research/a/b/c"),  # four segments
+        _peer("SwissAI-Research//m"),  # empty segment
+    ]
+    kept = [m["id"] for m in platform_namespaced(peers)]
+    assert kept == [
+        "SwissAI-Research/swiss-ai/Apertus-v1.5-8B",
+        "rsmith/swiss-ai/Apertus-v1.5-8B",
+        "rsmith/Qwen/Qwen3-32B",
+    ]
+    get_settings.cache_clear()
+
+
+def test_version_compare_is_numeric_not_lexical():
+    from backend.services.model_service import _at_least
+
+    assert _at_least("sai-v0.0.10", "sai-v0.0.6")  # lexically "10" < "6"
+    assert _at_least("sai-v0.1.0", "sai-v0.0.6")
+    assert _at_least("sai-v0.0.6", "sai-v0.0.6")
+    assert not _at_least("sai-v0.0.5", "sai-v0.0.6")
+    assert not _at_least("", "sai-v0.0.6")
+    assert _at_least("", "")  # no floor configured -> everything passes
+
+
+def test_listing_filter_can_be_disabled(monkeypatch):
+    from backend.config import get_settings
+    from backend.services.model_service import platform_namespaced
+
+    get_settings.cache_clear()
+    monkeypatch.setenv("ENFORCE_MODEL_NAMESPACE", "false")
+    peers = [
+        _peer("SwissAI-Research/o/m"),
+        _peer("bare"),
+        _peer("old/o/m", "sai-v0.0.1"),
+    ]
+    assert len(platform_namespaced(peers)) == 3
+    get_settings.cache_clear()

@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from backend.services.model_service import get_all_models
+from backend.services.model_service import get_all_models, platform_namespaced
 from backend.services.passthrough_service import get_synthetic_entries
 from backend.config import get_settings
 
@@ -33,7 +33,7 @@ async def _with_passthrough(models: list[dict], with_details: bool) -> list[dict
 
 @router.get("/v1/models_detailed")
 async def list_models_detailed():
-    models = get_all_models(_dnt_endpoint(), with_details=True)
+    models = platform_namespaced(get_all_models(_dnt_endpoint(), with_details=True))
     models = await _with_passthrough(models, with_details=True)
     return dict(
         object="list",
@@ -43,7 +43,7 @@ async def list_models_detailed():
 
 @router.get("/v1/models")
 async def list_models():
-    models = get_all_models(_dnt_endpoint(), with_details=False)
+    models = platform_namespaced(get_all_models(_dnt_endpoint(), with_details=False))
     models = await _with_passthrough(models, with_details=False)
     return dict(
         object="list",

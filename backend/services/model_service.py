@@ -1,9 +1,11 @@
 import json
+import re
 import pathlib
 
 import requests
 
-from backend.config import parse_hardware_info
+from backend.config import get_settings, parse_hardware_info
+from backend.services.passthrough_service import PLATFORM_PREFIX
 
 
 def _peer_metadata(node_info: dict) -> dict:
@@ -38,6 +40,59 @@ def _load_dnt(endpoint: str) -> dict:
     if endpoint and not endpoint.startswith(("http://", "https://")):
         return json.loads(pathlib.Path(endpoint).read_text())
     return requests.get(endpoint).json()
+
+
+def _version_tuple(raw: str) -> tuple[int, ...] | None:
+    """First dotted number in a version string, as a comparable tuple.
+    "sai-v0.0.6" -> (0, 0, 6). None when there is no version to compare."""
+    match = re.search(r"(\d+(?:\.\d+)*)", raw or "")
+    if not match:
+        return None
+    return tuple(int(part) for part in match.group(1).split("."))
+
+
+def _at_least(version: str, minimum: str) -> bool:
+    """version >= minimum, comparing numerically and padding to equal length
+    so sai-v0.0.10 sorts above sai-v0.0.6."""
+    got, want = _version_tuple(version), _version_tuple(minimum)
+    if want is None:
+        return True
+    if got is None:
+        return False
+    width = max(len(got), len(want))
+    return got + (0,) * (width - len(got)) >= want + (0,) * (width - len(want))
+
+
+def platform_namespaced(models: list[dict]) -> list[dict]:
+    """Filter /v1/models* down to what we are willing to advertise.
+
+    Launch ids are namespaced by their first segment: our own k8s launches
+    become ``SwissAI-Research/<hf_org>/<hf_model>``, a user launching on the
+    OpenTela network gets ``<username>/<hf_org>/<hf_model>``. An id must be
+    exactly three non-empty segments, which also drops malformed entries
+    such as a bare name or a checkpoint path.
+
+    Ours are always listed. A user launch is listed only when its peer runs
+    at least MIN_USER_OTELA_VERSION — older nodes predate namespaced ids.
+
+    Listing only: everything keeps running and stays routable by id.
+    Disable the whole filter with ENFORCE_MODEL_NAMESPACE=false.
+    """
+    settings = get_settings()
+    if not settings.enforce_model_namespace:
+        return models
+    kept = []
+    for model in models:
+        segments = (model.get("id") or "").split("/")
+        if len(segments) != 3 or not all(segments):
+            continue
+        if segments[0] == PLATFORM_PREFIX:
+            kept.append(model)
+        elif _at_least(
+            model.get("otela_version") or "", settings.min_user_otela_version
+        ):
+            kept.append(model)
+    return kept
 
 
 def get_all_models(endpoint: str, with_details: bool = False):

@@ -59,6 +59,15 @@ class Settings(BaseSettings):
     # take precedence so admins can adjust live without a redeploy — see
     # backend/services/rate_limit_service.py.
     rate_limit_rpm: int = 0
+    # /v1/models* advertises only OpenTela ids under the platform
+    # namespace, i.e. SwissAI-Research/<hf_org>/<hf_model>. User launches
+    # carry their own first segment ($USERNAME/<hf_org>/<hf_model>) and are
+    # not listed. Set false to advertise every launch (previous behaviour).
+    enforce_model_namespace: bool = True
+    # User launches (<username>/<hf_org>/<hf_model>) are advertised only
+    # when the peer runs at least this OpenTela version — older nodes
+    # predate namespaced ids and produce entries we don't want listed.
+    min_user_otela_version: str = "sai-v0.0.6"
     langfuse_host: str = ""
     langfuse_public_key: str = ""
     langfuse_secret_key: str = ""
