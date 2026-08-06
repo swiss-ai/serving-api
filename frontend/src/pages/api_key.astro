@@ -211,7 +211,7 @@ const apiUrl = process.env.VITE_API_URL || import.meta.env.VITE_API_URL || 'http
             <h3 class="text-lg font-semibold text-slate-800 dark:text-slate-200">Set Environment Variable</h3>
             <p class="text-slate-600 dark:text-slate-400">Export your API key so you can copy and paste the examples below:</p>
             <div class="card p-4 bg-slate-50 dark:bg-slate-800/50">
-              <pre class="text-sm text-slate-700 dark:text-slate-300 overflow-x-auto"><code>export CSCS_SERVING_API="<span id="exportApiKey" class="text-indigo-600 dark:text-indigo-400">your-api-key</span>"</code></pre>
+              <pre class="text-sm text-slate-700 dark:text-slate-300 overflow-x-auto"><code>export SWISSAI_RESEARCH_API_KEY="<span id="exportApiKey" class="text-indigo-600 dark:text-indigo-400">your-api-key</span>"</code></pre>
             </div>
           </div>
 
@@ -290,7 +290,7 @@ const apiUrl = process.env.VITE_API_URL || import.meta.env.VITE_API_URL || 'http
     if (curlExample) {
       const curlCode = `curl -X POST ${apiUrl}/v1/chat/completions \\\n` +
 '  -H "Content-Type: application/json" \\\n' +
-'  -H "Authorization: Bearer $CSCS_SERVING_API" \\\n' +
+'  -H "Authorization: Bearer $SWISSAI_RESEARCH_API_KEY" \\\n' +
 '  -d \'{\n' +
 '    "model": "swiss-ai/Apertus-8B-Instruct-2509",\n' +
 '    "messages": [\n' +
@@ -312,7 +312,7 @@ const apiUrl = process.env.VITE_API_URL || import.meta.env.VITE_API_URL || 'http
 'response = requests.post(\n' +
 `    "${apiUrl}/v1/chat/completions",\n` +
 '    headers={\n' +
-'        "Authorization": f"Bearer {os.environ.get(\'CSCS_SERVING_API\')}"\n' +
+'        "Authorization": f"Bearer {os.environ.get(\'SWISSAI_RESEARCH_API_KEY\')}"\n' +
 '    },\n' +
 '    json={\n' +
 '        "model": "swiss-ai/Apertus-8B-Instruct-2509",\n' +
@@ -337,7 +337,7 @@ const apiUrl = process.env.VITE_API_URL || import.meta.env.VITE_API_URL || 'http
 'import os\n' +
 '\n' +
 'client = openai.Client(\n' +
-'    api_key=os.environ.get("CSCS_SERVING_API"),\n' +
+'    api_key=os.environ.get("SWISSAI_RESEARCH_API_KEY"),\n' +
 `    base_url="${apiUrl}/v1"\n` +
 ')\n' +
 'res = client.chat.completions.create(\n' +
