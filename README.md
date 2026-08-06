@@ -78,6 +78,17 @@ policy conflict it refuses to route the model for **everyone** (403 naming
 the conflict) until one side is relaunched under a unique name or with a
 matching label. See ADR-0001 for the reasoning.
 
+**Username-namespaced served names.** SML launches are served under
+`<username>/<vendor>/<model>` (e.g. `alice/swiss-ai/Apertus-70B`), where the
+username is the cluster account that submitted the SLURM job — the same value
+the peer advertises as its `launched_by` label. The gateway cross-checks the
+two: a peer serving `alice/...` from a job that ran as someone else is
+dropped from `/v1/models*`, and the id 403s for everyone (same reasoning as a
+policy conflict — OpenTela balances the name across every peer advertising
+it). Ids with fewer than three segments carry no username and are left
+unchecked, so pre-namespacing launches and passthrough-provider ids keep
+working. See ADR-0002.
+
 ## Dev Quick Start
 
 ```bash

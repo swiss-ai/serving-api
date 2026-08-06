@@ -92,11 +92,14 @@ def test_whoami_unknown_key_401(client):
 # ── /v1/models* filtering ───────────────────────────────────────────────────
 
 
-def _peer_entry(model_id: str, auth_value: str | None) -> dict:
-    """A get_all_models-shaped entry; the filter reads labels.authorization."""
+def _peer_entry(model_id: str, auth_value: str | None, launched_by: str = "") -> dict:
+    """A get_all_models-shaped entry; the filter reads labels.authorization
+    and (for the namespace check) the top-level launched_by."""
     labels = {"worker_group_id": "wg-" + model_id}
     if auth_value is not None:
         labels["authorization"] = auth_value
+    if launched_by:
+        labels["launched_by"] = launched_by
     return {
         "id": model_id,
         "object": "model",
@@ -106,6 +109,7 @@ def _peer_entry(model_id: str, auth_value: str | None) -> dict:
         "peer_id": "Qm" + model_id,
         "labels": labels,
         "authorization": auth_value or "",
+        "launched_by": launched_by,
     }
 
 
@@ -206,6 +210,29 @@ def test_models_detailed_filters_the_same_way(client, monkeypatch):
     response = client.get("/v1/models_detailed")
     assert response.status_code == 200
     assert {e["id"] for e in response.json()["data"]} == {"org/public-model"}
+
+
+def test_models_hides_peers_serving_outside_their_own_namespace(client, monkeypatch):
+    """A peer advertising alice's namespace from a job launched by bob is
+    never listed. Alice's own peer and pre-namespacing ids are unaffected."""
+    from backend.routers import models as models_router
+    from backend.services import passthrough_service
+
+    passthrough_service._reset_cache_for_tests()
+    entries = [
+        _peer_entry("alice/org/model", "public", launched_by="alice"),
+        _peer_entry("alice/org/squatted", "public", launched_by="bob"),
+        _peer_entry("org/legacy-model", "public", launched_by="bob"),
+    ]
+    monkeypatch.setattr(
+        models_router, "get_all_models", lambda endpoint, with_details=False: entries
+    )
+    response = client.get("/v1/models")
+    assert response.status_code == 200
+    assert {e["id"] for e in response.json()["data"]} == {
+        "alice/org/model",
+        "org/legacy-model",
+    }
 
 
 # ── enforcement end to end ──────────────────────────────────────────────────

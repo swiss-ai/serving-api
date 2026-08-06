@@ -11,10 +11,12 @@ from fastapi import HTTPException
 
 from backend.services import authorization_service
 from backend.services.authorization_service import (
-    _build_auth_map,
+    _build_model_map,
     _reset_cache_for_tests,
     ensure_model_access,
     grants_access,
+    namespace_matches,
+    namespace_of,
     normalize_policy,
 )
 
@@ -49,10 +51,14 @@ def _patch_email(email):
     )
 
 
-def _dnt_peer(model_id: str, auth_value: str | None) -> dict:
+def _dnt_peer(
+    model_id: str, auth_value: str | None, launched_by: str | None = None
+) -> dict:
     labels = {"worker_group_id": "wg"}
     if auth_value is not None:
         labels["authorization"] = auth_value
+    if launched_by is not None:
+        labels["launched_by"] = launched_by
     return {
         "id": "QmPeer",
         "labels": labels,
@@ -120,9 +126,20 @@ def test_auth_map_reads_identity_group_and_served_model_name_fallback():
         },
         "/QmPublic": _dnt_peer("meta/Llama", None),
     }
-    auth_map = _build_auth_map(data)
-    assert auth_map["swiss-ai/Apertus-8B"] == ["user1@epfl.ch", "user1@epfl.ch"]
-    assert auth_map["meta/Llama"] == [""]
+    model_map = _build_model_map(data)
+    assert [c.authorization for c in model_map["swiss-ai/Apertus-8B"]] == [
+        "user1@epfl.ch",
+        "user1@epfl.ch",
+    ]
+    assert [c.authorization for c in model_map["meta/Llama"]] == [""]
+
+
+def test_model_map_records_the_launching_account():
+    data = {
+        "/QmHead": _dnt_peer("alice/swiss-ai/Apertus-8B", "public", launched_by="alice")
+    }
+    (claim,) = _build_model_map(data)["alice/swiss-ai/Apertus-8B"]
+    assert claim.launched_by == "alice"
 
 
 # ── ensure_model_access decision matrix ─────────────────────────────────────
@@ -338,6 +355,81 @@ def test_auth_map_cached_within_ttl():
         _run(ensure_model_access(None, "sk-rc-x", "m"))
     assert fake.await_count == 1
     assert time.time() - authorization_service._cache["fetched_at"] < 10
+
+
+# ── served-name namespacing ─────────────────────────────────────────────────
+
+
+def test_namespace_of_only_reads_three_segment_names():
+    assert namespace_of("alice/swiss-ai/Apertus-8B") == "alice"
+    assert namespace_of("swiss-ai/Apertus-8B") is None
+    assert namespace_of("Apertus-8B") is None
+
+
+def test_namespace_matches_is_lenient_where_there_is_nothing_to_check():
+    # Pre-namespacing ids carry no username...
+    assert namespace_matches("swiss-ai/Apertus-8B", "bob") is True
+    # ...and a peer from an OpenTela build that emits no labels carries no
+    # launching account to compare against.
+    assert namespace_matches("alice/swiss-ai/Apertus-8B", "") is True
+
+
+def test_namespace_matches_compares_case_insensitively():
+    assert namespace_matches("alice/swiss-ai/Apertus-8B", "Alice") is True
+    assert namespace_matches("alice/swiss-ai/Apertus-8B", " alice ") is True
+    assert namespace_matches("alice/swiss-ai/Apertus-8B", "bob") is False
+
+
+def test_namespaced_model_routes_for_its_own_launcher():
+    with (
+        _patch_no_passthrough(),
+        _patch_fetch_dnt(
+            {
+                "/p": _dnt_peer(
+                    "alice/swiss-ai/Apertus-8B", "public", launched_by="alice"
+                )
+            }
+        ),
+        _patch_email("alice@epfl.ch"),
+    ):
+        _run(ensure_model_access(None, "sk-rc-x", "alice/swiss-ai/Apertus-8B"))
+
+
+def test_squatted_namespace_is_refused_for_everyone():
+    """A peer publishing under someone else's username poisons the id:
+    OpenTela balances the name across every peer advertising it, so we
+    can't keep a request off the squatter — refuse the whole id."""
+    with (
+        _patch_no_passthrough(),
+        _patch_fetch_dnt(
+            {
+                "/legit": _dnt_peer(
+                    "alice/swiss-ai/Apertus-8B", "public", launched_by="alice"
+                ),
+                "/squat": _dnt_peer(
+                    "alice/swiss-ai/Apertus-8B", "public", launched_by="bob"
+                ),
+            }
+        ),
+        _patch_email("alice@epfl.ch"),
+    ):
+        with pytest.raises(HTTPException) as exc_info:
+            _run(ensure_model_access(None, "sk-rc-x", "alice/swiss-ai/Apertus-8B"))
+    assert exc_info.value.status_code == 403
+    assert "namespace" in exc_info.value.detail
+
+
+def test_unnamespaced_legacy_model_is_unaffected():
+    """Launches that predate namespacing keep working — a 2-segment id has
+    no username in it, whatever the peer's launched_by says."""
+    with (
+        _patch_no_passthrough(),
+        _patch_fetch_dnt(
+            {"/p": _dnt_peer("swiss-ai/Apertus-8B", "public", launched_by="bob")}
+        ),
+        _patch_email(None),
+    ):
+        _run(ensure_model_access(None, "sk-rc-x", "swiss-ai/Apertus-8B"))
 
 
 # ── fixture-mode DNT source ─────────────────────────────────────────────────

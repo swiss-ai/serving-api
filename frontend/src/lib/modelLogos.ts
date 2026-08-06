@@ -68,5 +68,17 @@ export function getModelLogo(modelName: string): string | null {
   // If no slash, default to HF
   if (!modelName.includes('/')) return orgLogos['hf'];
 
-  return orgLogos[modelName.split('/')[0]] || orgLogos['hf'];
+  return orgLogos[getModelVendor(modelName)] || orgLogos['hf'];
+}
+
+/**
+ * The vendor segment of a served model name.
+ *
+ * SML namespaces its launches as `<username>/<vendor>/<model>`, so the
+ * vendor is the second segment there; passthrough providers and
+ * pre-namespacing launches use a plain `<vendor>/<model>`.
+ */
+export function getModelVendor(modelName: string): string {
+  const parts = modelName.split('/');
+  return parts.length >= 3 ? parts[1] : parts[0];
 }

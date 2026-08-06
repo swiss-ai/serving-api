@@ -1,4 +1,4 @@
-"""Per-user model authorization.
+"""Per-user model authorization and served-name namespacing.
 
 Models launched via SML carry an OpenTela peer label ``authorization``:
 "public" (or missing/empty — every pre-feature launch keeps working) means
@@ -6,8 +6,17 @@ anyone may use the model; a comma-separated email list restricts it to
 those users. SML normalizes emails (strip, lowercase) before launch, but
 we compare case-insensitively anyway as defense in depth.
 
+SML also namespaces every served name as ``<username>/<vendor>/<model>``,
+where the username is the cluster account that submitted the SLURM job —
+the same value the job advertises as its ``launched_by`` label. The two
+must agree: a peer serving "alice/swiss-ai/X" while its job ran as bob is
+publishing under someone else's namespace, and we refuse to list or route
+it. Names with fewer than three segments predate namespacing and are left
+unchecked, as are peers that advertise no ``launched_by`` at all (OpenTela
+<v0.0.6 emits no labels — there is nothing to compare against).
+
 Two consumers:
-- /v1/models* filters what each caller sees (grants_access per entry).
+- /v1/models* filters what each caller sees (grants_access + namespace).
 - Every inference proxy route calls ensure_model_access before proxying.
 
 The model → authorization map is derived from the same DNT table the
@@ -23,6 +32,7 @@ import json
 import logging
 import pathlib
 import time
+from typing import NamedTuple
 
 import aiohttp
 from fastapi import HTTPException
@@ -42,15 +52,28 @@ _CACHE_TTL_SECONDS = 10.0
 _FETCH_TIMEOUT_SECONDS = 5.0
 
 _cache_lock = asyncio.Lock()
-# {"fetched_at": float, "auth_map": dict[str, list[str]] | None}
-_cache: dict = {"fetched_at": 0.0, "auth_map": None}
+# {"fetched_at": float, "model_map": dict[str, list[PeerClaim]] | None}
+_cache: dict = {"fetched_at": 0.0, "model_map": None}
+
+# A served name with fewer than this many "/"-separated segments predates
+# namespacing (a bare "model" or a "vendor/model") — there is no username
+# in it to check. Mirrors swiss_ai_model_launch.launchers.served_name.
+_NAMESPACED_SEGMENTS = 3
+
+
+class PeerClaim(NamedTuple):
+    """What one peer entry claims about a model id it serves: the policy it
+    publishes, and the account its job ran as."""
+
+    authorization: str
+    launched_by: str
 
 
 def _reset_cache_for_tests() -> None:
     """Test helper — clears the cache so tests can simulate cold start
     without leaking state across cases."""
     _cache["fetched_at"] = 0.0
-    _cache["auth_map"] = None
+    _cache["model_map"] = None
 
 
 def normalize_policy(auth_value: str) -> frozenset[str] | None:
@@ -81,6 +104,33 @@ def grants_access(auth_value: str, email: str | None) -> bool:
     if email is None:
         return False
     return email.strip().lower() in policy
+
+
+def namespace_of(model_id: str) -> str | None:
+    """The username a served name is published under, or None when the name
+    carries no namespace (fewer than three segments — a pre-namespacing
+    launch, or a passthrough provider's id)."""
+    parts = model_id.split("/")
+    if len(parts) < _NAMESPACED_SEGMENTS:
+        return None
+    return parts[0]
+
+
+def namespace_matches(model_id: str, launched_by: str) -> bool:
+    """Does this peer's served name agree with the account that launched it?
+
+    True when the name isn't namespaced (nothing to check) or the peer
+    advertises no ``launched_by`` (nothing to check it against — legacy
+    OpenTela binaries emit no labels, and refusing them would break every
+    such launch). Otherwise the namespace must be the launching account,
+    compared case-insensitively like every other label here."""
+    namespace = namespace_of(model_id)
+    if namespace is None:
+        return True
+    launcher = (launched_by or "").strip().lower()
+    if not launcher:
+        return True
+    return namespace.strip().lower() == launcher
 
 
 def _dnt_endpoint() -> str:
@@ -115,18 +165,21 @@ async def _fetch_dnt() -> dict | None:
         return None
 
 
-def _build_auth_map(data: dict) -> dict[str, list[str]]:
-    """model_id → the ``authorization`` label value of every peer entry
-    serving it. Mirrors model_service.get_all_models id extraction: service
-    identity_group "model=..." entries, plus the labels.served_model_name
-    fallback for pending/follower peers. Peers of one launch carry the
-    same labels as their head, so they normalize to one policy; a peer
-    that disagrees belongs to a DIFFERENT launch squatting the same name,
-    which is exactly the conflict ensure_model_access refuses to route."""
-    auth_map: dict[str, list[str]] = {}
+def _build_model_map(data: dict) -> dict[str, list[PeerClaim]]:
+    """model_id → one PeerClaim per peer entry serving it. Mirrors
+    model_service.get_all_models id extraction: service identity_group
+    "model=..." entries, plus the labels.served_model_name fallback for
+    pending/follower peers. Peers of one launch carry the same labels as
+    their head, so they normalize to one policy; a peer that disagrees
+    belongs to a DIFFERENT launch squatting the same name, which is
+    exactly the conflict ensure_model_access refuses to route."""
+    model_map: dict[str, list[PeerClaim]] = {}
     for node_info in data.values():
         labels = node_info.get("labels") or {}
-        auth_value = labels.get("authorization", "")
+        claim = PeerClaim(
+            authorization=labels.get("authorization", ""),
+            launched_by=labels.get("launched_by", ""),
+        )
         model_names = []
         services = node_info.get("service") or []
         if not services:
@@ -142,31 +195,31 @@ def _build_auth_map(data: dict) -> dict[str, list[str]]:
                 if identity.startswith("model=")
             )
         for model_name in model_names:
-            auth_map.setdefault(model_name, []).append(auth_value)
-    return auth_map
+            model_map.setdefault(model_name, []).append(claim)
+    return model_map
 
 
-async def _get_auth_map() -> dict[str, list[str]] | None:
-    """The cached model → authorization-values map. Refreshes past the TTL;
-    on fetch failure keeps serving the stale map. Returns None only at true
-    cold start (never fetched successfully) — the caller fails open.
+async def _get_model_map() -> dict[str, list[PeerClaim]] | None:
+    """The cached model → peer-claims map. Refreshes past the TTL; on fetch
+    failure keeps serving the stale map. Returns None only at true cold
+    start (never fetched successfully) — the caller fails open.
 
     ``fetched_at`` records the last *attempt*, successful or not: retrying
     on every request while the DNT is down would make each inference call
     pay the fetch timeout. One retry per TTL is enough."""
     if (time.time() - _cache["fetched_at"]) < _CACHE_TTL_SECONDS:
-        return _cache["auth_map"]
+        return _cache["model_map"]
 
     async with _cache_lock:
         # Another coroutine may have refreshed while we waited on the lock.
         if (time.time() - _cache["fetched_at"]) < _CACHE_TTL_SECONDS:
-            return _cache["auth_map"]
+            return _cache["model_map"]
 
         data = await _fetch_dnt()
         if data is not None:
-            _cache["auth_map"] = _build_auth_map(data)
+            _cache["model_map"] = _build_model_map(data)
         _cache["fetched_at"] = time.time()
-        return _cache["auth_map"]
+        return _cache["model_map"]
 
 
 async def ensure_model_access(engine, token: str, model_id: str) -> None:
@@ -174,9 +227,15 @@ async def ensure_model_access(engine, token: str, model_id: str) -> None:
 
     Allowed when: the model routes to a passthrough provider (always
     public), the id is unknown to the DNT (falls through to upstream which
-    404s — unchanged behavior), every peer entry agrees on one policy and
-    that policy grants the caller, or the DNT has never been fetchable
-    (fail open, logged).
+    404s — unchanged behavior), every peer entry serves it under a
+    namespace matching its own launching account and agrees on one policy
+    that grants the caller, or the DNT has never been fetchable (fail
+    open, logged).
+
+    A peer whose served name is namespaced under someone else's username
+    is refused for EVERYONE serving that id, for the same reason a policy
+    conflict is: OpenTela load-balances the name across every peer
+    advertising it, so we cannot keep a request off the squatting peer.
 
     Entries that disagree (after normalization) are an authorization
     CONFLICT and everyone is refused — even a caller granted by all of
@@ -194,18 +253,40 @@ async def ensure_model_access(engine, token: str, model_id: str) -> None:
         return
     if await resolve_provider(model_id) is not None:
         return
-    auth_map = await _get_auth_map()
-    if auth_map is None:
+    model_map = await _get_model_map()
+    if model_map is None:
         logger.warning(
             "DNT unreachable with no cached authorization map — "
             "allowing request for model '%s' (fail open)",
             model_id,
         )
         return
-    auth_values = auth_map.get(model_id)
-    if auth_values is None:
+    claims = model_map.get(model_id)
+    if claims is None:
         return
-    policies = {normalize_policy(value) for value in auth_values}
+    squatters = sorted(
+        {
+            c.launched_by
+            for c in claims
+            if not namespace_matches(model_id, c.launched_by)
+        }
+    )
+    if squatters:
+        logger.warning(
+            "Refusing model '%s': served by peer(s) launched by %s, outside its namespace",
+            model_id,
+            ", ".join(repr(s) for s in squatters),
+        )
+        raise HTTPException(
+            status_code=403,
+            detail=(
+                f"Access denied: model '{model_id}' is served by replicas launched "
+                f"outside its '{namespace_of(model_id)}' namespace; requests are "
+                f"refused until the conflict is resolved (relaunch under your own "
+                f"username's namespace)."
+            ),
+        )
+    policies = {normalize_policy(c.authorization) for c in claims}
     if len(policies) > 1:
         raise HTTPException(
             status_code=403,

@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.security import HTTPAuthorizationCredentials
 from backend.middleware.auth import optional_security
 from backend.services.auth_service import get_email_for_token
-from backend.services.authorization_service import grants_access
+from backend.services.authorization_service import grants_access, namespace_matches
 from backend.services.model_service import get_all_models
 from backend.services.passthrough_service import get_synthetic_entries
 from backend.config import get_settings
@@ -57,6 +57,20 @@ def _visible_to(models: list[dict], email: str | None) -> list[dict]:
     ]
 
 
+def _own_namespace_only(models: list[dict]) -> list[dict]:
+    """Drop peers publishing a served name under someone else's username.
+
+    A name like "alice/swiss-ai/X" coming from a job that ran as bob is a
+    namespace squat; we don't advertise it, and ensure_model_access refuses
+    to route the id for anyone. Unnamespaced (pre-namespacing) ids and peers
+    with no ``launched_by`` label are left alone — see namespace_matches."""
+    return [
+        m
+        for m in models
+        if namespace_matches(m.get("id", ""), m.get("launched_by", ""))
+    ]
+
+
 @router.get("/v1/models_detailed")
 async def list_models_detailed(
     request: Request,
@@ -65,7 +79,7 @@ async def list_models_detailed(
     ] = None,
 ):
     email = _caller_email(request, credentials)
-    models = get_all_models(_dnt_endpoint(), with_details=True)
+    models = _own_namespace_only(get_all_models(_dnt_endpoint(), with_details=True))
     models = await _with_passthrough(models, with_details=True)
     return dict(
         object="list",
@@ -81,7 +95,7 @@ async def list_models(
     ] = None,
 ):
     email = _caller_email(request, credentials)
-    models = get_all_models(_dnt_endpoint(), with_details=False)
+    models = _own_namespace_only(get_all_models(_dnt_endpoint(), with_details=False))
     models = await _with_passthrough(models, with_details=False)
     return dict(
         object="list",
