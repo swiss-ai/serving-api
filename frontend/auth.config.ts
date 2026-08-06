@@ -71,6 +71,11 @@ export default defineConfig({
 
   providers: [
     Auth0({
+      // The Auth0() factory is a thin preset over generic OIDC; with
+      // AUTH_PROVIDER=authentik it points at AUTHENTIK_ISSUER and never contacts
+      // Auth0. Only the label needs to follow the toggle — the provider id stays
+      // `auth0`, so callback URLs are unchanged (see issue on renaming it).
+      name: authProvider === 'authentik' ? 'Authentik' : 'Auth0',
       clientId: oidcClientId(),
       clientSecret: oidcClientSecret(),
       issuer: oidcIssuer(),
