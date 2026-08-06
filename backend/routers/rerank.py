@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends
-from backend.middleware.ratelimit import rate_limited
+from backend.middleware.auth import require_auth
 from backend.middleware.body import json_body
 from backend.services.llm_service import llm_proxy_rerank, llm_proxy_score
 from backend.config import get_settings
@@ -15,7 +15,7 @@ settings = get_settings()
 
 @router.post("/v1/rerank")
 async def rerank(
-    token: str = Depends(rate_limited),
+    token: str = Depends(require_auth),
     data: dict = Depends(json_body),
 ):
     response = await llm_proxy_rerank(
@@ -29,7 +29,7 @@ async def rerank(
 
 @router.post("/v1/score")
 async def score(
-    token: str = Depends(rate_limited),
+    token: str = Depends(require_auth),
     data: dict = Depends(json_body),
 ):
     response = await llm_proxy_score(

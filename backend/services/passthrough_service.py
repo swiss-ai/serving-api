@@ -16,9 +16,13 @@ list backstops the cold-start case when the upstream is unreachable on
 the very first fetch, so its rows aren't completely missing during a
 brief outage.
 
-Model ids are matched verbatim (no normalization yet). When two
-providers expose the same id, the first one in `registered_providers()`
-wins routing and listing — registration order is precedence.
+Every id a provider surfaces is namespaced under its reserved prefix
+(``CSCS-Inference/...``, ``RCP-AIaaS/...``), so ids are structurally
+collision-free across providers and against OpenTela-served models: the
+first path segment of a requested id selects the provider, the remainder
+is forwarded verbatim as the upstream id (see ``resolve_model``).
+Un-prefixed upstream ids still route during a deprecation window, where
+registration order is precedence.
 
 Curation is per provider via ``Provider.allowed_ids``: RCP advertises
 far more than we want to expose (~26 models, incl. quant variants), so
@@ -31,12 +35,15 @@ Secrets (base URLs, API keys) come from env via Settings.
 """
 
 import asyncio
+import logging
 import time
 from dataclasses import dataclass
 
 import aiohttp
 
 from backend.config import get_settings
+
+logger = logging.getLogger(__name__)
 
 
 # 30 s strikes a balance: short enough that a new upstream model is
@@ -61,6 +68,11 @@ class Provider:
     base_url: str
     api_key: str
     device: str
+    # Namespace prefix carried by every id this provider surfaces
+    # (``<prefix>/<upstream id>``). The first path segment of a requested
+    # model id is matched against these, so prefixes are reserved names:
+    # they must never collide with a HF org, a username, or each other.
+    prefix: str = ""
     # Cold-start backstop, used only if we haven't successfully fetched
     # /models yet AND the current fetch fails. Empty = nothing advertised
     # until the first successful fetch.
@@ -106,6 +118,7 @@ def registered_providers() -> list[Provider]:
                 base_url=s.cscs_l1_base_url,
                 api_key=s.cscs_l1_api_key,
                 device="CSCS L1",
+                prefix="CSCS-Inference",
                 fallback_ids=_CSCS_L1_FALLBACK_IDS,
             )
         )
@@ -116,6 +129,7 @@ def registered_providers() -> list[Provider]:
                 base_url=s.rcp_base_url,
                 api_key=s.rcp_api_key,
                 device="EPFL RCP",
+                prefix="RCP-AIaaS",
                 allowed_ids=_RCP_ALLOWED_MODEL_IDS,
             )
         )
@@ -208,17 +222,74 @@ async def _discover_ids(provider: Provider) -> set[str]:
         return set(provider.fallback_ids)
 
 
-async def resolve_provider(model_id: str) -> Provider | None:
-    """Return the configured passthrough Provider that serves ``model_id``,
-    or None so the caller falls through to OpenTela (which 404s cleanly).
-    First match in registration order wins on id collisions. With no
-    provider configured this is always None, so passthrough model ids fall
-    through instead of producing an opaque connection error."""
+# This platform's own namespace: SwissAI-Research/<org>/<model> is the
+# canonical alias for a model served by us (OpenTela). Reserved alongside
+# the provider prefixes — no HF org, username, or provider may claim it.
+PLATFORM_PREFIX = "SwissAI-Research"
+
+
+@dataclass(frozen=True)
+class ResolvedModel:
+    """A model id resolved through the namespace registry.
+
+    ``provider`` is the passthrough upstream serving it, or None when the
+    id is under ``PLATFORM_PREFIX`` (served by our own OpenTela network).
+    ``upstream_id`` is what the serving side knows the model as (goes in
+    the forwarded request body); ``public_id`` is the prefixed form we
+    expose (rewritten back into responses so clients see the id they
+    asked for).
+    """
+
+    provider: Provider | None
+    upstream_id: str
+    public_id: str
+
+
+async def resolve_model(model_id: str) -> ResolvedModel | None:
+    """Resolve a requested model id through the namespace registry, or
+    None so the caller falls through to OpenTela (which 404s cleanly).
+
+    Namespaces, selected by the first path segment:
+    - ``SwissAI-Research/<org>/<model>`` — our own OpenTela-served models
+      (provider=None). No advertised-set check: OpenTela 404s unknown ids
+      itself.
+    - ``<provider prefix>/<upstream id>`` (CSCS-Inference/...,
+      RCP-AIaaS/...) — the remainder must be an id the provider currently
+      advertises. A prefixed id whose remainder is unknown does NOT fall
+      through to OpenTela by another name; it returns None and 404s there
+      under its full (never-launched) id.
+
+    Back-compat: a bare upstream id that a provider advertises still routes
+    (first provider in registration order wins), logged as deprecated.
+    Remove after clients have migrated to prefixed ids."""
     if not model_id:
         return None
-    for provider in registered_providers():
+    providers = registered_providers()
+    first, _, rest = model_id.partition("/")
+    if first == PLATFORM_PREFIX:
+        if not rest:
+            return None
+        return ResolvedModel(provider=None, upstream_id=rest, public_id=model_id)
+    for provider in providers:
+        if provider.prefix and first == provider.prefix:
+            if rest and rest in await _get_cached_ids(provider):
+                return ResolvedModel(
+                    provider=provider, upstream_id=rest, public_id=model_id
+                )
+            return None
+    for provider in providers:
         if model_id in await _get_cached_ids(provider):
-            return provider
+            logger.warning(
+                "Deprecated un-prefixed passthrough model id %r; use %s/%s",
+                model_id,
+                provider.prefix,
+                model_id,
+            )
+            return ResolvedModel(
+                provider=provider,
+                upstream_id=model_id,
+                public_id=f"{provider.prefix}/{model_id}",
+            )
     return None
 
 
@@ -229,7 +300,7 @@ def _synthetic_entry(provider: Provider, model_id: str, with_details: bool) -> d
     difference. Empty peer_id/hostname/slurm/etc. drive ModelCard's
     passthrough branch to hide the irrelevant head rows."""
     entry = {
-        "id": model_id,
+        "id": f"{provider.prefix}/{model_id}",
         "object": "model",
         "created": "0x",
         "owner": "0x",
@@ -256,15 +327,11 @@ def _synthetic_entry(provider: Provider, model_id: str, with_details: bool) -> d
 async def get_synthetic_entries(with_details: bool = False) -> list[dict]:
     """Synthesize peer-style entries across all configured passthrough
     providers. Returns an empty list when none are configured: we only
-    advertise models we can actually serve. On id collisions the earlier
-    provider (registration order) wins and the duplicate is dropped, so a
-    model is never double-listed."""
+    advertise models we can actually serve. Provider prefixes make the
+    listed ids structurally collision-free — the same upstream model on
+    two providers appears as two distinct, individually-routable rows."""
     entries: list[dict] = []
-    seen: set[str] = set()
     for provider in registered_providers():
         for model_id in sorted(await _get_cached_ids(provider)):
-            if model_id in seen:
-                continue
-            seen.add(model_id)
             entries.append(_synthetic_entry(provider, model_id, with_details))
     return entries

@@ -1,4 +1,11 @@
-"""Per-user request rate limiting on the inference routes.
+"""Per-user request rate limiting for external passthrough providers.
+
+Only requests that route to an external provider (CSCS L1, RCP, ...) are
+counted and limited: those consume a shared, platform-accountable
+resource (shared upstream API key, external quota). OpenTela-served
+models run on the caller's own GPU allocation and are deliberately not
+limited. Enforcement sits on the passthrough arm of model routing — see
+``enforce_rate_limit`` in backend/middleware/ratelimit.py.
 
 Counters live in Redis so one limit holds across every gateway replica —
 per-replica in-memory counting would let clients multiply their budget by

@@ -13,7 +13,9 @@ import time
 active_requests = 0
 
 
-async def response_generator(response, metrics_ctx=None, trace_ctx=None):
+async def response_generator(
+    response, metrics_ctx=None, trace_ctx=None, model_override=None
+):
     accumulated_content = []
     has_started_content = False
     first_token_time = None
@@ -43,6 +45,11 @@ async def response_generator(response, metrics_ctx=None, trace_ctx=None):
                     continue
                 try:
                     data = json.loads(data_str)
+                    # Passthrough models are namespaced on our side; the
+                    # upstream reports its own id, so restore the public
+                    # (prefixed) one the client actually requested.
+                    if model_override is not None and "model" in data:
+                        data["model"] = model_override
                     if "choices" in data and len(data["choices"]) > 0:
                         choice = data["choices"][0]
                         if "delta" in choice and "content" in choice["delta"]:

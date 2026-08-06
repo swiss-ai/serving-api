@@ -2,10 +2,11 @@
 override precedence, fail-open behavior, and the 429 surface (envelope +
 Retry-After headers) through the middleware dependency."""
 
-from unittest.mock import patch
+import asyncio
+from unittest.mock import AsyncMock, patch
 
 import pytest
-from fastapi import Depends, FastAPI
+from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
@@ -230,25 +231,20 @@ def test_no_redis_client_fails_open():
         assert check_rate_limit("tok", now=T0).allowed
 
 
-# ── 429 surface through the dependency ──────────────────────────────────────
+# ── 429 surface + passthrough-only scope ────────────────────────────────────
 
 
 def _make_app() -> FastAPI:
     from backend.main import http_exception_handler
-    from backend.middleware import ratelimit
-    from backend.middleware.auth import require_auth
+    from backend.middleware.ratelimit import enforce_rate_limit
 
     app = FastAPI()
     app.add_exception_handler(StarletteHTTPException, http_exception_handler)
 
-    async def fake_auth() -> str:
-        return "tok"
-
-    app.dependency_overrides[require_auth] = fake_auth
-
     @app.post("/limited")
-    async def limited(token: str = Depends(ratelimit.rate_limited)):
-        return {"ok": True, "token": token}
+    async def limited():
+        enforce_rate_limit("tok")
+        return {"ok": True}
 
     return app
 
@@ -267,9 +263,87 @@ def test_429_envelope_and_headers(fake_redis):
     assert resp.headers["X-RateLimit-Remaining"] == "0"
 
 
-def test_dependency_returns_token_when_allowed(fake_redis):
-    with _settings_rpm(10):
-        client = TestClient(_make_app(), raise_server_exceptions=False)
-        resp = client.post("/limited")
-    assert resp.status_code == 200
-    assert resp.json()["token"] == "tok"
+def test_passthrough_routing_enforces_limit(fake_redis):
+    """Requests resolving to an external provider count against the
+    budget and 429 once it's spent."""
+    from fastapi import HTTPException
+
+    from backend.routers import completions
+    from backend.services.passthrough_service import Provider, ResolvedModel
+
+    provider = Provider(
+        name="cscs_L1",
+        base_url="https://l1/v1",
+        api_key="pk",
+        device="CSCS L1",
+        prefix="CSCS-Inference",
+    )
+    resolved = ResolvedModel(
+        provider=provider,
+        upstream_id="swiss-ai/x",
+        public_id="CSCS-Inference/swiss-ai/x",
+    )
+    with (
+        patch.object(
+            completions, "resolve_model", new=AsyncMock(return_value=resolved)
+        ),
+        _settings_rpm(1),
+    ):
+        endpoint, api_key, label, res = asyncio.run(
+            completions._resolve_route("CSCS-Inference/swiss-ai/x", "tok")
+        )
+        assert (endpoint, api_key, label) == ("https://l1/v1", "pk", "CSCS L1")
+        assert res is resolved
+        with pytest.raises(HTTPException) as exc:
+            asyncio.run(completions._resolve_route("CSCS-Inference/swiss-ai/x", "tok"))
+    assert exc.value.status_code == 429
+
+
+def test_opentela_routing_is_never_limited(fake_redis):
+    """Locally-served models run on the user's own GPU allocation: no
+    budget is consumed and no 429 is possible, however many requests."""
+    from backend.routers import completions
+
+    with (
+        patch.object(completions, "resolve_model", new=AsyncMock(return_value=None)),
+        _settings_rpm(1),
+    ):
+        for _ in range(5):
+            endpoint, api_key, label, res = asyncio.run(
+                completions._resolve_route("some/local-model", "tok")
+            )
+    assert label is None
+    assert res is None
+    assert api_key == "tok"
+    # No counter was ever touched for this caller.
+    ident = rate_limit_service._identity("tok")
+    assert not any(k.startswith(f"rl:req:{ident}") for k in fake_redis.store)
+
+
+def test_platform_namespace_is_never_limited(fake_redis):
+    """SwissAI-Research/... resolves to our own OpenTela network — same
+    no-limit treatment as bare ids, but the resolution is returned so the
+    routes still rewrite ids."""
+    from backend.routers import completions
+    from backend.services.passthrough_service import ResolvedModel
+
+    resolved = ResolvedModel(
+        provider=None,
+        upstream_id="some/local-model",
+        public_id="SwissAI-Research/some/local-model",
+    )
+    with (
+        patch.object(
+            completions, "resolve_model", new=AsyncMock(return_value=resolved)
+        ),
+        _settings_rpm(1),
+    ):
+        for _ in range(5):
+            endpoint, api_key, label, res = asyncio.run(
+                completions._resolve_route("SwissAI-Research/some/local-model", "tok")
+            )
+    assert label is None
+    assert res is resolved
+    assert api_key == "tok"
+    ident = rate_limit_service._identity("tok")
+    assert not any(k.startswith(f"rl:req:{ident}") for k in fake_redis.store)

@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Request, Depends
-from backend.middleware.ratelimit import rate_limited
+from backend.middleware.auth import require_auth
 from backend.middleware.body import json_body
 from backend.services.llm_service import llm_proxy_embeddings
 from backend.config import get_settings
@@ -11,7 +11,7 @@ settings = get_settings()
 @router.post("/v1/embeddings")
 async def embeddings(
     request: Request,
-    token: str = Depends(rate_limited),
+    token: str = Depends(require_auth),
     data: dict = Depends(json_body),
 ):
     data["user_id"] = token

@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends
-from backend.middleware.ratelimit import rate_limited
+from backend.middleware.auth import require_auth
 from backend.middleware.body import json_body
 from backend.services.llm_service import llm_proxy_classify
 from backend.config import get_settings
@@ -14,7 +14,7 @@ settings = get_settings()
 
 @router.post("/v1/classify")
 async def classify(
-    token: str = Depends(rate_limited),
+    token: str = Depends(require_auth),
     data: dict = Depends(json_body),
 ):
     response = await llm_proxy_classify(

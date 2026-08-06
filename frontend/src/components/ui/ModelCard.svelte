@@ -43,11 +43,13 @@
   export let chatAppUrl: string;
 
   const logoUrl = getModelLogo(entry.data.title);
-  const metricsUrl = getModelMetricsUrl(entry.data.title);
   // Tier follows the peer's launched_by label: "k8s" or "cscs_L1" → 24/7,
   // anything else (a username from model-launch, or no label) → Slurm.
   const headLaunchedBy = entry.data.replicas[0]?.head?.launched_by;
   const isL1Model = isPassthroughLauncher(headLaunchedBy);
+  // Passthrough models (CSCS-Inference, RCP-AIaaS) run on the provider's
+  // infrastructure — our Grafana has no panels for them, so no button.
+  const metricsUrl = isL1Model ? null : getModelMetricsUrl(entry.data.title);
   const tier = getTierFromLaunchedBy(headLaunchedBy);
   const chatUrl = `${chatAppUrl.replace(/\/$/, "")}/?models=${encodeURIComponent(entry.data.title)}`;
 
