@@ -18,7 +18,8 @@ DEV_EMAIL = "dev@localhost"
 
 
 # Institutions whose members are auto-enabled (active budget on first sign-in).
-# Canonical list — referenced from the public FAQ via its GitHub URL.
+# Canonical list. No longer linked from the public FAQ — the FAQ now tells
+# unrecognised users to get in touch instead of publishing the domain list.
 _SWISS_DOMAINS_FILE = Path(__file__).resolve().parent.parent / "swiss_domains.json"
 with open(_SWISS_DOMAINS_FILE) as f:
     SWISS_DOMAINS = json.load(f)
