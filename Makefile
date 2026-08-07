@@ -120,7 +120,7 @@ migrate: _ensure-env _guard-local-db db-up
 # `run` uses the real OIDC flow, so it brings the local Authentik up too
 # (idp-up is idempotent — an already-running stack is a no-op).
 run: _ensure-env _ensure-frontend-env _guard-local-api idp-up migrate
-	@trap 'kill 0 2>/dev/null; sleep 1; lsof -ti :8080 -ti :4321 -sTCP:LISTEN 2>/dev/null | xargs kill -9 2>/dev/null; true' EXIT INT TERM; \
+	@trap 'sleep 1; lsof -ti :8080 -ti :4321 -sTCP:LISTEN 2>/dev/null | xargs kill -9 2>/dev/null; exit 0' EXIT INT TERM; \
 	uvicorn backend.main:app --reload --host 0.0.0.0 --port 8080 & \
 	cd frontend && npm run dev & \
 	wait
@@ -129,7 +129,7 @@ run: _ensure-env _ensure-frontend-env _guard-local-api idp-up migrate
 # upgraded fixture instead of the live OpenTela endpoint. Useful for
 # iterating on the model-card UI without depending on prod state.
 dummy-run: _ensure-env _ensure-frontend-env _guard-local-api db-up migrate
-	@trap 'kill 0 2>/dev/null; sleep 1; lsof -ti :8080 -ti :4321 -sTCP:LISTEN 2>/dev/null | xargs kill -9 2>/dev/null; true' EXIT INT TERM; \
+	@trap 'sleep 1; lsof -ti :8080 -ti :4321 -sTCP:LISTEN 2>/dev/null | xargs kill -9 2>/dev/null; exit 0' EXIT INT TERM; \
 	OTELA_FIXTURE_PATH=$(PWD)/backend/tests/fixtures/dnt_table_dev_live.json \
 	uvicorn backend.main:app --reload --host 0.0.0.0 --port 8080 & \
 	cd frontend && npm run dev & \
