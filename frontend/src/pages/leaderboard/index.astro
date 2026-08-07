@@ -20,7 +20,12 @@ try {
 
     const result = await response.json();
     for (const m of result.models || []) {
-        if (m.model) (tokenData as Record<string, number>)[m.model] = m.total_tokens || 0;
+        if (m.model)
+            (tokenData as Record<string, object>)[m.model] = {
+                input: m.prompt_tokens || 0,
+                output: m.completion_tokens || 0,
+                total: m.total_tokens || 0,
+            };
     }
 } catch (e: any) {
     console.error("Failed to fetch leaderboard:", e);
@@ -56,7 +61,6 @@ try {
                             <ArenaRankings
                                 client:load
                                 elosData={tokenData}
-                                metricLabel="Total Tokens"
                                 enableDateFilter={true}
                             />
                         )
