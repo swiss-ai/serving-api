@@ -3,14 +3,19 @@
   import { getApiUrl } from '../lib/config';
   import { getAccessToken } from '../lib/auth';
 
-  // Renders nothing at all unless the signed-in user is an admin. This is
-  // presentation only — every admin endpoint checks apikey.is_admin for
-  // itself, so hiding the menu is convenience, not a security boundary.
+  // Nav items that depend on who is signed in: "My Usage" for anyone with
+  // a session, plus an "Admin" dropdown for admins. Signed-out visitors see
+  // neither, so the nav never advertises a page that will turn them away.
+  //
+  // One /v1/profile call drives both. Presentation only — every admin
+  // endpoint checks apikey.is_admin for itself, so hiding the menu is
+  // convenience rather than a security boundary.
   export let mobile = false;
 
   const LINKS = [{ href: '/users', label: 'User Activity' }];
 
   let isAdmin = false;
+  let signedIn = false;
   let open = false;
   let root;
 
@@ -18,6 +23,7 @@
     try {
       const token = await getAccessToken();
       if (!token) return;
+      signedIn = true;
       const abort = new AbortController();
       const timer = setTimeout(() => abort.abort(), 10000);
       let res;
@@ -32,8 +38,10 @@
       if (!res.ok) return;
       isAdmin = !!(await res.json()).is_admin;
     } catch {
-      // Signed out, offline, or a slow API: just don't offer the menu.
+      // Signed out, offline, or a slow API: offer nothing rather than a
+      // link that lands on "please sign in".
       isAdmin = false;
+      signedIn = false;
     }
   }
 
@@ -57,6 +65,22 @@
     document.removeEventListener('keydown', onKey);
   });
 </script>
+
+{#if signedIn && mobile}
+  <a
+    href="/usage"
+    class="block text-sm font-medium text-slate-600 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-400 transition-colors py-2"
+  >
+    My Usage
+  </a>
+{:else if signedIn}
+  <a
+    href="/usage"
+    class="text-sm font-medium text-slate-600 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-400 transition-colors"
+  >
+    My Usage
+  </a>
+{/if}
 
 {#if isAdmin}
   {#if mobile}

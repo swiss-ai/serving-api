@@ -1,0 +1,33 @@
+---
+import PageLayout from "@layouts/PageLayout.astro";
+import Container from "@components/Container.astro";
+import MyUsage from "@components/MyUsage.svelte";
+
+export const prerender = false;
+---
+
+<PageLayout title="My Usage" description="Your own request and token usage">
+    <Container>
+        <div class="space-y-10">
+            <div class="text-center space-y-4">
+                <h1
+                    class="text-4xl font-bold tracking-tight text-slate-900 dark:text-white sm:text-5xl"
+                >
+                    My Usage
+                </h1>
+                <p
+                    class="mx-auto max-w-2xl text-lg text-slate-600 dark:text-slate-400"
+                >
+                    Your own requests and token usage, broken down by model.
+                    Only you can see this.
+                </p>
+            </div>
+
+            <div class="card p-1">
+                <div class="p-6 bg-white dark:bg-slate-900 rounded-xl">
+                    <MyUsage client:load />
+                </div>
+            </div>
+        </div>
+    </Container>
+</PageLayout>

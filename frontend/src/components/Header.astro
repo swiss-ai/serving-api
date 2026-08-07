@@ -2,7 +2,7 @@
 import Container from "@components/Container.astro";
 import Link from "@components/Link.astro";
 import { SITE } from "@consts";
-import AdminMenu from "@components/AdminMenu.svelte";
+import AccountNav from "@components/AccountNav.svelte";
 ---
 
 <header>
@@ -69,7 +69,7 @@ import AdminMenu from "@components/AdminMenu.svelte";
         >
           FAQ
         </Link>
-        <AdminMenu client:load />
+        <AccountNav client:load />
         <a
           href="https://swissai-initiative.slack.com/archives/C07DHJFRE2X"
           target="_blank"
@@ -158,7 +158,7 @@ import AdminMenu from "@components/AdminMenu.svelte";
       >
         FAQ
       </Link>
-      <AdminMenu client:load mobile={true} />
+      <AccountNav client:load mobile={true} />
       <a
         href="https://swissai-initiative.slack.com/archives/C07DHJFRE2X"
         target="_blank"
