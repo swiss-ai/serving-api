@@ -52,9 +52,11 @@ The model list only advertises ids of exactly three non-empty segments
 stays routable by its id (admins see the full unfiltered set, with the
 reason each hidden entry is dropped, on `/all_models`).
 
-Requests are forwarded with the prefix stripped (the serving side only
-knows its own id) and responses — including streamed chunks — are
-rewritten back to the prefixed id. The same upstream model on two
+Passthrough requests are forwarded with the provider prefix stripped
+(the upstream only knows its own id) and responses — including streamed
+chunks — are rewritten back to the prefixed id. Platform ids
+(`SwissAI-Research/...`, `{username}/...`) are forwarded verbatim: the
+full prefixed id IS the served name on the OpenTela side. The same upstream model on two
 providers is two distinct, individually-routable entries; a prefixed id
 can never collide with (or shadow) a local model. The
 `SwissAI-Research`, `CSCS-Inference` and `RCP-AIaaS` prefixes are

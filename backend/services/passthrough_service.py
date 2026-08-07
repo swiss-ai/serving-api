@@ -244,8 +244,11 @@ async def resolve_model(model_id: str) -> ResolvedModel | None:
 
     Namespaces, selected by the first path segment:
     - ``SwissAI-Research/<org>/<model>`` — our own OpenTela-served models
-      (provider=None). No advertised-set check: OpenTela 404s unknown ids
-      itself.
+      (provider=None), forwarded VERBATIM: k8s launches register the full
+      prefixed id as their served name (that is what lists them), so
+      OpenTela routes on the full id — exactly like user launches under
+      ``<username>/...``. No advertised-set check: OpenTela 404s unknown
+      ids itself.
     - ``<provider prefix>/<upstream id>`` (CSCS-Inference/...,
       RCP-AIaaS/...) — the remainder must be an id the provider currently
       advertises. A prefixed id whose remainder is unknown does NOT fall
@@ -262,7 +265,12 @@ async def resolve_model(model_id: str) -> ResolvedModel | None:
     if first == PLATFORM_PREFIX:
         if not rest:
             return None
-        return ResolvedModel(provider=None, upstream_id=rest, public_id=model_id)
+        # Forward the FULL id — stripping the prefix would require every
+        # deployment to also serve the bare alias, which was exactly the
+        # pre-namespace back-compat that has been removed. (Learned in
+        # prod: stripping + single served names = "No provider found"
+        # for every SwissAI-Research model.)
+        return ResolvedModel(provider=None, upstream_id=model_id, public_id=model_id)
     for provider in providers:
         if provider.prefix and first == provider.prefix:
             if rest and rest in await _get_cached_ids(provider):
