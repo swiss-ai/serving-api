@@ -18,7 +18,6 @@ AUTHENTIK = "https://authentik.example.com/application/o/app/"
 
 def _settings(**kwargs):
     base = dict(
-        dev_auth_bypass=False,
         database_url="postgresql://user:pw@remote/db",
     )
     base.update(kwargs)

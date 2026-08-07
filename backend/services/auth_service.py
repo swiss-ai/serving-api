@@ -1,5 +1,4 @@
 import json
-import os
 import secrets
 from functools import lru_cache
 from pathlib import Path
@@ -9,17 +8,6 @@ from sqlmodel import Session, select
 from backend.config import get_settings
 from backend.models.entities import APIKey
 from backend.redis_cache import get_token_cache
-
-
-# LOCAL DEV ONLY. The frontend's dev session (api_key.astro) sends this token
-# when running under `make run`; the backend honours it only when
-# settings.dev_auth_bypass is explicitly enabled.
-DEV_DUMMY_TOKEN = "dev-dummy-token"
-# Who the dummy token resolves to. `make auth-run` leaves the default;
-# `make admin-run` sets DEV_AUTH_EMAIL=admin@localhost and seeds that row
-# with is_admin, so the admin UI is exercisable locally. Only consulted
-# when the bypass is active, which requires a localhost database.
-DEV_EMAIL = os.environ.get("DEV_AUTH_EMAIL", "dev@localhost")
 
 
 # Institutions whose members are auto-enabled (active budget on first sign-in).
@@ -37,10 +25,7 @@ def get_or_create_apikey(engine, owner_email: str) -> APIKey:
         ).first()
         if api_key is None:
             key = f"sk-rc-{secrets.token_urlsafe(16)}"
-            if owner_email == DEV_EMAIL or any(
-                owner_email.lower().endswith(domain) for domain in SWISS_DOMAINS
-            ):
-                # Local dev account gets an active budget so the key is usable.
+            if any(owner_email.lower().endswith(domain) for domain in SWISS_DOMAINS):
                 budget = 1000
             else:
                 budget = -1
@@ -104,17 +89,6 @@ def verify_token(engine, token: str) -> bool:
         return True
 
 
-def dev_bypass_enabled() -> bool:
-    """The dev auth bypass is honoured only when it is explicitly enabled AND
-    the database is local. Deployed environments use a remote DB, so an
-    accidental ``DEV_AUTH_BYPASS=true`` there stays inert — the flag alone is
-    not enough to weaken auth in prod."""
-    settings = get_settings()
-    if not settings.dev_auth_bypass:
-        return False
-    return "localhost" in settings.database_url or "127.0.0.1" in settings.database_url
-
-
 @lru_cache(maxsize=8)
 def get_userinfo_endpoint(issuer: str) -> str:
     """Resolve the OIDC ``userinfo_endpoint`` from the issuer's discovery
@@ -136,9 +110,6 @@ def get_userinfo_endpoint(issuer: str) -> str:
 
 
 def get_profile_from_accesstoken(access_token: str):
-    if dev_bypass_enabled() and access_token == DEV_DUMMY_TOKEN:
-        # Local dev: skip the IdP and return a fixed dev profile.
-        return {"sub": "dev", "name": "Dev User", "email": DEV_EMAIL}
     settings = get_settings()
     # Hard cutover: only the active AUTH_PROVIDER issuer is trusted. After a
     # flip (auth0 <-> authentik) tokens from the previous IdP fail and users

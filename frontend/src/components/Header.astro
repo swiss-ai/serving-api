@@ -2,27 +2,16 @@
 import Container from "@components/Container.astro";
 import Link from "@components/Link.astro";
 import { SITE } from "@consts";
-import AccountNav from "@components/AccountNav.svelte";
+import NavMenus from "@components/NavMenus.svelte";
 import { getSession } from 'auth-astro/server';
 
-// Sessions are auth-astro cookies read during SSR, so who the viewer is has
-// to be resolved here rather than in a client island — nothing usable is
-// stored in localStorage. Same dev-bypass handling as api_key.astro so
-// `make auth-run` shows the signed-in nav locally.
-const authBypass =
-  (process.env.VITE_DEV_AUTH_BYPASS || import.meta.env.VITE_DEV_AUTH_BYPASS) === 'true';
-
-// auth-astro's Session type has no accessToken field, though the
-// provider populates one (see api_key.astro).
+// Sessions are auth-astro cookies resolved during SSR; local dev signs in
+// through the compose Authentik — there is no bypass.
 let session: any = null;
-if (authBypass) {
-  session = { user: { email: 'dev@localhost' }, accessToken: 'dev-dummy-token' };
-} else {
-  try {
-    session = await getSession(Astro.request);
-  } catch {
-    session = null;
-  }
+try {
+  session = await getSession(Astro.request);
+} catch {
+  session = null;
 }
 
 // Admin status lives in our database, not the IdP claims, so it needs a
@@ -45,6 +34,7 @@ if (session?.accessToken) {
   }
 }
 const signedIn = !!session;
+const userEmail = session?.user?.email || '';
 ---
 
 <header>
@@ -82,12 +72,6 @@ const signedIn = !!session;
       <!-- Desktop Navigation -->
       <nav class="hidden md:flex items-center gap-6">
         <Link
-          href="/guides"
-          class="text-sm font-medium text-slate-600 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-400 transition-colors"
-        >
-          Docs
-        </Link>
-        <Link
           href="/leaderboard"
           class="text-sm font-medium text-slate-600 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-400 transition-colors"
         >
@@ -99,19 +83,7 @@ const signedIn = !!session;
         >
           Performance
         </Link>
-        <Link
-          href="/articles"
-          class="text-sm font-medium text-slate-600 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-400 transition-colors"
-        >
-          Research
-        </Link>
-        <Link
-          href="/faq"
-          class="text-sm font-medium text-slate-600 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-400 transition-colors"
-        >
-          FAQ
-        </Link>
-        <AccountNav client:load signedIn={signedIn} isAdmin={isAdmin} />
+        <NavMenus client:load signedIn={signedIn} isAdmin={isAdmin} email={userEmail} section="about" />
         <a
           href="https://swissai-initiative.slack.com/archives/C07DHJFRE2X"
           target="_blank"
@@ -123,6 +95,7 @@ const signedIn = !!session;
           </svg>
           Get Help
         </a>
+        <NavMenus client:load signedIn={signedIn} isAdmin={isAdmin} email={userEmail} section="profile" />
       </nav>
 
       <!-- Mobile Menu Button -->
@@ -171,12 +144,6 @@ const signedIn = !!session;
       class="hidden md:hidden flex-col gap-4 pt-4 pb-2 border-t border-slate-200 dark:border-slate-800 mt-4"
     >
       <Link
-        href="/guides"
-        class="text-sm font-medium text-slate-600 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-400 transition-colors py-2"
-      >
-        Docs
-      </Link>
-      <Link
         href="/leaderboard"
         class="text-sm font-medium text-slate-600 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-400 transition-colors py-2"
       >
@@ -188,19 +155,7 @@ const signedIn = !!session;
       >
         Performance
       </Link>
-      <Link
-        href="/articles"
-        class="text-sm font-medium text-slate-600 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-400 transition-colors py-2"
-      >
-        Research
-      </Link>
-      <Link
-        href="/faq"
-        class="text-sm font-medium text-slate-600 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-400 transition-colors py-2"
-      >
-        FAQ
-      </Link>
-      <AccountNav client:load signedIn={signedIn} isAdmin={isAdmin} mobile={true} />
+      <NavMenus client:load signedIn={signedIn} isAdmin={isAdmin} email={userEmail} mobile={true} />
       <a
         href="https://swissai-initiative.slack.com/archives/C07DHJFRE2X"
         target="_blank"
