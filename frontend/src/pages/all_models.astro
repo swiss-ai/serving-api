@@ -1,0 +1,38 @@
+---
+import { getSession } from 'auth-astro/server';
+import PageLayout from "@layouts/PageLayout.astro";
+import Container from "@components/Container.astro";
+import AllModelsTable from "@components/AllModels.svelte";
+
+export const prerender = false;
+
+// Same SSR session handling as users/index.astro. Signed-out visitors are
+// bounced; whether the signed-in caller is an admin is the API's decision —
+// the component shows its access-required state on a 403.
+let session: any = await getSession(Astro.request);
+if (!session) {
+  return Astro.redirect('/');
+}
+---
+
+<PageLayout title="All Models" description="Every model from every source, unfiltered (admin only)">
+    <Container>
+        <div class="space-y-8">
+            <div class="text-center space-y-2">
+                <h1 class="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">
+                    All Models
+                </h1>
+                <p class="mx-auto max-w-2xl text-slate-600 dark:text-slate-400">
+                    Every model from every source, unfiltered. Hidden entries
+                    show why the public list drops them. Admin access required.
+                </p>
+            </div>
+
+            <div class="card p-1">
+                <div class="p-6 bg-white dark:bg-slate-900 rounded-xl">
+                    <AllModelsTable client:load accessToken={session.accessToken} />
+                </div>
+            </div>
+        </div>
+    </Container>
+</PageLayout>

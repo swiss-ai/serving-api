@@ -317,6 +317,27 @@ def _synthetic_entry(provider: Provider, model_id: str, with_details: bool) -> d
     return entry
 
 
+async def admin_inventory() -> list[dict]:
+    """Every id every provider currently advertises, BEFORE curation —
+    for the admin all-models view. Each row carries the public (prefixed)
+    id and, when curation hides it, the reason."""
+    rows: list[dict] = []
+    for provider in registered_providers():
+        advertised = await _get_cached_ids(provider)
+        for model_id in sorted(await _discover_ids(provider)):
+            rows.append(
+                {
+                    "id": f"{provider.prefix}/{model_id}",
+                    "source": provider.name,
+                    "device": provider.device,
+                    "hidden_reason": None
+                    if model_id in advertised
+                    else "alias/quant suffix hidden by curation",
+                }
+            )
+    return rows
+
+
 async def get_synthetic_entries(with_details: bool = False) -> list[dict]:
     """Synthesize peer-style entries across all configured passthrough
     providers. Returns an empty list when none are configured: we only

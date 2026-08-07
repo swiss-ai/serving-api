@@ -93,6 +93,58 @@ async def user_activity(
     }
 
 
+@router.get("/v1/admin/models")
+async def all_models(
+    request: Request,
+    admin: str = Depends(require_admin),
+):
+    """Every model from every source, unfiltered — the "why is my model
+    not listed?" debugging view. The public filters are listing-only, so
+    everything here is running and routable by its id; hidden_reason says
+    what keeps an entry off the public list (None = it is listed).
+    """
+    from backend.routers.models import _dnt_endpoint
+    from backend.services.model_service import get_all_models, listing_exclusion
+    from backend.services.passthrough_service import admin_inventory
+
+    by_id: dict[str, dict] = {}
+    for peer in get_all_models(_dnt_endpoint(), with_details=True):
+        model_id = peer.get("id")
+        if not model_id:
+            continue
+        row = by_id.setdefault(
+            model_id,
+            {
+                "id": model_id,
+                "source": "OpenTela",
+                "launched_by": peer.get("launched_by") or "",
+                "otela_version": peer.get("otela_version") or "",
+                "status": peer.get("status") or "",
+                "device": peer.get("device") or "",
+                "peers": 0,
+                "hidden_reason": listing_exclusion(peer),
+            },
+        )
+        row["peers"] += 1
+    models = list(by_id.values())
+    for entry in await admin_inventory():
+        models.append(
+            {
+                "id": entry["id"],
+                "source": entry["source"],
+                "launched_by": entry["source"],
+                "otela_version": "",
+                "status": "ready",
+                "device": entry["device"],
+                "peers": 0,
+                "hidden_reason": entry["hidden_reason"],
+            }
+        )
+    # Hidden entries first — they are what this page exists to surface.
+    models.sort(key=lambda m: (m["hidden_reason"] is None, m["id"]))
+    return {"models": models, "count": len(models)}
+
+
 @router.get("/v1/admin/monitoring/users")
 async def list_monitoring_rules(
     request: Request,

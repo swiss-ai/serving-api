@@ -521,3 +521,93 @@ def test_usage_ignores_incomplete_records(engine):
     usage_service.record_usage("", "m", 1, 1)  # no user
     usage_service.record_usage("a@ethz.ch", "", 1, 1)  # no model
     assert usage_service.flush(engine) == 0
+
+
+# ---------- admin all-models view ----------
+
+
+def test_admin_models_lists_everything_with_hidden_reasons(client):
+    """The admin view returns every model from every source, aggregated by
+    id, with hidden_reason explaining what the public filter would drop —
+    including the real-world failure mode of a username-suffixed 2-segment
+    id from a current OpenTela launch."""
+    from unittest.mock import AsyncMock, patch
+
+    require_admin = _admin_override(client)
+    peers = [
+        {
+            "id": "SwissAI-Research/swiss-ai/Apertus-v1.5-8B",
+            "launched_by": "k8s",
+            "otela_version": "",
+            "status": "ready",
+            "device": "GH200",
+        },
+        {
+            "id": "SwissAI-Research/swiss-ai/Apertus-v1.5-8B",
+            "launched_by": "k8s",
+            "otela_version": "",
+            "status": "ready",
+            "device": "GH200",
+        },
+        {
+            "id": "MiniMaxAI/MiniMax-M2.5-bdoan",
+            "launched_by": "bdoan",
+            "otela_version": "sai-v0.0.6",
+            "status": "ready",
+            "device": "GH200",
+        },
+        {
+            "id": "user1/some-org/some-model",
+            "launched_by": "user1",
+            "otela_version": "sai-v0.0.5",
+            "status": "ready",
+            "device": "GH200",
+        },
+    ]
+    inventory = [
+        {
+            "id": "RCP-AIaaS/swiss-ai/Apertus-v1.5-8B",
+            "source": "rcp",
+            "device": "EPFL RCP",
+            "hidden_reason": None,
+        },
+        {
+            "id": "RCP-AIaaS/swiss-ai/Apertus-v1.5-8B-bfloat16",
+            "source": "rcp",
+            "device": "EPFL RCP",
+            "hidden_reason": "alias/quant suffix hidden by curation",
+        },
+    ]
+    try:
+        with (
+            patch(
+                "backend.services.model_service.get_all_models",
+                return_value=peers,
+            ),
+            patch(
+                "backend.services.passthrough_service.admin_inventory",
+                new=AsyncMock(return_value=inventory),
+            ),
+        ):
+            res = client.get("/v1/admin/models")
+    finally:
+        client.app.dependency_overrides.pop(require_admin, None)
+    assert res.status_code == 200
+    body = res.json()
+    assert body["count"] == 5
+    by_id = {m["id"]: m for m in body["models"]}
+    # Ours: listed, and the two peers aggregate into one row.
+    ours = by_id["SwissAI-Research/swiss-ai/Apertus-v1.5-8B"]
+    assert ours["hidden_reason"] is None and ours["peers"] == 2
+    # Username-suffixed 2-segment id: hidden with the naming reason.
+    assert "3 segments" in by_id["MiniMaxAI/MiniMax-M2.5-bdoan"]["hidden_reason"]
+    # Well-formed user launch on an old OpenTela: hidden with the version reason.
+    assert "below" in by_id["user1/some-org/some-model"]["hidden_reason"]
+    # Passthrough rows pass through their curation verdicts.
+    assert by_id["RCP-AIaaS/swiss-ai/Apertus-v1.5-8B"]["hidden_reason"] is None
+    assert (
+        by_id["RCP-AIaaS/swiss-ai/Apertus-v1.5-8B-bfloat16"]["hidden_reason"]
+        is not None
+    )
+    # Hidden entries sort first — they are the page's point.
+    assert body["models"][0]["hidden_reason"] is not None
