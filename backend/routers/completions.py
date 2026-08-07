@@ -9,6 +9,8 @@ from backend.services.langfuse_service import (
     prepare_stream_trace,
     record_if_monitored,
 )
+from backend.services.monitoring_service import resolve_owner_email
+from backend.services.usage_service import record_usage
 from backend.services.llm_service import (
     llm_proxy,
     llm_proxy_completions,
@@ -53,6 +55,36 @@ async def _resolve_route(
             resolved,
         )
     return settings.otela_head_addr + "/v1/service/llm/v1/", user_token, None, resolved
+
+
+def _record_usage(engine, token, public_model, response) -> None:
+    """Count a non-streamed request against its owner.
+
+    Usage accounting is deliberately independent of Langfuse tracing: it
+    covers every request and keeps working when tracing is narrowed to
+    monitored users only.
+    """
+    usage = getattr(response, "usage", None)
+    if usage is None:
+        data = getattr(response, "data", None)
+        usage = data.get("usage") if isinstance(data, dict) else None
+    if usage is None:
+        return
+    if isinstance(usage, dict):
+        prompt, completion = usage.get("prompt_tokens"), usage.get("completion_tokens")
+    else:
+        prompt = getattr(usage, "prompt_tokens", None)
+        completion = getattr(usage, "completion_tokens", None)
+    email = resolve_owner_email(engine, token)
+    if not email:
+        return
+    record_usage(
+        owner_email=email,
+        model=public_model,
+        prompt_tokens=prompt or 0,
+        completion_tokens=completion or 0,
+        engine=engine,
+    )
 
 
 CHAT_RESERVED_KEYS = [
@@ -154,6 +186,7 @@ async def chat_completion(
             app_title=app_title,
             latency_ms=(time.monotonic() - proxy_started) * 1000,
         )
+        _record_usage(request.app.state.engine, token, public_model, response)
     if "stream" in data and data["stream"]:
         model_override = resolved.public_id if resolved is not None else None
 
@@ -244,6 +277,7 @@ async def completion(
             app_title=app_title,
             latency_ms=(time.monotonic() - proxy_started) * 1000,
         )
+        _record_usage(request.app.state.engine, token, public_model, response)
     if "stream" in data and data["stream"]:
         model_override = resolved.public_id if resolved is not None else None
 

@@ -443,3 +443,81 @@ def test_listing_filter_can_be_disabled(monkeypatch):
     ]
     assert len(platform_namespaced(peers)) == 3
     get_settings.cache_clear()
+
+
+# ---------- usage accounting ----------
+
+
+@pytest.fixture(autouse=True)
+def clean_usage(engine):
+    from backend.models.entities import UsageDaily
+    from backend.services import usage_service
+
+    yield
+    with Session(engine) as session:
+        for r in session.query(UsageDaily).all():
+            session.delete(r)
+        session.commit()
+    usage_service.flush(engine)  # drain anything buffered by a test
+    with Session(engine) as session:
+        for r in session.query(UsageDaily).all():
+            session.delete(r)
+        session.commit()
+
+
+def test_usage_accumulates_and_upserts(engine):
+    from backend.services import usage_service
+
+    for _ in range(3):
+        usage_service.record_usage("a@ethz.ch", "SwissAI-Research/o/m", 100, 20)
+    usage_service.record_usage("b@epfl.ch", "CSCS-Inference/o/m", 7, 3)
+    assert usage_service.flush(engine) == 2
+
+    # A second window for the same key must add, not replace.
+    usage_service.record_usage("a@ethz.ch", "SwissAI-Research/o/m", 50, 5)
+    usage_service.flush(engine)
+
+    rows = {r["user"]: r for r in usage_service.usage_by_user(engine, days=1)}
+    assert rows["a@ethz.ch"]["requests"] == 4
+    assert rows["a@ethz.ch"]["prompt_tokens"] == 350
+    assert rows["a@ethz.ch"]["completion_tokens"] == 65
+    assert rows["a@ethz.ch"]["total_tokens"] == 415
+    assert rows["b@epfl.ch"]["requests"] == 1
+
+
+def test_usage_by_model_and_per_user_views(engine):
+    from backend.services import usage_service
+
+    usage_service.record_usage("a@ethz.ch", "model-x", 10, 1)
+    usage_service.record_usage("b@epfl.ch", "model-x", 20, 2)
+    usage_service.record_usage("a@ethz.ch", "model-y", 5, 5)
+    usage_service.flush(engine)
+
+    by_model = {r["model"]: r for r in usage_service.usage_by_model(engine, days=1)}
+    assert by_model["model-x"]["requests"] == 2  # both users
+    assert by_model["model-x"]["prompt_tokens"] == 30
+
+    mine = usage_service.usage_for_user(engine, "a@ethz.ch", days=1)
+    assert {r["model"] for r in mine} == {"model-x", "model-y"}  # only my rows
+    assert sum(r["requests"] for r in mine) == 2
+
+
+def test_usage_ranked_by_requests(engine):
+    from backend.services import usage_service
+
+    usage_service.record_usage("quiet@ethz.ch", "m", 1, 1)
+    for _ in range(5):
+        usage_service.record_usage("busy@ethz.ch", "m", 1, 1)
+    usage_service.flush(engine)
+    assert [r["user"] for r in usage_service.usage_by_user(engine, days=1)] == [
+        "busy@ethz.ch",
+        "quiet@ethz.ch",
+    ]
+
+
+def test_usage_ignores_incomplete_records(engine):
+    from backend.services import usage_service
+
+    usage_service.record_usage("", "m", 1, 1)  # no user
+    usage_service.record_usage("a@ethz.ch", "", 1, 1)  # no model
+    assert usage_service.flush(engine) == 0

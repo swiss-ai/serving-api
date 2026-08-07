@@ -7,6 +7,7 @@ from backend.services.auth_service import (
     get_or_create_apikey,
     rotate_key_by_email,
 )
+from backend.services.usage_service import usage_for_user
 from backend.services.monitoring_service import (
     TTL_CHOICES,
     LEVEL_RANK,
@@ -139,3 +140,32 @@ async def delete_own_monitoring(
     email = _email_from_credentials(credentials)
     removed = delete_rule(request.app.state.engine, email, source="self")
     return {"removed": removed}
+
+
+@router.get("/v1/profile/usage")
+async def get_own_usage(
+    request: Request,
+    days: int = 30,
+    credentials: Annotated[HTTPAuthorizationCredentials, Depends(security)] = None,
+):
+    """The caller's own token usage, broken down by model.
+
+    Scoped to the caller by construction — no admin rights needed and no
+    other user's data is reachable, which is why this is open to everyone
+    while /v1/admin/metrics/users is not.
+    """
+    email = _email_from_credentials(credentials)
+    if days < 1 or days > 365:
+        raise HTTPException(status_code=422, detail="days must be 1..365")
+    models = usage_for_user(request.app.state.engine, email, days)
+    return {
+        "days": days,
+        "user": email,
+        "models": models,
+        "totals": {
+            "requests": sum(m["requests"] for m in models),
+            "prompt_tokens": sum(m["prompt_tokens"] for m in models),
+            "completion_tokens": sum(m["completion_tokens"] for m in models),
+            "total_tokens": sum(m["total_tokens"] for m in models),
+        },
+    }
