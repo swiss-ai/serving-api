@@ -5,24 +5,13 @@ import { SITE } from "@consts";
 import AccountNav from "@components/AccountNav.svelte";
 import { getSession } from 'auth-astro/server';
 
-// Sessions are auth-astro cookies read during SSR, so who the viewer is has
-// to be resolved here rather than in a client island — nothing usable is
-// stored in localStorage. Same dev-bypass handling as api_key.astro so
-// `make auth-run` shows the signed-in nav locally.
-const authBypass =
-  (process.env.VITE_DEV_AUTH_BYPASS || import.meta.env.VITE_DEV_AUTH_BYPASS) === 'true';
-
-// auth-astro's Session type has no accessToken field, though the
-// provider populates one (see api_key.astro).
+// Sessions are auth-astro cookies resolved during SSR; local dev signs in
+// through the compose Authentik — there is no bypass.
 let session: any = null;
-if (authBypass) {
-  session = { user: { email: 'dev@localhost' }, accessToken: 'dev-dummy-token' };
-} else {
-  try {
-    session = await getSession(Astro.request);
-  } catch {
-    session = null;
-  }
+try {
+  session = await getSession(Astro.request);
+} catch {
+  session = null;
 }
 
 // Admin status lives in our database, not the IdP claims, so it needs a

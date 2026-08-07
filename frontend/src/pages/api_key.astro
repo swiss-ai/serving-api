@@ -8,28 +8,12 @@ import { SignIn } from 'auth-astro/components';
 
 export const prerender = false;
 
-// Local dev auth bypass. Set by `make admin-run` (alongside the backend's
-// DEV_AUTH_BYPASS) so both sides agree: when on, we fake a session and send
-// the dev-dummy-token the backend is configured to accept. Plain `make run`
-// leaves this unset and uses the real Auth0 flow.
-// Read from process.env first: command-line env vars (set by `make admin-run`)
-// reach SSR there, not via import.meta.env — same pattern as VITE_API_URL below.
-const authBypass =
-  (process.env.VITE_DEV_AUTH_BYPASS || import.meta.env.VITE_DEV_AUTH_BYPASS) === 'true';
-
-let session;
-if (authBypass) {
-  // Dummy session for local development — bypasses Auth0
-  session = {
-    user: { name: 'Dev User', email: 'dev@localhost' },
-    accessToken: 'dev-dummy-token',
-  };
-} else {
-  // Check if user is authenticated
-  session = await getSession(Astro.request);
-  if (!session) {
-    return Astro.redirect('/');
-  }
+// Sessions come from auth-astro (cookie, resolved server-side). Local dev
+// signs in through the docker-compose Authentik (`make run`,
+// admin@localhost / admin or user@localhost / user) — there is no bypass.
+let session = await getSession(Astro.request);
+if (!session) {
+  return Astro.redirect('/');
 }
 
 // API key will be fetched client-side to avoid exposing it in the HTML

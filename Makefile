@@ -1,4 +1,4 @@
-.PHONY: install install-dev format check test run admin-run dummy-run idp-up idp-down db-up db-down migrate _ensure-env _ensure-frontend-env _guard-local-db _guard-local-api
+.PHONY: install install-dev format check test run dummy-run idp-up idp-down db-up db-down migrate _ensure-env _ensure-frontend-env _guard-local-db _guard-local-api
 
 UV_EXTRA ?=
 
@@ -118,27 +118,11 @@ migrate: _ensure-env _guard-local-db db-up
 	alembic upgrade head
 
 # `run` uses the real OIDC flow, so it brings the local Authentik up too
-# (idp-up is idempotent — an already-running stack is a no-op). The bypass
-# target (admin-run) skips it: no IdP involved, faster start.
+# (idp-up is idempotent — an already-running stack is a no-op).
 run: _ensure-env _ensure-frontend-env _guard-local-api idp-up migrate
 	@trap 'kill 0 2>/dev/null; sleep 1; lsof -ti :8080 -ti :4321 -sTCP:LISTEN 2>/dev/null | xargs kill -9 2>/dev/null; true' EXIT INT TERM; \
 	uvicorn backend.main:app --reload --host 0.0.0.0 --port 8080 & \
 	cd frontend && npm run dev & \
-	wait
-
-# Auth bypass (no IdP, fastest loop): the dev session is admin@localhost with is_admin set,
-# so the Admin dropdown and /users page are exercisable locally. The row is
-# seeded idempotently before the servers start. LOCAL ONLY.
-admin-run: _ensure-env _ensure-frontend-env _guard-local-api db-up migrate
-	@docker exec $(PG_CONTAINER) psql -q -U $(PG_USER) -d $(PG_DB) -c "\
-	  INSERT INTO apikey (key, budget, created_at, updated_at, owner_email, is_admin) \
-	  SELECT 'sk-rc-local-admin', 1000, now(), now(), 'admin@localhost', true \
-	  WHERE NOT EXISTS (SELECT 1 FROM apikey WHERE owner_email = 'admin@localhost'); \
-	  UPDATE apikey SET is_admin = true WHERE owner_email = 'admin@localhost';"
-	@trap 'kill 0 2>/dev/null; sleep 1; lsof -ti :8080 -ti :4321 -sTCP:LISTEN 2>/dev/null | xargs kill -9 2>/dev/null; true' EXIT INT TERM; \
-	DEV_AUTH_BYPASS=true DEV_AUTH_EMAIL=admin@localhost \
-	uvicorn backend.main:app --reload --host 0.0.0.0 --port 8080 & \
-	cd frontend && VITE_DEV_AUTH_BYPASS=true npm run dev & \
 	wait
 
 # Same as `run` but forces the model list to come from the synthesised

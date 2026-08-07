@@ -6,22 +6,13 @@ import MyUsage from "@components/MyUsage.svelte";
 
 export const prerender = false;
 
-// Sessions are auth-astro cookies, resolved server-side — the same pattern
-// (and the same dev bypass) as api_key.astro. The token is passed to the
-// island as a prop; api_key.astro already embeds session.accessToken in its
-// page script, so this is no new exposure, and it is only ever the caller's
-// own token on their own page.
-const authBypass =
-  (process.env.VITE_DEV_AUTH_BYPASS || import.meta.env.VITE_DEV_AUTH_BYPASS) === 'true';
-
-let session: any;
-if (authBypass) {
-  session = { user: { email: 'dev@localhost' }, accessToken: 'dev-dummy-token' };
-} else {
-  session = await getSession(Astro.request);
-  if (!session) {
-    return Astro.redirect('/');
-  }
+// Sessions are auth-astro cookies, resolved server-side. The token is passed
+// to the island as a prop; api_key.astro already embeds session.accessToken
+// in its page script, so this is no new exposure, and it is only ever the
+// caller's own token on their own page.
+let session: any = await getSession(Astro.request);
+if (!session) {
+  return Astro.redirect('/');
 }
 ---
 
