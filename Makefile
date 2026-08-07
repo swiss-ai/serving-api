@@ -1,4 +1,4 @@
-.PHONY: install install-dev format check test run auth-run admin-run dummy-run db-up db-down migrate _ensure-env _ensure-frontend-env _guard-local-db _guard-local-api
+.PHONY: install install-dev format check test run auth-run admin-run dummy-run idp-up idp-down db-up db-down migrate _ensure-env _ensure-frontend-env _guard-local-db _guard-local-api
 
 UV_EXTRA ?=
 
@@ -65,6 +65,23 @@ db-up:
 db-down:
 	-docker stop $(PG_CONTAINER) > /dev/null 2>&1
 	-docker rm $(PG_CONTAINER) > /dev/null 2>&1
+
+# Local Authentik so `make run` can do a real OIDC login now that Auth0 is
+# gone. Sign in as admin@localhost / admin. Seeds the matching apikey row
+# (with is_admin) so the account has a budget and the admin UI works —
+# localhost is not a swiss_domains entry, so an unseeded first login would
+# get budget -1 and every API call rejected.
+idp-up: db-up
+	docker compose up -d --wait authentik-server authentik-worker
+	@docker exec $(PG_CONTAINER) psql -q -U $(PG_USER) -d $(PG_DB) -c "\
+	  INSERT INTO apikey (key, budget, created_at, updated_at, owner_email, is_admin) \
+	  SELECT 'sk-rc-local-admin', 1000, now(), now(), 'admin@localhost', true \
+	  WHERE NOT EXISTS (SELECT 1 FROM apikey WHERE owner_email = 'admin@localhost'); \
+	  UPDATE apikey SET is_admin = true WHERE owner_email = 'admin@localhost';" 2>/dev/null || true
+	@echo "Authentik: http://localhost:9000  (admin@localhost / admin)"
+
+idp-down:
+	docker compose stop authentik-server authentik-worker authentik-db authentik-redis
 
 # Refuse to run any DB-touching target if .env points at a non-local host.
 # We never want `make run` / `make migrate` to accidentally apply migrations
