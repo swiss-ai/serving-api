@@ -20,6 +20,7 @@ change when we do. See docs 07-usage-admin.
 
 import logging
 import threading
+import time
 from collections import defaultdict
 from datetime import date, datetime, timedelta
 from typing import Optional
@@ -33,13 +34,21 @@ from backend.models.entities import UsageDaily
 
 logger = logging.getLogger(__name__)
 
-# Distinct (day, user, model) keys buffered before a flush is triggered. Low
-# enough that a quiet instance still persists promptly, high enough that a
-# busy one is not writing per request.
+# Requests buffered since the last flush before one is triggered. Counted per
+# request, not per distinct (day, user, model) key — a burst from a single
+# user must flush just as promptly as scattered traffic. Low enough that a
+# quiet instance still persists promptly, high enough that a busy one is not
+# writing per request.
 FLUSH_THRESHOLD = 25
+# A buffered count never waits longer than this for the threshold, bounding
+# what a pod restart can lose on a quiet instance.
+FLUSH_MAX_AGE_S = 60.0
 
 _buffer: dict[tuple[date, str, str], list[int]] = defaultdict(lambda: [0, 0, 0])
 _buffer_lock = threading.Lock()
+_requests_since_flush = 0
+_last_flush = time.monotonic()
+_flush_inflight = False
 _engine = None
 
 
@@ -64,6 +73,7 @@ def record_usage(
     engine=None,
 ) -> None:
     """Count one request. Never raises — accounting must not break serving."""
+    global _requests_since_flush, _flush_inflight
     try:
         if not owner_email or not model:
             return
@@ -73,7 +83,16 @@ def record_usage(
             entry[0] += 1
             entry[1] += int(prompt_tokens or 0)
             entry[2] += int(completion_tokens or 0)
-            due = len(_buffer) >= FLUSH_THRESHOLD
+            _requests_since_flush += 1
+            # At most one background flush at a time; without the guard,
+            # every request past the threshold would spawn a thread until
+            # the first one swapped the buffer out.
+            due = not _flush_inflight and (
+                _requests_since_flush >= FLUSH_THRESHOLD
+                or time.monotonic() - _last_flush >= FLUSH_MAX_AGE_S
+            )
+            if due:
+                _flush_inflight = True
         if due:
             threading.Thread(target=flush, args=(engine,), daemon=True).start()
     except Exception:
@@ -87,8 +106,16 @@ def flush(engine=None) -> int:
     arriving mid-flush accumulate into a fresh buffer instead of being lost
     or double counted.
     """
-    global _buffer
+    global _buffer, _requests_since_flush, _last_flush, _flush_inflight
     with _buffer_lock:
+        # Counters reset at swap time, and the inflight guard drops with
+        # them: once the buffer is swapped there is nothing further for a
+        # concurrent flush to double-write (the UPSERT adds), so the guard
+        # only needs to cover the record→swap window where thread spam
+        # was possible.
+        _requests_since_flush = 0
+        _last_flush = time.monotonic()
+        _flush_inflight = False
         if not _buffer:
             return 0
         pending, _buffer = _buffer, defaultdict(lambda: [0, 0, 0])
@@ -136,6 +163,9 @@ def flush(engine=None) -> int:
                 entry[0] += counts[0]
                 entry[1] += counts[1]
                 entry[2] += counts[2]
+                # Counts toward the threshold again, so the next request
+                # retries promptly instead of waiting out a fresh window.
+                _requests_since_flush += counts[0]
         return 0
 
 

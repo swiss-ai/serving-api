@@ -55,6 +55,10 @@ async def require_admin(
     raise HTTPException(status_code=403, detail="Admin access required")
 
 
+# Most rows the user-activity endpoint returns in one response.
+USER_ACTIVITY_CAP = 500
+
+
 class MonitoringRuleIn(BaseModel):
     owner_email: str
     level: str  # 'metadata' | 'full'
@@ -79,7 +83,14 @@ async def user_activity(
 
     if days < 1 or days > 365:
         raise HTTPException(status_code=422, detail="days must be 1..365")
-    return {"days": days, "users": usage_by_user(request.app.state.engine, days)}
+    users = usage_by_user(request.app.state.engine, days)
+    # Rows are sorted by requests, so the cap keeps the most active users;
+    # it bounds the payload, not the aggregation.
+    return {
+        "days": days,
+        "users": users[:USER_ACTIVITY_CAP],
+        "truncated": len(users) > USER_ACTIVITY_CAP,
+    }
 
 
 @router.get("/v1/admin/monitoring/users")

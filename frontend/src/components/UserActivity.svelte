@@ -99,7 +99,7 @@
   {:else}
     {#if truncated}
       <p class="text-center text-sm text-amber-600 dark:text-amber-400">
-        Showing a truncated sample of the window's traffic.
+        Showing the most active users; more exist in this window.
       </p>
     {/if}
     <div class="overflow-x-auto">
