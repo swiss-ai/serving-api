@@ -134,9 +134,10 @@ def prepare_stream_trace(
     emit-at-headers approach.
 
     The ctx also carries email/model into usage accounting, which counts
-    every request. If Langfuse emission is ever gated to monitored users,
-    gate it inside record_stream_result — returning None here for ungated
-    users would silently stop their streamed usage from being counted."""
+    every request — so a ctx is returned for every resolvable caller even
+    when level is None (unmonitored). The Langfuse gate lives inside
+    record_stream_result, never here: returning None for ungated users
+    would silently stop their streamed usage from being counted."""
     try:
         email = resolve_owner_email(engine, api_key)
         if not email:
@@ -166,8 +167,12 @@ def record_stream_result(
 ) -> None:
     """Emit the complete trace for a finished (or aborted) stream. Runs in
     response_generator's finally block, so partial output from a client
-    disconnect is still recorded."""
+    disconnect is still recorded. No-op for unmonitored users (level None)
+    — this is THE Langfuse gate for streams; the ctx itself always exists
+    because usage accounting rides on it."""
     try:
+        if not trace_ctx.get("level"):
+            return
         latency_s = time.time() - trace_ctx["start_time"]
         body: dict = {
             "id": str(uuid.uuid4()),
@@ -222,18 +227,21 @@ def record_if_monitored(
     app_title: str = "",
     latency_ms: Optional[float] = None,
 ) -> None:
-    """Emit a trace for this request. Default policy: everyone is traced at
-    'metadata' (content-free: model/usage/latency — per-user token
-    accounting, not optional); an active monitoring rule overrides the
-    default, typically escalating to 'full' (prompt messages + non-streamed
-    completion text). Synchronous rule lookup is ~free (30s cache); the
-    network I/O is detached.
+    """Emit a trace for this request — only when the user has an active
+    monitoring rule (superadmin-created or self-serve opt-in). Without a
+    rule nothing is written: Langfuse stores deliberate recordings, not
+    ambient telemetry; token accounting is Postgres usage_daily. 'metadata'
+    records model/usage/latency, 'full' adds prompt messages and
+    non-streamed completion text. Synchronous rule lookup is ~free (30s
+    cache); the network I/O is detached.
     """
     try:
         email = resolve_owner_email(engine, api_key)
         if not email:
             return
         level, is_default = resolve_trace_level(engine, email)
+        if level is None:
+            return
 
         trace_id = str(uuid.uuid4())
         body: dict = {
@@ -297,93 +305,3 @@ def record_if_monitored(
     except Exception as exc:
         # Monitoring must never break the request path.
         logger.warning("record_if_monitored failed: %s", exc)
-
-
-def aggregate_user_activity(traces: list[dict]) -> list[dict]:
-    """Trace list items -> per-user activity, most requests first."""
-    users: dict[str, dict] = {}
-    for t in traces:
-        uid = t.get("userId")
-        if not uid:
-            continue
-        u = users.setdefault(
-            uid, {"user": uid, "requests": 0, "total_tokens": 0, "last_active": ""}
-        )
-        u["requests"] += 1
-        md = t.get("metadata") or {}
-        usage = md.get("usage") or {}
-        total = usage.get("total_tokens", usage.get("totalTokens"))
-        if total is None:
-            total = usage.get("completion_tokens", usage.get("completionTokens")) or 0
-        u["total_tokens"] += int(total or 0)
-        ts = t.get("timestamp") or ""
-        if ts > u["last_active"]:
-            u["last_active"] = ts
-    return sorted(users.values(), key=lambda u: -u["requests"])
-
-
-_user_activity_cache: dict = {}
-
-
-async def get_user_activity(days: int = 30, max_pages: int = 50) -> dict:
-    """Per-user request/token counts over the window, from the Langfuse
-    trace list API (paginated; cached ~5 min). Admin-only data — user
-    emails are PII."""
-    from backend.services.metrics_service import get_ttl_hash
-
-    cache_key = (days, get_ttl_hash(300))
-    if cache_key in _user_activity_cache:
-        return _user_activity_cache[cache_key]
-
-    auth = _auth_header()
-    if auth is None:
-        return {"days": days, "users": [], "truncated": False}
-    base = f"{get_settings().langfuse_host.rstrip('/')}/api/public/traces"
-    from_ts = _iso(time.time() - days * 86400)
-
-    traces: list[dict] = []
-    truncated = False
-    try:
-        async with aiohttp.ClientSession() as session:
-            for page in range(1, max_pages + 1):
-                async with session.get(
-                    base,
-                    params={
-                        "fromTimestamp": from_ts,
-                        "limit": "100",
-                        "page": str(page),
-                    },
-                    headers={"Authorization": auth},
-                    timeout=aiohttp.ClientTimeout(total=15),
-                ) as resp:
-                    if resp.status != 200:
-                        logger.warning(
-                            "Langfuse trace list unavailable (%s)", resp.status
-                        )
-                        return {"days": days, "users": [], "truncated": False}
-                    payload = await resp.json()
-                traces.extend(payload.get("data") or [])
-                meta = payload.get("meta") or {}
-                total_pages = meta.get("totalPages") or 1
-                if page >= total_pages:
-                    break
-            else:
-                truncated = True
-                logger.warning(
-                    "user activity truncated at %s traces (%s pages)",
-                    len(traces),
-                    max_pages,
-                )
-    except Exception as exc:
-        logger.warning("user activity fetch failed: %s", exc)
-        return {"days": days, "users": [], "truncated": False}
-
-    result = {
-        "days": days,
-        "users": aggregate_user_activity(traces),
-        "truncated": truncated,
-    }
-    if len(_user_activity_cache) > 100:
-        _user_activity_cache.clear()
-    _user_activity_cache[cache_key] = result
-    return result
