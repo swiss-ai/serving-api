@@ -39,7 +39,11 @@ def _load_dnt(endpoint: str) -> dict:
     it as JSON — that's the fixture-mode dev path. Otherwise HTTP-GET it."""
     if endpoint and not endpoint.startswith(("http://", "https://")):
         return json.loads(pathlib.Path(endpoint).read_text())
-    return requests.get(endpoint).json()
+    # Bounded, always: this is a sync call on the event loop, so with no
+    # timeout an unreachable head (laptop off VPN, head down) hangs this
+    # request forever AND queues every other request behind it — the whole
+    # gateway reads as frozen. Callers already treat failure as "no models".
+    return requests.get(endpoint, timeout=(3, 10)).json()
 
 
 def _version_tuple(raw: str) -> tuple[int, ...] | None:
