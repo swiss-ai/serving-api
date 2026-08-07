@@ -233,15 +233,19 @@ def test_cscs_l1_is_unrestricted():
     assert listed == {f"CSCS-Inference/{m}" for m in upstream}
 
 
-def test_rcp_hides_bfloat16_aliases_from_listing_and_routing():
+def test_rcp_hides_alias_and_quant_suffixes_from_listing_and_routing():
     """RCP advertises every model twice (canonical + -bfloat16 alias of
-    the same weights); only the canonical ids are listed or routed —
-    with or without the namespace prefix."""
+    the same weights) plus quantized variants; only the canonical ids are
+    listed or routed — with or without the namespace prefix — and suffix
+    matching is case-insensitive."""
     upstream = [
         APERTUS_8B,
         f"{APERTUS_8B}-bfloat16",
+        f"{APERTUS_8B}-FP8",
+        f"{APERTUS_8B}-int4",
         APERTUS_70B,
         f"{APERTUS_70B}-bfloat16",
+        f"{APERTUS_70B}-Int4",
     ]
     settings = _FakeSettings(
         cscs_l1_base_url="",
@@ -253,6 +257,8 @@ def test_rcp_hides_bfloat16_aliases_from_listing_and_routing():
         listed = {e["id"] for e in _run(get_synthetic_entries())}
         assert _run(resolve_model(f"RCP-AIaaS/{APERTUS_8B}")) is not None
         assert _run(resolve_model(f"RCP-AIaaS/{APERTUS_8B}-bfloat16")) is None
+        assert _run(resolve_model(f"RCP-AIaaS/{APERTUS_8B}-FP8")) is None
+        assert _run(resolve_model(f"RCP-AIaaS/{APERTUS_70B}-Int4")) is None
         assert _run(resolve_model(f"{APERTUS_8B}-bfloat16")) is None
     assert listed == {f"RCP-AIaaS/{APERTUS_8B}", f"RCP-AIaaS/{APERTUS_70B}"}
 

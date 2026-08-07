@@ -27,8 +27,9 @@ registration order is precedence.
 Curation is per provider via ``Provider.hidden_id_suffixes``: RCP
 advertises every model twice — once under its canonical id and once
 under a ``-bfloat16`` alias for the same weights — so the alias twins
-are dropped before the set is listed or routed. CSCS L1 is currently
-unrestricted — whatever it advertises surfaces.
+(and ``-fp8``/``-int4`` quantized variants) are dropped before the set
+is listed or routed. CSCS L1 is currently unrestricted — whatever it
+advertises surfaces.
 
 Secrets (base URLs, API keys) come from env via Settings.
 """
@@ -76,9 +77,10 @@ class Provider:
     # /models yet AND the current fetch fails. Empty = nothing advertised
     # until the first successful fetch.
     fallback_ids: tuple[str, ...] = ()
-    # Alias curation: discovered ids ending in one of these suffixes are
-    # dropped before listing or routing — for upstreams that advertise
-    # the same weights under several ids. Empty = everything surfaces.
+    # Alias curation: discovered ids ending in one of these suffixes
+    # (case-insensitive) are dropped before listing or routing — for
+    # upstreams that advertise the same weights under several ids.
+    # Empty = everything surfaces.
     hidden_id_suffixes: tuple[str, ...] = ()
 
 
@@ -118,8 +120,9 @@ def registered_providers() -> list[Provider]:
                 device="EPFL RCP",
                 prefix="RCP-AIaaS",
                 # RCP lists every model twice: canonical id + a -bfloat16
-                # alias of the same weights. One row per model is enough.
-                hidden_id_suffixes=("-bfloat16",),
+                # alias of the same weights. One row per model is enough,
+                # and quantized variants stay hidden too.
+                hidden_id_suffixes=("-bfloat16", "-fp8", "-int4"),
             )
         )
     return providers
@@ -170,7 +173,8 @@ async def _get_cached_ids(provider: Provider) -> set[str]:
     discovered = await _discover_ids(provider)
     if not provider.hidden_id_suffixes:
         return discovered
-    return {m for m in discovered if not m.endswith(provider.hidden_id_suffixes)}
+    hidden = tuple(s.lower() for s in provider.hidden_id_suffixes)
+    return {m for m in discovered if not m.lower().endswith(hidden)}
 
 
 async def _discover_ids(provider: Provider) -> set[str]:
