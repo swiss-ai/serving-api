@@ -1,4 +1,4 @@
-.PHONY: install install-dev format check test run dummy-run idp-up idp-down db-up db-down migrate _ensure-env _ensure-frontend-env _guard-local-db _guard-local-api
+.PHONY: install install-dev format check test run dummy-run seed-usage idp-up idp-down db-up db-down migrate _ensure-env _ensure-frontend-env _guard-local-db _guard-local-api
 
 UV_EXTRA ?=
 
@@ -125,13 +125,28 @@ run: _ensure-env _ensure-frontend-env _guard-local-api idp-up migrate
 	cd frontend && npm run dev & \
 	wait
 
+# Demo rows for the leaderboard / My Usage pages, so a fresh local DB has
+# something to render. Spread across days so the Today / 7 / 30 / 60-day
+# window buttons show different totals. Idempotent: the PK is
+# (day, owner_email, model), so re-running is a no-op.
+seed-usage: _guard-local-db db-up migrate
+	@docker exec $(PG_CONTAINER) psql -q -U $(PG_USER) -d $(PG_DB) -c "\
+	  INSERT INTO usage_daily (day, owner_email, model, requests, prompt_tokens, completion_tokens, updated_at) VALUES \
+	    (CURRENT_DATE,                        'dev@local', 'swissai/apertus3-70b', 120, 1500000, 350000, now()), \
+	    (CURRENT_DATE,                        'dev@local', 'swissai/apertus3-8b',   60,  400000,  90000, now()), \
+	    (CURRENT_DATE - INTERVAL '3 days',    'dev@local', 'swissai/apertus3-70b',  80,  900000, 210000, now()), \
+	    (CURRENT_DATE - INTERVAL '10 days',   'dev@local', 'swissai/apertus3-8b',  200, 2200000, 480000, now()), \
+	    (CURRENT_DATE - INTERVAL '45 days',   'dev@local', 'swissai/apertus3-70b', 300, 5000000, 950000, now()) \
+	  ON CONFLICT DO NOTHING;" 2>/dev/null || true
+	@echo "seeded usage_daily demo rows"
+
 # Same as `run` but forces the model list to come from a snapshot of the
 # prod DNT table instead of the live OpenTela endpoint (the head is not
 # reachable from a laptop). Refresh the snapshot with:
 #   kubectl --context breithorn-oidc -n rob-poc exec deploy/serving-backend-prod -- \
 #     python -c "import requests,sys; sys.stdout.write(requests.get('http://148.187.108.178:8092/v1/dnt/table', timeout=(3,20)).text)" \
 #     > backend/tests/fixtures/dnt_table_live.json
-dummy-run: _ensure-env _ensure-frontend-env _guard-local-api db-up migrate
+dummy-run: _ensure-env _ensure-frontend-env _guard-local-api db-up migrate seed-usage
 	@trap 'sleep 1; lsof -ti :8080 -ti :4321 -sTCP:LISTEN 2>/dev/null | xargs kill -9 2>/dev/null; exit 0' EXIT INT TERM; \
 	OTELA_FIXTURE_PATH=$(PWD)/backend/tests/fixtures/dnt_table_live.json \
 	uvicorn backend.main:app --reload --host 0.0.0.0 --port 8080 & \
