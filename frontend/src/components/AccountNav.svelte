@@ -1,49 +1,21 @@
 <script>
-  import { onMount, onDestroy } from 'svelte';
-  import { getApiUrl } from '../lib/config';
-  import { getAccessToken } from '../lib/auth';
-
-  // Nav items that depend on who is signed in: "My Usage" for anyone with
-  // a session, plus an "Admin" dropdown for admins. Signed-out visitors see
-  // neither, so the nav never advertises a page that will turn them away.
+  // Presentational only: whether the viewer is signed in and whether they
+  // are an admin is resolved server-side in Header.astro, because sessions
+  // here are auth-astro cookies read during SSR — there is no token in
+  // localStorage for a client island to read.
   //
-  // One /v1/profile call drives both. Presentation only — every admin
-  // endpoint checks apikey.is_admin for itself, so hiding the menu is
-  // convenience rather than a security boundary.
+  // Hiding the menu is convenience, not a security boundary: every admin
+  // endpoint checks apikey.is_admin for itself.
+  import { onMount, onDestroy } from 'svelte';
+
+  export let signedIn = false;
+  export let isAdmin = false;
   export let mobile = false;
 
   const LINKS = [{ href: '/users', label: 'User Activity' }];
 
-  let isAdmin = false;
-  let signedIn = false;
   let open = false;
   let root;
-
-  async function check() {
-    try {
-      const token = await getAccessToken();
-      if (!token) return;
-      signedIn = true;
-      const abort = new AbortController();
-      const timer = setTimeout(() => abort.abort(), 10000);
-      let res;
-      try {
-        res = await fetch(`${getApiUrl()}/v1/profile`, {
-          headers: { Authorization: `Bearer ${token}` },
-          signal: abort.signal,
-        });
-      } finally {
-        clearTimeout(timer);
-      }
-      if (!res.ok) return;
-      isAdmin = !!(await res.json()).is_admin;
-    } catch {
-      // Signed out, offline, or a slow API: offer nothing rather than a
-      // link that lands on "please sign in".
-      isAdmin = false;
-      signedIn = false;
-    }
-  }
 
   function onDocumentClick(event) {
     if (open && root && !root.contains(event.target)) open = false;
@@ -54,7 +26,6 @@
   }
 
   onMount(() => {
-    check();
     document.addEventListener('click', onDocumentClick);
     document.addEventListener('keydown', onKey);
   });
@@ -66,17 +37,12 @@
   });
 </script>
 
-{#if signedIn && mobile}
+{#if signedIn}
   <a
     href="/usage"
-    class="block text-sm font-medium text-slate-600 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-400 transition-colors py-2"
-  >
-    My Usage
-  </a>
-{:else if signedIn}
-  <a
-    href="/usage"
-    class="text-sm font-medium text-slate-600 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-400 transition-colors"
+    class={mobile
+      ? 'block text-sm font-medium text-slate-600 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-400 transition-colors py-2'
+      : 'text-sm font-medium text-slate-600 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-400 transition-colors'}
   >
     My Usage
   </a>

@@ -3,6 +3,48 @@ import Container from "@components/Container.astro";
 import Link from "@components/Link.astro";
 import { SITE } from "@consts";
 import AccountNav from "@components/AccountNav.svelte";
+import { getSession } from 'auth-astro/server';
+
+// Sessions are auth-astro cookies read during SSR, so who the viewer is has
+// to be resolved here rather than in a client island — nothing usable is
+// stored in localStorage. Same dev-bypass handling as api_key.astro so
+// `make auth-run` shows the signed-in nav locally.
+const authBypass =
+  (process.env.VITE_DEV_AUTH_BYPASS || import.meta.env.VITE_DEV_AUTH_BYPASS) === 'true';
+
+// auth-astro's Session type has no accessToken field, though the
+// provider populates one (see api_key.astro).
+let session: any = null;
+if (authBypass) {
+  session = { user: { email: 'dev@localhost' }, accessToken: 'dev-dummy-token' };
+} else {
+  try {
+    session = await getSession(Astro.request);
+  } catch {
+    session = null;
+  }
+}
+
+// Admin status lives in our database, not the IdP claims, so it needs a
+// lookup. Short timeout and a safe default: a slow or unhappy API costs the
+// menu, never the page.
+let isAdmin = false;
+if (session?.accessToken) {
+  try {
+    const apiBase =
+      process.env.VITE_API_URL ||
+      import.meta.env.VITE_API_URL ||
+      "https://api.swissai.svc.cscs.ch";
+    const res = await fetch(`${apiBase}/v1/profile`, {
+      headers: { Authorization: `Bearer ${session.accessToken}` },
+      signal: AbortSignal.timeout(3000),
+    });
+    if (res.ok) isAdmin = !!(await res.json()).is_admin;
+  } catch {
+    isAdmin = false;
+  }
+}
+const signedIn = !!session;
 ---
 
 <header>
@@ -69,7 +111,7 @@ import AccountNav from "@components/AccountNav.svelte";
         >
           FAQ
         </Link>
-        <AccountNav client:load />
+        <AccountNav client:load signedIn={signedIn} isAdmin={isAdmin} />
         <a
           href="https://swissai-initiative.slack.com/archives/C07DHJFRE2X"
           target="_blank"
@@ -158,7 +200,7 @@ import AccountNav from "@components/AccountNav.svelte";
       >
         FAQ
       </Link>
-      <AccountNav client:load mobile={true} />
+      <AccountNav client:load signedIn={signedIn} isAdmin={isAdmin} mobile={true} />
       <a
         href="https://swissai-initiative.slack.com/archives/C07DHJFRE2X"
         target="_blank"
