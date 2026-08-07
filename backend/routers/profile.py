@@ -44,6 +44,7 @@ async def get_profile(
         # still check for themselves — this is presentation, not access
         # control.
         user_profile["is_admin"] = bool(api_key.is_admin)
+        user_profile["is_superadmin"] = bool(api_key.is_superadmin)
         return user_profile
     except Exception:
         raise HTTPException(

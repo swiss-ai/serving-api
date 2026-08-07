@@ -162,17 +162,33 @@ def resolve_owner_email(engine, api_key: str) -> Optional[str]:
     return email
 
 
-def resolve_trace_level(engine, owner_email: str) -> tuple[str, bool]:
+def resolve_trace_level(engine, owner_email: str) -> tuple[Optional[str], bool]:
     """What to record for this user's request: (level, is_default).
 
-    Everyone is traced at 'metadata' (content-free: model/usage/latency) —
-    baseline per-user usage accounting, not optional. An explicit active
-    rule overrides the default, typically escalating to 'full'.
+    Nothing is traced by default — the level is None unless the user has
+    an active monitoring rule (superadmin-created or self-serve opt-in),
+    so Langfuse only ever stores deliberate recordings. Per-user token
+    accounting lives in Postgres usage_daily and is unaffected.
     """
     level = get_effective_level(engine, owner_email)
     if level is not None:
         return (level, False)
-    return ("metadata", True)
+    return (None, True)
+
+
+def _flag(engine, column: str, api_key: Optional[str], email: Optional[str]) -> bool:
+    with Session(engine) as session:
+        if api_key is not None:
+            row = session.exec(select(APIKey).where(APIKey.key == api_key)).first()
+            if row is not None:
+                return bool(getattr(row, column))
+        if email is not None:
+            row = session.exec(
+                select(APIKey).where(APIKey.owner_email == email)
+            ).first()
+            if row is not None:
+                return bool(getattr(row, column))
+    return False
 
 
 def is_admin(
@@ -181,15 +197,14 @@ def is_admin(
     """Whether the caller is an admin (apikey.is_admin), looked up by their
     API key or by email. Deliberately uncached: admin checks are rare (admin
     endpoints only) and revocation should take effect immediately."""
-    with Session(engine) as session:
-        if api_key is not None:
-            row = session.exec(select(APIKey).where(APIKey.key == api_key)).first()
-            if row is not None:
-                return bool(row.is_admin)
-        if email is not None:
-            row = session.exec(
-                select(APIKey).where(APIKey.owner_email == email)
-            ).first()
-            if row is not None:
-                return bool(row.is_admin)
-    return False
+    return _flag(engine, "is_admin", api_key, email)
+
+
+def is_superadmin(
+    engine, api_key: Optional[str] = None, email: Optional[str] = None
+) -> bool:
+    """Whether the caller may create monitoring rules for OTHER users —
+    recording someone's prompts is a categorically different power than
+    reading their token counts, so it gets its own flag above is_admin.
+    Uncached, same as is_admin."""
+    return _flag(engine, "is_superadmin", api_key, email)

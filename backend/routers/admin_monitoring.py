@@ -21,6 +21,7 @@ from backend.services.monitoring_service import (
     LEVEL_RANK,
     delete_rule,
     is_admin,
+    is_superadmin,
     list_rules,
     resolve_owner_email,
     upsert_rule,
@@ -53,6 +54,31 @@ async def require_admin(
     if email and is_admin(engine, email=email):
         return email
     raise HTTPException(status_code=403, detail="Admin access required")
+
+
+async def require_superadmin(
+    request: Request,
+    credentials: Annotated[HTTPAuthorizationCredentials, Depends(security)],
+) -> str:
+    """Resolve the caller and require is_superadmin — the gate on recording
+    OTHER users' traffic. Held far more narrowly than is_admin (self-serve
+    opt-in via /v1/profile/monitoring is unaffected)."""
+    engine = request.app.state.engine
+    token = credentials.credentials
+
+    email = resolve_owner_email(engine, token)
+    if email is not None:
+        if is_superadmin(engine, api_key=token):
+            return email
+        raise HTTPException(status_code=403, detail="Superadmin access required")
+
+    try:
+        email = get_profile_from_accesstoken(token).get("email")
+    except Exception:
+        raise HTTPException(status_code=401, detail="Invalid access token")
+    if email and is_superadmin(engine, email=email):
+        return email
+    raise HTTPException(status_code=403, detail="Superadmin access required")
 
 
 # Most rows the user-activity endpoint returns in one response.
@@ -162,7 +188,7 @@ async def list_monitoring_rules(
 async def create_monitoring_rule(
     request: Request,
     rule: MonitoringRuleIn,
-    admin: str = Depends(require_admin),
+    admin: str = Depends(require_superadmin),
 ):
     try:
         created = upsert_rule(
@@ -183,7 +209,7 @@ async def create_monitoring_rule(
 async def delete_monitoring_rule(
     request: Request,
     owner_email: str,
-    admin: str = Depends(require_admin),
+    admin: str = Depends(require_superadmin),
     source: Optional[str] = None,
 ):
     """Remove monitoring for a user. By default only the admin rule; pass

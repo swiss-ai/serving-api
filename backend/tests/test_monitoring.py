@@ -62,6 +62,13 @@ def _admin_override(client):
     return require_admin
 
 
+def _superadmin_override(client):
+    from backend.routers.admin_monitoring import require_superadmin
+
+    client.app.dependency_overrides[require_superadmin] = lambda: "root@test.ch"
+    return require_superadmin
+
+
 # ---------- rule semantics ----------
 
 
@@ -128,17 +135,18 @@ def test_upsert_renews_instead_of_duplicating(engine):
     assert rules[0].created_by == "adm2"
 
 
-def test_default_policy_metadata_for_everyone(engine):
+def test_default_policy_no_tracing_without_a_rule(engine):
     from backend.services.monitoring_service import (
         resolve_trace_level,
         upsert_rule,
         _effective_level_cache,
     )
 
-    # No rule: metadata by default, unconditionally — there is no opt-out.
-    assert resolve_trace_level(engine, "any@ethz.ch") == ("metadata", True)
+    # No rule: nothing is traced — Langfuse stores deliberate recordings
+    # only; token accounting lives in usage_daily.
+    assert resolve_trace_level(engine, "any@ethz.ch") == (None, True)
 
-    # An explicit rule overrides the default.
+    # An explicit rule turns recording on.
     upsert_rule(engine, "watched@ethz.ch", "full", "admin", "1h", "adm")
     assert resolve_trace_level(engine, "watched@ethz.ch") == ("full", False)
     _effective_level_cache.clear()
@@ -155,11 +163,12 @@ def test_prepare_stream_trace_levels(engine):
     _make_key(engine, "sk-rc-stream-user", "stream@ethz.ch")
     _owner_email_cache.clear()
 
-    # Default: metadata trace ctx, no prompt captured.
+    # Default: no monitoring, but the ctx still exists — usage accounting
+    # rides on it (see prepare_stream_trace docstring).
     ctx = prepare_stream_trace(
         engine, "sk-rc-stream-user", "m", {"messages": [{"role": "user"}]}
     )
-    assert ctx["level"] == "metadata" and ctx["is_default"] is True
+    assert ctx["level"] is None and ctx["is_default"] is True
     assert "input" not in ctx
 
     # Full rule: prompt captured into the ctx.
@@ -177,11 +186,19 @@ def test_prepare_stream_trace_levels(engine):
 # ---------- admin API ----------
 
 
-def _make_key(engine, key, email, admin=False):
+def _make_key(engine, key, email, admin=False, superadmin=False):
     from backend.models.entities import APIKey
 
     with Session(engine) as session:
-        session.add(APIKey(key=key, owner_email=email, budget=1000, is_admin=admin))
+        session.add(
+            APIKey(
+                key=key,
+                owner_email=email,
+                budget=1000,
+                is_admin=admin,
+                is_superadmin=superadmin,
+            )
+        )
         session.commit()
 
 
@@ -214,6 +231,7 @@ def test_admin_gate_by_is_admin_flag(client, engine):
 
 def test_admin_crud_roundtrip(client):
     _admin_override(client)
+    _superadmin_override(client)
     try:
         create = client.post(
             "/v1/admin/monitoring/users",
@@ -262,8 +280,8 @@ def test_profile_monitoring_roundtrip(client, monkeypatch):
 
     empty = client.get("/v1/profile/monitoring", headers=headers).json()
     assert empty["self_rule"] is None
-    # No rule still means the default metadata tier applies.
-    assert empty["effective_level"] == "metadata"
+    # No rule means nothing is recorded.
+    assert empty["effective_level"] is None
     assert empty["default"] is True
 
     put = client.put(
@@ -297,33 +315,6 @@ def test_normalize_usage_openai_keys():
     assert _normalize_usage({"total_tokens": 7}) == {"totalTokens": 7}
     assert _normalize_usage({}) is None
     assert _normalize_usage(None) is None
-
-
-def test_aggregate_user_activity_orders_and_sums():
-    from backend.services.langfuse_service import aggregate_user_activity
-
-    traces = [
-        {
-            "userId": "a@x.ch",
-            "metadata": {"usage": {"total_tokens": 10}},
-            "timestamp": "2026-08-05T10:00:00Z",
-        },
-        {
-            "userId": "b@x.ch",
-            "metadata": {"usage": {"completion_tokens": 3}},
-            "timestamp": "2026-08-05T11:00:00Z",
-        },
-        {"userId": "a@x.ch", "metadata": {}, "timestamp": "2026-08-05T12:00:00Z"},
-        {"userId": None, "metadata": {}},
-    ]
-    out = aggregate_user_activity(traces)
-    assert [u["user"] for u in out] == ["a@x.ch", "b@x.ch"]
-    assert out[0]["requests"] == 2 and out[0]["total_tokens"] == 10
-    assert out[0]["last_active"] == "2026-08-05T12:00:00Z"
-    assert out[1]["total_tokens"] == 3
-
-
-# ---------- perf benchmarks (postgres-backed) ----------
 
 
 def test_merged_averages_math():
@@ -594,3 +585,106 @@ def test_admin_models_lists_everything_with_hidden_reasons(client):
     )
     # Hidden entries sort first — they are the page's point.
     assert body["models"][0]["hidden_reason"] is not None
+
+
+# ---------- superadmin gate + emission gating ----------
+
+
+def test_rule_creation_requires_superadmin_not_just_admin(client, engine):
+    """is_admin can read the rule list but cannot create or delete rules
+    for other users — that power (recording someone's prompts) is
+    is_superadmin only."""
+    from backend.services.monitoring_service import _owner_email_cache
+
+    _make_key(engine, "sk-rc-plain-admin", "admin2@ethz.ch", admin=True)
+    _make_key(engine, "sk-rc-root", "root@ethz.ch", admin=True, superadmin=True)
+    _owner_email_cache.clear()
+
+    payload = {"owner_email": "target@ethz.ch", "level": "metadata", "ttl": "1h"}
+
+    denied = client.post(
+        "/v1/admin/monitoring/users",
+        json=payload,
+        headers={"Authorization": "Bearer sk-rc-plain-admin"},
+    )
+    assert denied.status_code == 403
+
+    allowed = client.post(
+        "/v1/admin/monitoring/users",
+        json=payload,
+        headers={"Authorization": "Bearer sk-rc-root"},
+    )
+    assert allowed.status_code == 200
+
+    del_denied = client.delete(
+        "/v1/admin/monitoring/users/target@ethz.ch",
+        headers={"Authorization": "Bearer sk-rc-plain-admin"},
+    )
+    assert del_denied.status_code == 403
+
+    del_ok = client.delete(
+        "/v1/admin/monitoring/users/target@ethz.ch",
+        headers={"Authorization": "Bearer sk-rc-root"},
+    )
+    assert del_ok.status_code == 200
+
+    # The admin can still read the rule list.
+    listing = client.get(
+        "/v1/admin/monitoring/users",
+        headers={"Authorization": "Bearer sk-rc-plain-admin"},
+    )
+    assert listing.status_code == 200
+
+
+def test_langfuse_emission_only_for_rule_holders(engine):
+    """No rule → record_if_monitored writes nothing; an active rule (any
+    level) → one ingestion batch. This is the write-side gate that makes
+    Langfuse recordings-only."""
+    import asyncio
+    from unittest.mock import AsyncMock, patch
+
+    from backend.services import langfuse_service
+    from backend.services.monitoring_service import (
+        upsert_rule,
+        _effective_level_cache,
+        _owner_email_cache,
+    )
+
+    _make_key(engine, "sk-rc-quiet", "quiet@ethz.ch")
+    _make_key(engine, "sk-rc-loud", "loud@ethz.ch")
+    upsert_rule(engine, "loud@ethz.ch", "metadata", "admin", "1h", "adm")
+    _owner_email_cache.clear()
+    _effective_level_cache.clear()
+
+    async def run():
+        with patch.object(langfuse_service, "_post_ingestion", new=AsyncMock()) as post:
+            langfuse_service.record_if_monitored(
+                engine,
+                api_key="sk-rc-quiet",
+                model="m",
+                request_data={"messages": []},
+            )
+            await asyncio.sleep(0)
+            assert post.await_count == 0
+
+            langfuse_service.record_if_monitored(
+                engine,
+                api_key="sk-rc-loud",
+                model="m",
+                request_data={"messages": []},
+            )
+            await asyncio.sleep(0)
+            assert post.await_count == 1
+
+            # Streams: the ctx exists for the unmonitored user (usage
+            # accounting depends on it) but emission is a no-op.
+            ctx = langfuse_service.prepare_stream_trace(
+                engine, "sk-rc-quiet", "m", {"messages": []}
+            )
+            assert ctx is not None and ctx["level"] is None
+            langfuse_service.record_stream_result(ctx, output_text="hi")
+            await asyncio.sleep(0)
+            assert post.await_count == 1
+
+    asyncio.run(run())
+    _effective_level_cache.clear()
