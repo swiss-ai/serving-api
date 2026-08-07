@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from typing import Optional
 
 from sqlmodel import SQLModel, Field, UniqueConstraint
@@ -60,3 +60,24 @@ class UserMonitoringRule(SQLModel, table=True):
     created_by: str
     note: str = Field(default="")
     created_at: datetime = Field(default_factory=datetime.now)
+
+
+class UsageDaily(SQLModel, table=True):
+    """Per-user, per-model token accounting, aggregated by day.
+
+    Rows scale with distinct (day, user, model) combinations rather than
+    requests, so a batch of a million calls from one user against one model
+    is a single row. Input and output tokens stay separate: a long prompt
+    answered in five tokens costs nothing like the reverse, and a combined
+    total hides the ratio that matters for capacity planning.
+    """
+
+    __tablename__ = "usage_daily"
+
+    day: date = Field(primary_key=True)
+    owner_email: str = Field(primary_key=True)
+    model: str = Field(primary_key=True)  # public (namespaced) id
+    requests: int = Field(default=0)
+    prompt_tokens: int = Field(default=0)
+    completion_tokens: int = Field(default=0)
+    updated_at: datetime = Field(default_factory=datetime.now)

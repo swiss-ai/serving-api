@@ -131,7 +131,12 @@ def prepare_stream_trace(
     starts. response_generator carries it and record_stream_result emits the
     single, complete trace after the last chunk — so streamed traces get
     output text, real usage, full-stream latency and TTFT, unlike an
-    emit-at-headers approach."""
+    emit-at-headers approach.
+
+    The ctx also carries email/model into usage accounting, which counts
+    every request. If Langfuse emission is ever gated to monitored users,
+    gate it inside record_stream_result — returning None here for ungated
+    users would silently stop their streamed usage from being counted."""
     try:
         email = resolve_owner_email(engine, api_key)
         if not email:

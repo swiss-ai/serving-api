@@ -98,6 +98,17 @@ async def response_generator(
                 if first_token_time
                 else None,
             )
+            # Usage accounting, independent of tracing: counted for every
+            # request, including aborted streams for the tokens delivered.
+            from backend.services.usage_service import record_usage
+
+            usage = last_usage or {}
+            record_usage(
+                owner_email=trace_ctx["email"],
+                model=trace_ctx["model"],  # already the public, namespaced id
+                prompt_tokens=usage.get("prompt_tokens", 0),
+                completion_tokens=usage.get("completion_tokens", token_count),
+            )
         if metrics_ctx and start_time and node_id:
             full_content = "".join(accumulated_content)
             end_time = time.time()

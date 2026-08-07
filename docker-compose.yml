@@ -53,6 +53,59 @@ services:
       - postgres_data:/var/lib/postgresql/data
     restart: unless-stopped
 
+
+  # --- Local Authentik IdP -------------------------------------------------
+  # Auth0 is gone; Authentik is the platform IdP. This stack lets `make run`
+  # do a real OIDC flow locally: `make idp-up` starts it, sign in as
+  # admin@localhost / admin. Pinned by digest to match the cluster —
+  # RC tags are reused and deleted upstream.
+  authentik-db:
+    image: postgres:17-alpine
+    environment:
+      - POSTGRES_USER=authentik
+      - POSTGRES_PASSWORD=authentik-local
+      - POSTGRES_DB=authentik
+    volumes:
+      - authentik_db:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  authentik-redis:
+    image: redis:8-alpine
+    restart: unless-stopped
+
+  authentik-server:
+    image: ghcr.io/goauthentik/server:2026.8.0-rc6@sha256:173d7d219cca16a262ae07db77092dfbbb540807019f6bfb705aba95c7118971
+    command: server
+    environment: &authentik_env
+      AUTHENTIK_SECRET_KEY: local-dev-secret-key-not-for-deployment
+      AUTHENTIK_POSTGRESQL__HOST: authentik-db
+      AUTHENTIK_POSTGRESQL__USER: authentik
+      AUTHENTIK_POSTGRESQL__PASSWORD: authentik-local
+      AUTHENTIK_POSTGRESQL__NAME: authentik
+      AUTHENTIK_REDIS__HOST: authentik-redis
+      AUTHENTIK_BOOTSTRAP_EMAIL: admin@localhost
+      AUTHENTIK_BOOTSTRAP_PASSWORD: admin
+      AUTHENTIK_ERROR_REPORTING__ENABLED: "false"
+      AUTHENTIK_DISABLE_UPDATE_CHECK: "true"
+    ports:
+      - "9000:9000"
+    depends_on:
+      - authentik-db
+      - authentik-redis
+    restart: unless-stopped
+
+  authentik-worker:
+    image: ghcr.io/goauthentik/server:2026.8.0-rc6@sha256:173d7d219cca16a262ae07db77092dfbbb540807019f6bfb705aba95c7118971
+    command: worker
+    environment: *authentik_env
+    volumes:
+      - ./authentik-local:/blueprints/local:ro
+    depends_on:
+      - authentik-db
+      - authentik-redis
+    restart: unless-stopped
+
 volumes:
   postgres_data:
   openwebui_data:
+  authentik_db:

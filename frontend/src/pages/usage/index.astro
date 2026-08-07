@@ -2,39 +2,40 @@
 import { getSession } from 'auth-astro/server';
 import PageLayout from "@layouts/PageLayout.astro";
 import Container from "@components/Container.astro";
-import UserActivity from "@components/UserActivity.svelte";
+import MyUsage from "@components/MyUsage.svelte";
 
 export const prerender = false;
 
-// Same SSR session handling as usage/index.astro. Signed-out visitors are
-// bounced; whether the signed-in caller is an admin is the API's decision —
-// the component shows its access-required state on a 403.
+// Sessions are auth-astro cookies, resolved server-side. The token is passed
+// to the island as a prop; api_key.astro already embeds session.accessToken
+// in its page script, so this is no new exposure, and it is only ever the
+// caller's own token on their own page.
 let session: any = await getSession(Astro.request);
 if (!session) {
   return Astro.redirect('/');
 }
 ---
 
-<PageLayout title="User Activity" description="Most active users (admin only)">
+<PageLayout title="My Usage" description="Your own request and token usage">
     <Container>
         <div class="space-y-10">
             <div class="text-center space-y-4">
                 <h1
                     class="text-4xl font-bold tracking-tight text-slate-900 dark:text-white sm:text-5xl"
                 >
-                    User Activity
+                    My Usage
                 </h1>
                 <p
                     class="mx-auto max-w-2xl text-lg text-slate-600 dark:text-slate-400"
                 >
-                    Most active users by requests and token usage. Admin
-                    access required.
+                    Your own requests and token usage, broken down by model.
+                    Only you can see this.
                 </p>
             </div>
 
             <div class="card p-1">
                 <div class="p-6 bg-white dark:bg-slate-900 rounded-xl">
-                    <UserActivity client:load accessToken={session.accessToken} />
+                    <MyUsage client:load accessToken={session.accessToken} />
                 </div>
             </div>
         </div>

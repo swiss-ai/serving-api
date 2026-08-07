@@ -2,6 +2,39 @@
 import Container from "@components/Container.astro";
 import Link from "@components/Link.astro";
 import { SITE } from "@consts";
+import NavMenus from "@components/NavMenus.svelte";
+import { getSession } from 'auth-astro/server';
+
+// Sessions are auth-astro cookies resolved during SSR; local dev signs in
+// through the compose Authentik — there is no bypass.
+let session: any = null;
+try {
+  session = await getSession(Astro.request);
+} catch {
+  session = null;
+}
+
+// Admin status lives in our database, not the IdP claims, so it needs a
+// lookup. Short timeout and a safe default: a slow or unhappy API costs the
+// menu, never the page.
+let isAdmin = false;
+if (session?.accessToken) {
+  try {
+    const apiBase =
+      process.env.VITE_API_URL ||
+      import.meta.env.VITE_API_URL ||
+      "https://api.swissai.svc.cscs.ch";
+    const res = await fetch(`${apiBase}/v1/profile`, {
+      headers: { Authorization: `Bearer ${session.accessToken}` },
+      signal: AbortSignal.timeout(3000),
+    });
+    if (res.ok) isAdmin = !!(await res.json()).is_admin;
+  } catch {
+    isAdmin = false;
+  }
+}
+const signedIn = !!session;
+const userEmail = session?.user?.email || '';
 ---
 
 <header>
@@ -39,12 +72,6 @@ import { SITE } from "@consts";
       <!-- Desktop Navigation -->
       <nav class="hidden md:flex items-center gap-6">
         <Link
-          href="/guides"
-          class="text-sm font-medium text-slate-600 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-400 transition-colors"
-        >
-          Docs
-        </Link>
-        <Link
           href="/leaderboard"
           class="text-sm font-medium text-slate-600 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-400 transition-colors"
         >
@@ -56,24 +83,7 @@ import { SITE } from "@consts";
         >
           Performance
         </Link>
-        <Link
-          href="/users"
-          class="text-sm font-medium text-slate-600 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-400 transition-colors"
-        >
-          Users
-        </Link>
-        <Link
-          href="/articles"
-          class="text-sm font-medium text-slate-600 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-400 transition-colors"
-        >
-          Research
-        </Link>
-        <Link
-          href="/faq"
-          class="text-sm font-medium text-slate-600 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-400 transition-colors"
-        >
-          FAQ
-        </Link>
+        <NavMenus client:load signedIn={signedIn} isAdmin={isAdmin} email={userEmail} section="about" />
         <a
           href="https://swissai-initiative.slack.com/archives/C07DHJFRE2X"
           target="_blank"
@@ -85,6 +95,7 @@ import { SITE } from "@consts";
           </svg>
           Get Help
         </a>
+        <NavMenus client:load signedIn={signedIn} isAdmin={isAdmin} email={userEmail} section="profile" />
       </nav>
 
       <!-- Mobile Menu Button -->
@@ -133,12 +144,6 @@ import { SITE } from "@consts";
       class="hidden md:hidden flex-col gap-4 pt-4 pb-2 border-t border-slate-200 dark:border-slate-800 mt-4"
     >
       <Link
-        href="/guides"
-        class="text-sm font-medium text-slate-600 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-400 transition-colors py-2"
-      >
-        Docs
-      </Link>
-      <Link
         href="/leaderboard"
         class="text-sm font-medium text-slate-600 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-400 transition-colors py-2"
       >
@@ -150,24 +155,7 @@ import { SITE } from "@consts";
       >
         Performance
       </Link>
-      <Link
-        href="/users"
-        class="text-sm font-medium text-slate-600 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-400 transition-colors py-2"
-      >
-        Users
-      </Link>
-      <Link
-        href="/articles"
-        class="text-sm font-medium text-slate-600 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-400 transition-colors py-2"
-      >
-        Research
-      </Link>
-      <Link
-        href="/faq"
-        class="text-sm font-medium text-slate-600 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-400 transition-colors py-2"
-      >
-        FAQ
-      </Link>
+      <NavMenus client:load signedIn={signedIn} isAdmin={isAdmin} email={userEmail} mobile={true} />
       <a
         href="https://swissai-initiative.slack.com/archives/C07DHJFRE2X"
         target="_blank"

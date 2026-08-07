@@ -74,11 +74,6 @@ class Settings(BaseSettings):
     vite_auth0_client_id: str = ""
     vite_auth0_domain: str = ""
     access_log: bool = False
-    # LOCAL DEV ONLY. When true, the backend accepts the frontend's
-    # `dev-dummy-token` (see frontend api_key.astro dev session) without
-    # calling Auth0, so `make run` works without a real login. MUST stay
-    # false in every deployed environment.
-    dev_auth_bypass: bool = False
 
     def active_issuer(self) -> str:
         """Issuer for the currently selected provider. Falls back to the

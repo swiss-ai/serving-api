@@ -1,9 +1,11 @@
 <script>
   import { onMount } from 'svelte';
   import { getApiUrl } from '../lib/config';
-  import { getAccessToken, getApiKey } from '../lib/auth';
 
-  let days = 30;
+  // Provided by the page after its server-side session check.
+  export let accessToken = '';
+
+  let days = 7;
   let users = [];
   let truncated = false;
   let loading = true;
@@ -27,15 +29,24 @@
     error = null;
     forbidden = false;
     try {
-      const token = (await getAccessToken()) || getApiKey();
+      const token = accessToken;
       if (!token) {
         forbidden = true;
         return;
       }
-      const response = await fetch(
-        `${getApiUrl()}/v1/admin/metrics/users?days=${selectedDays}`,
-        { headers: { Authorization: `Bearer ${token}` } },
-      );
+      // Always bounded: this page used to spin forever when the endpoint
+      // was slow, which reads as a broken page rather than a slow one.
+      const abort = new AbortController();
+      const timer = setTimeout(() => abort.abort(), 20000);
+      let response;
+      try {
+        response = await fetch(
+          `${getApiUrl()}/v1/admin/metrics/users?days=${selectedDays}`,
+          { headers: { Authorization: `Bearer ${token}` }, signal: abort.signal },
+        );
+      } finally {
+        clearTimeout(timer);
+      }
       if (response.status === 401 || response.status === 403) {
         forbidden = true;
         return;
@@ -45,7 +56,10 @@
       users = result.users || [];
       truncated = !!result.truncated;
     } catch (e) {
-      error = e.message;
+      error =
+        e.name === 'AbortError'
+          ? 'Timed out after 20s — the usage query is taking too long.'
+          : e.message;
     } finally {
       loading = false;
     }
@@ -56,7 +70,7 @@
 
 <div class="space-y-4">
   <div class="flex justify-center gap-2">
-    {#each [7, 30, 90] as d}
+    {#each [1, 7, 30, 90] as d}
       <button
         class="px-4 py-1.5 rounded-lg text-sm font-medium transition-colors
           {days === d
@@ -64,7 +78,7 @@
           : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300'}"
         on:click={() => fetchData(d)}
       >
-        {d} days
+        {d === 1 ? 'Today' : `${d} days`}
       </button>
     {/each}
   </div>
@@ -85,7 +99,7 @@
   {:else}
     {#if truncated}
       <p class="text-center text-sm text-amber-600 dark:text-amber-400">
-        Showing a truncated sample of the window's traffic.
+        Showing the most active users; more exist in this window.
       </p>
     {/if}
     <div class="overflow-x-auto">
@@ -95,7 +109,9 @@
             <th class="py-2 pr-4">#</th>
             <th class="py-2 pr-4">User</th>
             <th class="py-2 pr-4 text-right">Requests</th>
-            <th class="py-2 pr-4 text-right">Total tokens</th>
+            <th class="py-2 pr-4 text-right">Input</th>
+            <th class="py-2 pr-4 text-right">Output</th>
+            <th class="py-2 pr-4 text-right">Total</th>
             <th class="py-2 text-right">Last active</th>
           </tr>
         </thead>
@@ -105,6 +121,8 @@
               <td class="py-2 pr-4 text-slate-400">{i + 1}</td>
               <td class="py-2 pr-4 font-medium text-slate-900 dark:text-white">{u.user}</td>
               <td class="py-2 pr-4 text-right tabular-nums">{u.requests.toLocaleString()}</td>
+              <td class="py-2 pr-4 text-right tabular-nums">{formatTokens(u.prompt_tokens)}</td>
+              <td class="py-2 pr-4 text-right tabular-nums">{formatTokens(u.completion_tokens)}</td>
               <td class="py-2 pr-4 text-right tabular-nums">{formatTokens(u.total_tokens)}</td>
               <td class="py-2 text-right text-slate-500 dark:text-slate-400">{formatWhen(u.last_active)}</td>
             </tr>
