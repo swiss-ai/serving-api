@@ -114,7 +114,10 @@ _guard-local-api: _ensure-frontend-env
 migrate: _ensure-env _guard-local-db db-up
 	alembic upgrade head
 
-run: _ensure-env _ensure-frontend-env _guard-local-api db-up migrate
+# `run` uses the real OIDC flow, so it brings the local Authentik up too
+# (idp-up is idempotent — an already-running stack is a no-op). The bypass
+# targets (auth-run/admin-run) skip it: no IdP involved, faster start.
+run: _ensure-env _ensure-frontend-env _guard-local-api idp-up migrate
 	@trap 'kill 0 2>/dev/null; sleep 1; lsof -ti :8080 -ti :4321 -sTCP:LISTEN 2>/dev/null | xargs kill -9 2>/dev/null; true' EXIT INT TERM; \
 	uvicorn backend.main:app --reload --host 0.0.0.0 --port 8080 & \
 	cd frontend && npm run dev & \
