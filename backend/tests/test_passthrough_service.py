@@ -11,7 +11,6 @@ from backend.services import passthrough_service
 from backend.services.passthrough_service import (
     Provider,
     _CSCS_L1_FALLBACK_IDS,
-    _RCP_ALLOWED_MODEL_IDS,
     _reset_cache_for_tests,
     endpoint,
     get_synthetic_entries,
@@ -219,16 +218,11 @@ def test_fetch_cached_within_ttl():
     assert fake.await_count == 1
 
 
-# ── allowlist curation ──────────────────────────────────────────────────────
-
-
-def test_rcp_allowlist_is_the_two_apertus_instruct_models():
-    """Guard the curated set so a stray edit can't silently widen it."""
-    assert _RCP_ALLOWED_MODEL_IDS == frozenset({APERTUS_8B, APERTUS_70B})
+# ── alias curation ──────────────────────────────────────────────────────────
 
 
 def test_cscs_l1_is_unrestricted():
-    """CSCS L1 has no allowlist: everything it advertises is listed and
+    """CSCS L1 hides nothing: everything it advertises is listed and
     routable, including quant variants and non-Apertus ids."""
     upstream = [APERTUS_8B, f"{APERTUS_8B}-FP8", "meta-llama/Llama-3-8B"]
     with _patch_settings(_FakeSettings()), _patch_fetch(upstream):
@@ -239,16 +233,19 @@ def test_cscs_l1_is_unrestricted():
     assert listed == {f"CSCS-Inference/{m}" for m in upstream}
 
 
-def test_off_allowlist_ids_are_filtered_from_rcp_listing_and_routing():
-    """RCP advertises many models (incl. quant variants and a bare-prefix
-    id) but surfaces ONLY the two allowlisted ids, and only those route —
-    with or without the namespace prefix."""
+def test_rcp_hides_alias_and_quant_suffixes_from_listing_and_routing():
+    """RCP advertises every model twice (canonical + -bfloat16 alias of
+    the same weights) plus quantized variants; only the canonical ids are
+    listed or routed — with or without the namespace prefix — and suffix
+    matching is case-insensitive."""
     upstream = [
         APERTUS_8B,
+        f"{APERTUS_8B}-bfloat16",
+        f"{APERTUS_8B}-FP8",
+        f"{APERTUS_8B}-int4",
         APERTUS_70B,
-        f"{APERTUS_8B}-FP8",  # quant variant
-        "Apertus-8B-Instruct-2509",  # bare, no org prefix
-        "meta-llama/Llama-3-8B",
+        f"{APERTUS_70B}-bfloat16",
+        f"{APERTUS_70B}-Int4",
     ]
     settings = _FakeSettings(
         cscs_l1_base_url="",
@@ -259,11 +256,37 @@ def test_off_allowlist_ids_are_filtered_from_rcp_listing_and_routing():
     with _patch_settings(settings), _patch_fetch(upstream):
         listed = {e["id"] for e in _run(get_synthetic_entries())}
         assert _run(resolve_model(f"RCP-AIaaS/{APERTUS_8B}")) is not None
+        assert _run(resolve_model(f"RCP-AIaaS/{APERTUS_8B}-bfloat16")) is None
         assert _run(resolve_model(f"RCP-AIaaS/{APERTUS_8B}-FP8")) is None
-        assert _run(resolve_model("RCP-AIaaS/meta-llama/Llama-3-8B")) is None
-        assert _run(resolve_model(f"{APERTUS_8B}-FP8")) is None
-        assert _run(resolve_model("meta-llama/Llama-3-8B")) is None
+        assert _run(resolve_model(f"RCP-AIaaS/{APERTUS_70B}-Int4")) is None
+        assert _run(resolve_model(f"{APERTUS_8B}-bfloat16")) is None
     assert listed == {f"RCP-AIaaS/{APERTUS_8B}", f"RCP-AIaaS/{APERTUS_70B}"}
+
+
+def test_rcp_surfaces_everything_else_it_advertises():
+    """With the allowlist gone, non-alias ids from RCP — prerelease orgs,
+    new models — surface without a code change."""
+    upstream = [
+        APERTUS_8B,
+        "apertus-ai/Apertus-v1.5-8B-Prerelease-2607",
+        "apertus-ai/Apertus-v1.5-8B-Prerelease-2607-bfloat16",
+    ]
+    settings = _FakeSettings(
+        cscs_l1_base_url="",
+        cscs_l1_api_key="",
+        rcp_base_url="https://rcp/v1",
+        rcp_api_key="rcp-key",
+    )
+    with _patch_settings(settings), _patch_fetch(upstream):
+        listed = {e["id"] for e in _run(get_synthetic_entries())}
+        prerelease = _run(
+            resolve_model("RCP-AIaaS/apertus-ai/Apertus-v1.5-8B-Prerelease-2607")
+        )
+    assert prerelease is not None and prerelease.provider.name == "rcp"
+    assert listed == {
+        f"RCP-AIaaS/{APERTUS_8B}",
+        "RCP-AIaaS/apertus-ai/Apertus-v1.5-8B-Prerelease-2607",
+    }
 
 
 # ── failure modes ───────────────────────────────────────────────────────────
