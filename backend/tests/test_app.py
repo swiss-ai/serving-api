@@ -50,8 +50,7 @@ def test_app_routes_registered(client):
         "/v1/models",
         "/v1/models_detailed",
         "/v1/profile",
-        "/v1/statistics",
-        "/v1/metrics",
+        "/v1/leaderboard",
         "/v1/perf",
         "/v1/rerank",
         "/v1/score",
@@ -166,10 +165,14 @@ def test_detokenize_requires_auth(client):
     assert response.status_code in (401, 403)
 
 
-def test_statistics_no_auth(client):
-    """/v1/statistics should work without auth."""
-    response = client.get("/v1/statistics")
-    assert response.status_code in (200, 500)
+def test_leaderboard_no_auth(client):
+    """/v1/leaderboard is public — the leaderboard page has no session."""
+    response = client.get("/v1/leaderboard")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["days"] == 30
+    assert isinstance(body["models"], list)
+    assert client.get("/v1/leaderboard?days=0").status_code == 422
 
 
 @pytest.mark.parametrize(

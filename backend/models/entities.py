@@ -14,6 +14,10 @@ class APIKey(SQLModel, table=True):
     # IdP (Authentik) exposes a group claim, require_admin can additionally
     # honour an admin group membership — this flag stays the durable base.
     is_admin: bool = Field(default=False)
+    # Grants creating/deleting monitoring rules for OTHER users — the power
+    # to record someone's prompts, held far more narrowly than is_admin.
+    # Set via SQL only.
+    is_superadmin: bool = Field(default=False)
 
 
 class PerfBenchmark(SQLModel, table=True):

@@ -4,7 +4,6 @@ import Container from "@components/Container.astro";
 import PageLayout from "@layouts/PageLayout.astro";
 import ArrowCard from "@components/ArrowCard.astro";
 import ModelList from "@components/ui/ModelList.svelte";
-import TokenUsageChart from "@components/TokenUsageChart.svelte";
 import Link from "@components/Link.astro";
 import ContributorCard from "@components/ContributorCard.astro";
 import SponsorCard from "@components/SponsorCard.astro";
@@ -262,23 +261,6 @@ const sponsors = [
         </div>
       </section>
 
-      <!-- Token Usage Statistics — hidden until rebuilt
-      <section class="animate space-y-8">
-        <div class="text-center">
-          <h2 class="text-3xl font-bold text-slate-900 dark:text-white mb-4">
-            Usage Analytics
-          </h2>
-          <p class="text-lg text-slate-600 dark:text-slate-400 max-w-2xl mx-auto mb-8">
-            Real-time token usage and platform statistics
-          </p>
-        </div>
-
-        <div class="card p-8">
-          <TokenUsageChart client:load />
-        </div>
-      </section>
-      -->
-      
       <!-- Documentation Section -->
       <section class="animate space-y-8">
         <div class="flex flex-wrap gap-y-2 items-center justify-between">

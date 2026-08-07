@@ -1,42 +1,30 @@
 from typing import Optional
 from functools import lru_cache
-from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.security import HTTPAuthorizationCredentials
+from fastapi import APIRouter, HTTPException, Request
 from fastapi.concurrency import run_in_threadpool
-from backend.middleware.auth import optional_security
 from backend.services.metrics_service import (
-    get_statistics,
     get_ttl_hash,
-    get_langfuse_metrics,
     metrics_collector,
 )
 
 router = APIRouter()
 
 
-@router.get("/v1/statistics")
-async def get_statistics_endpoint(
-    credentials: HTTPAuthorizationCredentials | None = Depends(optional_security),
-):
-    if credentials:
-        api_key = credentials.credentials
-    else:
-        api_key = None
-    stats = get_statistics(api_key, ttl_hash=get_ttl_hash())
-    return stats
+@router.get("/v1/leaderboard")
+async def get_leaderboard(request: Request, days: int = 30):
+    """Public model ranking by token usage over the window.
 
+    Reads the Postgres usage_daily counters — the same store behind My
+    Usage and the admin Users page, so every page agrees on the numbers.
+    This replaced the Langfuse daily-metrics read path; Langfuse now only
+    stores monitored recordings.
+    """
+    from backend.services.usage_service import usage_by_model
 
-@router.post("/v1/metrics")
-async def get_metrics_endpoint(
-    request: Request,
-):
-    res = await request.json()
-    ttl = get_ttl_hash(seconds=3600)
-    try:
-        data = await get_langfuse_metrics(res, ttl_hash=ttl)
-        return data
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    if days < 1 or days > 365:
+        raise HTTPException(status_code=422, detail="days must be 1..365")
+    models = await run_in_threadpool(usage_by_model, request.app.state.engine, days)
+    return {"days": days, "models": models}
 
 
 @lru_cache(maxsize=32)
