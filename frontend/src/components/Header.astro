@@ -3,13 +3,13 @@ import Container from "@components/Container.astro";
 import Link from "@components/Link.astro";
 import { SITE } from "@consts";
 import NavMenus from "@components/NavMenus.svelte";
-import { getSession } from 'auth-astro/server';
+import { getActiveSession } from '@lib/activeSession';
 
 // Sessions are auth-astro cookies resolved during SSR; local dev signs in
 // through the compose Authentik — there is no bypass.
 let session: any = null;
 try {
-  session = await getSession(Astro.request);
+  session = await getActiveSession(Astro.request);
 } catch {
   session = null;
 }

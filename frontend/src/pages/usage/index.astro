@@ -1,5 +1,5 @@
 ---
-import { getSession } from 'auth-astro/server';
+import { getActiveSession } from '@lib/activeSession';
 import PageLayout from "@layouts/PageLayout.astro";
 import Container from "@components/Container.astro";
 import MyUsage from "@components/MyUsage.svelte";
@@ -10,7 +10,7 @@ export const prerender = false;
 // to the island as a prop; api_key.astro already embeds session.accessToken
 // in its page script, so this is no new exposure, and it is only ever the
 // caller's own token on their own page.
-let session: any = await getSession(Astro.request);
+let session: any = await getActiveSession(Astro.request);
 if (!session) {
   return Astro.redirect('/');
 }
