@@ -13,18 +13,21 @@
     let error = null;
 
     let search = "";
-    let activeFilter = "all"; // "all" | "24/7" | "slurm"
-    let activeProvider = "all"; // "all" | a provider label from providerOf
+    // One mutually-exclusive facet: "all" | "24/7" | "slurm" | a provider
+    // label. Providers are all 24/7, so a provider pill is a refinement of
+    // 24/7 rather than a second axis — one row, one selection.
+    let activeFilter = "all";
 
     // Provider facet, derived from the data: passthrough models carry
     // their provider's namespace as the id's first segment (CSCS-Inference,
-    // RCP-AIaaS), our own OpenTela-served models live under
-    // SwissAI-Research, and anything else is a user-launched Slurm job.
+    // RCP-AIaaS), and our own OpenTela k8s launches live under
+    // SwissAI-Research. User Slurm launches have no provider pill — the
+    // Slurm pill already selects exactly those.
     function providerOf(m) {
         const launched = m.data.replicas[0]?.head?.launched_by;
         if (isPassthroughLauncher(launched)) return m.data.title.split("/")[0];
         if (m.data.title.startsWith("SwissAI-Research/")) return "SwissAI-Research";
-        return "User-launched";
+        return null;
     }
 
     onMount(async () => {
@@ -120,16 +123,14 @@
             if (!haystack.includes(q)) return false;
         }
 
-        if (activeProvider !== "all" && providerOf(m) !== activeProvider) return false;
-
         const tier = getTierFromLaunchedBy(m.data.replicas[0]?.head?.launched_by);
         if (activeFilter === "24/7") return tier === "L2";
         if (activeFilter === "slurm") return tier === "slurm";
+        if (activeFilter !== "all") return providerOf(m) === activeFilter;
         return true;
     });
 
-    // Pills appear only when there is actually something to choose between.
-    $: providers = Array.from(new Set(models.map(providerOf))).sort();
+    $: providers = Array.from(new Set(models.map(providerOf).filter(Boolean))).sort();
 </script>
 
 <div>
@@ -167,21 +168,13 @@
                 class:active={activeFilter === "slurm"}
                 on:click={() => (activeFilter = "slurm")}
             >Slurm</button>
-            {#if providers.length > 1}
-                <span class="pill-sep" aria-hidden="true"></span>
+            {#each providers as provider (provider)}
                 <button
                     class="pill"
-                    class:active={activeProvider === "all"}
-                    on:click={() => (activeProvider = "all")}
-                >All providers</button>
-                {#each providers as provider (provider)}
-                    <button
-                        class="pill"
-                        class:active={activeProvider === provider}
-                        on:click={() => (activeProvider = provider)}
-                    >{provider}</button>
-                {/each}
-            {/if}
+                    class:active={activeFilter === provider}
+                    on:click={() => (activeFilter = provider)}
+                >{provider}</button>
+            {/each}
         </div>
         <input
             type="text"
@@ -256,14 +249,5 @@
         background-color: #6366f1;
         border-color: #6366f1;
         color: white;
-    }
-
-    .pill-sep {
-        align-self: stretch;
-        width: 1px;
-        background-color: rgba(0, 0, 0, 0.15);
-    }
-    :global(.dark) .pill-sep {
-        background-color: rgba(255, 255, 255, 0.2);
     }
 </style>
