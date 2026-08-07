@@ -21,7 +21,11 @@ A new OpenTela peer label `authorization` carries the access policy. Its grammar
 - `email1,email2,...` — only the listed users (normalized: stripped, lowercased; the gateway also compares case-insensitively as defense in depth).
 - **Missing/empty label — public.** Every model launched before this feature keeps working and stays visible; no migration, no flag day.
 
+**The default is `public`** — on the SML side (`--authorization`, overridable with `SML_AUTHORIZATION`) and as the reading of an absent label. Restricting a model is an explicit act, so this feature cannot silently make a previously-visible model disappear.
+
 The gateway derives a `model_id → [authorization values]` map from the same DNT table the models router already reads (including the `served_model_name` label fallback for pending/follower peers).
+
+Ids are looked up as the caller spelled them, plus — for the `SwissAI-Research/<org>/<model>` alias, which the proxy strips before forwarding — the upstream form; both entries' labels are pooled, so the alias cannot be used to route around a policy attached to the bare id.
 
 ### Multi-entry semantics: one policy or refuse
 
@@ -34,7 +38,7 @@ Deny-all on conflict is deliberate. OpenTela load-balances a model name across e
 
 ### "private" is resolved by SML, never seen by the gateway
 
-`--authorization private` (the SML default) means "only the launcher" — but the gateway does not know who the launcher is. Rather than teach it, SML translates `private` into the launcher's own email **before submission** by calling the new `GET /v1/whoami` (bearer = the user's API key → `{"email": ...}`). The literal value `private` therefore never reaches the mesh, and the gateway's grammar stays two-valued (public / email list). A validator in SML rejects an unresolved `private` at `LaunchArgs` construction as a guardrail.
+`--authorization private` means "only the launcher" — but the gateway does not know who the launcher is. Rather than teach it, SML translates `private` into the launcher's own email **before submission** by calling the new `GET /v1/whoami` (bearer = the user's API key → `{"email": ...}`). The literal value `private` therefore never reaches the mesh, and the gateway's grammar stays two-valued (public / email list). A validator in SML rejects an unresolved `private` at `LaunchArgs` construction as a guardrail.
 
 ### Enforcement and filtering at the gateway
 
