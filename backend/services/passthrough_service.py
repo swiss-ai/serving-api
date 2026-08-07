@@ -24,12 +24,11 @@ is forwarded verbatim as the upstream id (see ``resolve_model``).
 Un-prefixed upstream ids still route during a deprecation window, where
 registration order is precedence.
 
-Curation is per provider via ``Provider.allowed_ids``: RCP advertises
-far more than we want to expose (~26 models, incl. quant variants), so
-its discovered set is narrowed to an allowlist before it is listed or
-routed; CSCS L1 is currently unrestricted — whatever it advertises
-surfaces. Allowlist matches are exact — an id under a different org
-prefix is not surfaced.
+Curation is per provider via ``Provider.hidden_id_suffixes``: RCP
+advertises every model twice — once under its canonical id and once
+under a ``-bfloat16`` alias for the same weights — so the alias twins
+are dropped before the set is listed or routed. CSCS L1 is currently
+unrestricted — whatever it advertises surfaces.
 
 Secrets (base URLs, API keys) come from env via Settings.
 """
@@ -77,22 +76,10 @@ class Provider:
     # /models yet AND the current fetch fails. Empty = nothing advertised
     # until the first successful fetch.
     fallback_ids: tuple[str, ...] = ()
-    # Curation allowlist: only these exact ids are surfaced (listed or
-    # routed) from this provider. None = unrestricted — everything the
-    # upstream advertises surfaces. Match is exact and verbatim — an id
-    # under a different org prefix (e.g. bare `Apertus-8B-Instruct-2509`)
-    # does NOT match.
-    allowed_ids: frozenset[str] | None = None
-
-
-# RCP advertises far more than we want to expose (~26 models, incl. quant
-# variants), so it is narrowed to just the Apertus pair it backs up.
-_RCP_ALLOWED_MODEL_IDS: frozenset[str] = frozenset(
-    {
-        "swiss-ai/Apertus-8B-Instruct-2509",
-        "swiss-ai/Apertus-70B-Instruct-2509",
-    }
-)
+    # Alias curation: discovered ids ending in one of these suffixes are
+    # dropped before listing or routing — for upstreams that advertise
+    # the same weights under several ids. Empty = everything surfaces.
+    hidden_id_suffixes: tuple[str, ...] = ()
 
 
 # CSCS L1 cold-start fallback so the Apertus rows don't vanish during a
@@ -130,7 +117,9 @@ def registered_providers() -> list[Provider]:
                 api_key=s.rcp_api_key,
                 device="EPFL RCP",
                 prefix="RCP-AIaaS",
-                allowed_ids=_RCP_ALLOWED_MODEL_IDS,
+                # RCP lists every model twice: canonical id + a -bfloat16
+                # alias of the same weights. One row per model is enough.
+                hidden_id_suffixes=("-bfloat16",),
             )
         )
     return providers
@@ -174,18 +163,18 @@ async def _fetch_model_ids(provider: Provider) -> set[str] | None:
 
 async def _get_cached_ids(provider: Provider) -> set[str]:
     """The provider's *advertised* id set: whatever discovery currently
-    knows, narrowed to the provider's ``allowed_ids`` (if any). This is the
-    single boundary both listing (``get_synthetic_entries``) and routing
-    (``resolve_provider``) go through, so the same allowlist governs both —
-    a model we don't list also can't be routed to."""
+    knows, minus ids matching the provider's ``hidden_id_suffixes``. This
+    is the single boundary both listing (``get_synthetic_entries``) and
+    routing (``resolve_provider``) go through, so the same curation
+    governs both — an alias we don't list also can't be routed to."""
     discovered = await _discover_ids(provider)
-    if provider.allowed_ids is None:
+    if not provider.hidden_id_suffixes:
         return discovered
-    return provider.allowed_ids & discovered
+    return {m for m in discovered if not m.endswith(provider.hidden_id_suffixes)}
 
 
 async def _discover_ids(provider: Provider) -> set[str]:
-    """Return the provider's discovered model id set (pre-allowlist).
+    """Return the provider's discovered model id set (pre-curation).
     Refreshes if TTL has expired; on fetch failure keeps stale cache,
     falling back to ``provider.fallback_ids`` only at true cold start. A
     transient upstream outage shouldn't make rows that *were* there
