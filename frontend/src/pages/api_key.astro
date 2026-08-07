@@ -3,7 +3,6 @@ import { getSession } from 'auth-astro/server';
 import PageLayout from "@layouts/PageLayout.astro";
 import Container from "@components/Container.astro";
 import { SITE } from "@consts";
-import { getUserProfile } from '@lib/auth';
 import { SignIn } from 'auth-astro/components';
 
 export const prerender = false;
@@ -254,14 +253,11 @@ const apiUrl = process.env.VITE_API_URL || import.meta.env.VITE_API_URL || 'http
 </PageLayout>
 
 <script define:vars={{ session, apiUrl }}>
-  // Function to get API key from storage
-  function getApiKey() {
-    return localStorage.getItem('apiKey');
-  }
-  
-  // Function to set API key in storage
-  function setApiKey(apiKey) {
-    localStorage.setItem('apiKey', apiKey);
+  // The key is never cached client-side: localStorage is per-browser, not
+  // per-account, so a cached key survives switching accounts and shows the
+  // previous account's key. Scrub entries older builds left behind.
+  for (const stale of ['apiKey', 'apiBudget', 'accessToken']) {
+    localStorage.removeItem(stale);
   }
 
   // Function to initialize code examples with placeholders
@@ -376,46 +372,26 @@ const apiUrl = process.env.VITE_API_URL || import.meta.env.VITE_API_URL || 'http
       const pythonApiKey = document.getElementById('pythonApiKey');
       const statusText = document.getElementById('statusText');
       
-      // Get user details from session
-      const userEmail = session?.user?.email || '';
-      const userName = session?.user?.name || '';
-      
-      // Try to get API key (and cached budget) from storage first
-      let apiKey = getApiKey();
-      let budget = localStorage.getItem('apiBudget');
-      
-      // If not in storage (or budget unknown), fetch from server
-      if (!apiKey || budget === null) {
-        const response = await fetch(`${apiUrl}/v1/profile`, {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${session.accessToken}`,
-          }
-        });
-        
-        if (!response.ok) {
-          throw new Error(`Error: ${response.status}`);
+      const response = await fetch(`${apiUrl}/v1/profile`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.accessToken}`,
         }
-        
-        const data = await response.json();
-        apiKey = data.api_key;
-        budget = data.budget;
+      });
 
-        // Store the API key (and budget) if we got one
-        if (apiKey) {
-          setApiKey(apiKey);
-          localStorage.setItem('apiBudget', String(budget));
-        }
+      if (!response.ok) {
+        throw new Error(`Error: ${response.status}`);
       }
+
+      const data = await response.json();
+      const apiKey = data.api_key;
+      const budget = data.budget;
 
       if (!apiKey) {
         throw new Error('No API key available');
       }
 
-      // Update account status from budget — runs whether the key/budget came
-      // from the server or from localStorage, so status never sticks on
-      // "Loading..." after a cached reload.
       if (statusText && budget !== null && budget !== undefined) {
         if (Number(budget) <= 0) {
           statusText.textContent = 'Inactive';
@@ -526,9 +502,7 @@ const apiUrl = process.env.VITE_API_URL || import.meta.env.VITE_API_URL || 'http
             throw new Error('No API key returned');
           }
 
-          // Persist and update every place the key is shown
-          setApiKey(newKey);
-          localStorage.setItem('apiBudget', String(data.budget));
+          // Update every place the key is shown
           if (apiKeyDisplay) apiKeyDisplay.value = newKey;
           if (headerApiKey) headerApiKey.textContent = newKey;
           if (exportApiKey) exportApiKey.textContent = newKey;
