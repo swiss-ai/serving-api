@@ -14,6 +14,10 @@
   export let isAdmin = false;
   export let email = '';
   export let mobile = false;
+  // Which part to render: 'about', 'profile', or 'both' (mobile). Lets the
+  // header put Get Help between the two on desktop while the profile menu
+  // keeps the rightmost slot.
+  export let section = 'both';
 
   const ABOUT = [
     { href: '/guides', label: 'Docs' },
@@ -108,6 +112,7 @@
 {:else}
   <div class="flex items-center gap-6" bind:this={root}>
     <!-- About ▾ -->
+    {#if section !== 'profile'}
     <div class="relative">
       <button
         type="button"
@@ -129,8 +134,10 @@
         </div>
       {/if}
     </div>
+    {/if}
 
     <!-- Profile ◉ ▾ / Sign in -->
+    {#if section !== 'about'}
     {#if signedIn}
       <div class="relative">
         <button
@@ -171,6 +178,7 @@
       >
         Sign in
       </button>
+    {/if}
     {/if}
   </div>
 {/if}

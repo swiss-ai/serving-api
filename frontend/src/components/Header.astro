@@ -83,7 +83,7 @@ const userEmail = session?.user?.email || '';
         >
           Performance
         </Link>
-        <NavMenus client:load signedIn={signedIn} isAdmin={isAdmin} email={userEmail} />
+        <NavMenus client:load signedIn={signedIn} isAdmin={isAdmin} email={userEmail} section="about" />
         <a
           href="https://swissai-initiative.slack.com/archives/C07DHJFRE2X"
           target="_blank"
@@ -95,6 +95,7 @@ const userEmail = session?.user?.email || '';
           </svg>
           Get Help
         </a>
+        <NavMenus client:load signedIn={signedIn} isAdmin={isAdmin} email={userEmail} section="profile" />
       </nav>
 
       <!-- Mobile Menu Button -->
