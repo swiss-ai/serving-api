@@ -17,6 +17,7 @@ from backend.services.authorization_service import (
     grants_access,
     normalize_policy,
 )
+from backend.services.passthrough_service import ResolvedModel
 
 
 def _run(coro):
@@ -38,8 +39,10 @@ def _patch_fetch_dnt(data_or_none):
 
 
 def _patch_no_passthrough():
+    """resolve_model → None: the id is not in any provider's namespace, so
+    it is forwarded to OpenTela unchanged and is its own DNT key."""
     return patch.object(
-        authorization_service, "resolve_provider", new=AsyncMock(return_value=None)
+        authorization_service, "resolve_model", new=AsyncMock(return_value=None)
     )
 
 
@@ -271,16 +274,44 @@ def test_passthrough_model_always_allowed():
     """Synthetic passthrough-provider models (CSCS L1, RCP) are public —
     the DNT is not even consulted."""
     fetch = AsyncMock(return_value={})
+    resolved = ResolvedModel(
+        provider=object(),
+        upstream_id="swiss-ai/Apertus-8B",
+        public_id="CSCS-Inference/swiss-ai/Apertus-8B",
+    )
     with (
         patch.object(
             authorization_service,
-            "resolve_provider",
-            new=AsyncMock(return_value=object()),
+            "resolve_model",
+            new=AsyncMock(return_value=resolved),
         ),
         patch.object(authorization_service, "_fetch_dnt", new=fetch),
     ):
-        _run(ensure_model_access(None, "sk-rc-x", "swiss-ai/Apertus-8B"))
+        _run(ensure_model_access(None, "sk-rc-x", "CSCS-Inference/swiss-ai/Apertus-8B"))
     assert fetch.await_count == 0
+
+
+def test_platform_alias_checks_both_the_prefixed_and_upstream_id():
+    """SwissAI-Research/<org>/<model> is an alias the proxy strips before
+    forwarding, so a policy attached to EITHER form must be enforced —
+    otherwise the alias would be a way around a restricted model's label."""
+    resolved = ResolvedModel(
+        provider=None,
+        upstream_id="org/m",
+        public_id="SwissAI-Research/org/m",
+    )
+    with (
+        patch.object(
+            authorization_service,
+            "resolve_model",
+            new=AsyncMock(return_value=resolved),
+        ),
+        _patch_fetch_dnt({"/p": _dnt_peer("org/m", "owner@epfl.ch")}),
+        _patch_email("outsider@epfl.ch"),
+    ):
+        with pytest.raises(HTTPException) as exc_info:
+            _run(ensure_model_access(None, "sk-rc-x", "SwissAI-Research/org/m"))
+    assert exc_info.value.status_code == 403
 
 
 def test_unknown_model_allowed():

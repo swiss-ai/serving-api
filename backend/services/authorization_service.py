@@ -29,7 +29,7 @@ from fastapi import HTTPException
 
 from backend.config import get_settings
 from backend.services.auth_service import get_email_for_token
-from backend.services.passthrough_service import resolve_provider
+from backend.services.passthrough_service import resolve_model
 
 logger = logging.getLogger("backend")
 
@@ -169,6 +169,29 @@ async def _get_auth_map() -> dict[str, list[str]] | None:
         return _cache["auth_map"]
 
 
+async def _dnt_keys_for(model_id: str) -> list[str] | None:
+    """The DNT ids a requested model id may be advertised under, or None
+    when it belongs to a passthrough provider (always public).
+
+    ``SwissAI-Research/<org>/<model>`` is this platform's public alias for
+    a model on our own OpenTela network, and the proxy strips the prefix
+    before forwarding (see passthrough_service.resolve_model). Peers may
+    therefore be advertising either form, so both are checked and their
+    labels pooled: if the two forms carry *different* policies they are
+    independent launches reachable under one routed name, which is exactly
+    the collision the conflict rule below refuses.
+
+    Every other id — a user launch (``<username>/<org>/<model>``) or a
+    pre-namespacing bare name — is forwarded unchanged, so it is its own
+    only key."""
+    resolved = await resolve_model(model_id)
+    if resolved is None:
+        return [model_id]
+    if resolved.provider is not None:
+        return None
+    return [model_id, resolved.upstream_id]
+
+
 async def ensure_model_access(engine, token: str, model_id: str) -> None:
     """Raise 403 unless the API key's owner may use ``model_id``.
 
@@ -192,7 +215,8 @@ async def ensure_model_access(engine, token: str, model_id: str) -> None:
         # id can't be looked up (unhashable) — treat it like an unknown
         # model and let the upstream reject it with its own 4xx.
         return
-    if await resolve_provider(model_id) is not None:
+    keys = await _dnt_keys_for(model_id)
+    if keys is None:
         return
     auth_map = await _get_auth_map()
     if auth_map is None:
@@ -202,8 +226,8 @@ async def ensure_model_access(engine, token: str, model_id: str) -> None:
             model_id,
         )
         return
-    auth_values = auth_map.get(model_id)
-    if auth_values is None:
+    auth_values = [value for key in keys for value in auth_map.get(key, [])]
+    if not auth_values:
         return
     policies = {normalize_policy(value) for value in auth_values}
     if len(policies) > 1:

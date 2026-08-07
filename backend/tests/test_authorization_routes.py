@@ -93,7 +93,12 @@ def test_whoami_unknown_key_401(client):
 
 
 def _peer_entry(model_id: str, auth_value: str | None) -> dict:
-    """A get_all_models-shaped entry; the filter reads labels.authorization."""
+    """A get_all_models-shaped entry; the filter reads labels.authorization.
+
+    Ids are username-namespaced and the peer version is current, because
+    /v1/models* runs model_service.platform_namespaced first — an
+    un-namespaced id or an old peer is dropped before authorization is
+    even consulted, which would make these cases vacuous."""
     labels = {"worker_group_id": "wg-" + model_id}
     if auth_value is not None:
         labels["authorization"] = auth_value
@@ -104,6 +109,7 @@ def _peer_entry(model_id: str, auth_value: str | None) -> dict:
         "owner": "0x",
         "has_service": True,
         "peer_id": "Qm" + model_id,
+        "otela_version": "sai-v0.0.6",
         "labels": labels,
         "authorization": auth_value or "",
     }
@@ -128,9 +134,9 @@ def _list_models(client, monkeypatch, headers=None):
 
     passthrough_service._reset_cache_for_tests()
     entries = [
-        _peer_entry("org/public-model", "public"),
-        _peer_entry("org/legacy-model", None),
-        _peer_entry("org/secret-model", f"{ALICE},Bob@ETHZ.ch"),
+        _peer_entry("alice/org/public-model", "public"),
+        _peer_entry("alice/org/legacy-model", None),
+        _peer_entry("alice/org/secret-model", f"{ALICE},Bob@ETHZ.ch"),
     ]
     monkeypatch.setattr(
         models_router, "get_all_models", lambda endpoint, with_details=False: entries
@@ -158,16 +164,18 @@ def test_models_anonymous_sees_public_unlabeled_and_passthrough(client, monkeypa
     body = response.json()
     assert body["object"] == "list"
     assert {e["id"] for e in body["data"]} == {
-        "org/public-model",
-        "org/legacy-model",
-        "swiss-ai/Apertus-70B-Instruct-2509",
+        "alice/org/public-model",
+        "alice/org/legacy-model",
+        # Passthrough entries are advertised under their provider prefix
+        # and carry no authorization label, so they read as public.
+        "CSCS-Inference/swiss-ai/Apertus-70B-Instruct-2509",
     }
 
 
 def test_models_owner_sees_their_restricted_model(client, monkeypatch):
     response = _list_models(client, monkeypatch, headers=_bearer(ALICE_KEY))
     assert response.status_code == 200
-    assert "org/secret-model" in {e["id"] for e in response.json()["data"]}
+    assert "alice/org/secret-model" in {e["id"] for e in response.json()["data"]}
 
 
 def test_models_other_listed_user_sees_it_case_insensitively(client, monkeypatch):
@@ -175,15 +183,15 @@ def test_models_other_listed_user_sees_it_case_insensitively(client, monkeypatch
     the comparison must not care."""
     response = _list_models(client, monkeypatch, headers=_bearer(BOB_KEY))
     assert response.status_code == 200
-    assert "org/secret-model" in {e["id"] for e in response.json()["data"]}
+    assert "alice/org/secret-model" in {e["id"] for e in response.json()["data"]}
 
 
 def test_models_non_listed_user_does_not_see_it(client, monkeypatch):
     response = _list_models(client, monkeypatch, headers=_bearer(CAROL_KEY))
     assert response.status_code == 200
     ids = {e["id"] for e in response.json()["data"]}
-    assert "org/secret-model" not in ids
-    assert "org/public-model" in ids
+    assert "alice/org/secret-model" not in ids
+    assert "alice/org/public-model" in ids
 
 
 def test_models_invalid_bearer_401(client, monkeypatch):
@@ -197,15 +205,15 @@ def test_models_detailed_filters_the_same_way(client, monkeypatch):
     from backend.routers import models as models_router
 
     entries = [
-        _peer_entry("org/public-model", "public"),
-        _peer_entry("org/secret-model", ALICE),
+        _peer_entry("alice/org/public-model", "public"),
+        _peer_entry("alice/org/secret-model", ALICE),
     ]
     monkeypatch.setattr(
         models_router, "get_all_models", lambda endpoint, with_details=False: entries
     )
     response = client.get("/v1/models_detailed")
     assert response.status_code == 200
-    assert {e["id"] for e in response.json()["data"]} == {"org/public-model"}
+    assert {e["id"] for e in response.json()["data"]} == {"alice/org/public-model"}
 
 
 # ── enforcement end to end ──────────────────────────────────────────────────
@@ -223,7 +231,7 @@ def test_chat_completions_403_uses_permission_error_envelope(client, monkeypatch
             "id": "QmSecret",
             "labels": {"worker_group_id": "wg", "authorization": ALICE},
             "service": [
-                {"name": "llm", "identity_group": ["model=org/secret-model"]},
+                {"name": "llm", "identity_group": ["model=alice/org/secret-model"]},
             ],
         }
     }
@@ -240,7 +248,7 @@ def test_chat_completions_403_uses_permission_error_envelope(client, monkeypatch
         "/v1/chat/completions",
         headers=_bearer(CAROL_KEY),
         json={
-            "model": "org/secret-model",
+            "model": "alice/org/secret-model",
             "messages": [{"role": "user", "content": "hi"}],
         },
     )
@@ -248,7 +256,7 @@ def test_chat_completions_403_uses_permission_error_envelope(client, monkeypatch
     body = response.json()
     assert "detail" not in body
     assert body["error"]["type"] == "permission_error"
-    assert "org/secret-model" in body["error"]["message"]
+    assert "alice/org/secret-model" in body["error"]["message"]
 
 
 def test_non_string_model_falls_through_not_500(client, monkeypatch):
@@ -263,7 +271,7 @@ def test_non_string_model_falls_through_not_500(client, monkeypatch):
             "id": "QmAny",
             "labels": {"worker_group_id": "wg"},
             "service": [
-                {"name": "llm", "identity_group": ["model=org/public-model"]},
+                {"name": "llm", "identity_group": ["model=alice/org/public-model"]},
             ],
         }
     }
@@ -321,7 +329,7 @@ def test_chat_completions_authorized_user_passes_the_gate(client, monkeypatch):
             "id": "QmSecret",
             "labels": {"worker_group_id": "wg", "authorization": ALICE},
             "service": [
-                {"name": "llm", "identity_group": ["model=org/secret-model"]},
+                {"name": "llm", "identity_group": ["model=alice/org/secret-model"]},
             ],
         }
     }
@@ -329,7 +337,7 @@ def test_chat_completions_authorized_user_passes_the_gate(client, monkeypatch):
         authorization_service, "_fetch_dnt", AsyncMock(return_value=dnt)
     )
 
-    async def fake_proxy(*, endpoint, api_key, request):
+    async def fake_proxy(*, endpoint, api_key, request, provider_label=None):
         return types.SimpleNamespace(ok=True)
 
     monkeypatch.setattr(completions_router, "llm_proxy", fake_proxy)
@@ -338,7 +346,7 @@ def test_chat_completions_authorized_user_passes_the_gate(client, monkeypatch):
         "/v1/chat/completions",
         headers=_bearer(ALICE_KEY),
         json={
-            "model": "org/secret-model",
+            "model": "alice/org/secret-model",
             "messages": [{"role": "user", "content": "hi"}],
         },
     )
