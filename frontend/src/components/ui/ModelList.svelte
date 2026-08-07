@@ -2,7 +2,7 @@
     import { onMount } from "svelte";
     import ModelCard from "./ModelCard.svelte";
     import { getApiUrl } from "../../lib/config";
-    import { getTierFromLaunchedBy } from "../../lib/modelMetrics";
+    import { getTierFromLaunchedBy, isPassthroughLauncher } from "../../lib/modelMetrics";
 
     export let chatAppUrl;
 
@@ -13,7 +13,28 @@
     let error = null;
 
     let search = "";
-    let activeFilter = "all"; // "all" | "24/7" | "slurm"
+    // One mutually-exclusive facet: "all" | "24/7" | "slurm" | a provider
+    // label. Providers are all 24/7, so a provider is a refinement of 24/7
+    // rather than a second axis — one selection. The three tiers stay as
+    // pills; providers live in a compact dropdown so the row doesn't grow
+    // with every provider we add.
+    let activeFilter = "all";
+
+    // Provider facet, derived from the data: passthrough models carry
+    // their provider's namespace as the id's first segment (CSCS-Inference,
+    // RCP-AIaaS), and our own OpenTela k8s launches live under
+    // SwissAI-Research. User Slurm launches have no provider — the Slurm
+    // pill already selects exactly those.
+    function providerOf(m) {
+        const launched = m.data.replicas[0]?.head?.launched_by;
+        if (isPassthroughLauncher(launched)) return m.data.title.split("/")[0];
+        if (m.data.title.startsWith("SwissAI-Research/")) return "SwissAI-Research";
+        return null;
+    }
+
+    // Selecting a provider from the dropdown IS the facet selection;
+    // clicking a tier pill resets the dropdown and vice versa.
+    $: providerSelection = providers.includes(activeFilter) ? activeFilter : "";
 
     onMount(async () => {
         try {
@@ -111,8 +132,11 @@
         const tier = getTierFromLaunchedBy(m.data.replicas[0]?.head?.launched_by);
         if (activeFilter === "24/7") return tier === "L2";
         if (activeFilter === "slurm") return tier === "slurm";
+        if (activeFilter !== "all") return providerOf(m) === activeFilter;
         return true;
     });
+
+    $: providers = Array.from(new Set(models.map(providerOf).filter(Boolean))).sort();
 </script>
 
 <div>
@@ -150,6 +174,20 @@
                 class:active={activeFilter === "slurm"}
                 on:click={() => (activeFilter = "slurm")}
             >Slurm</button>
+            {#if providers.length > 0}
+                <select
+                    class="pill provider-select"
+                    class:active={providerSelection !== ""}
+                    value={providerSelection}
+                    on:change={(e) => (activeFilter = e.target.value || "all")}
+                    aria-label="Filter by provider"
+                >
+                    <option value="">Provider…</option>
+                    {#each providers as provider (provider)}
+                        <option value={provider}>{provider}</option>
+                    {/each}
+                </select>
+            {/if}
         </div>
         <input
             type="text"
@@ -224,5 +262,26 @@
         background-color: #6366f1;
         border-color: #6366f1;
         color: white;
+    }
+
+    .provider-select {
+        appearance: none;
+        -webkit-appearance: none;
+        padding-right: 1.6rem;
+        background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2'><path stroke-linecap='round' stroke-linejoin='round' d='M19 9l-7 7-7-7'/></svg>");
+        background-repeat: no-repeat;
+        background-position: right 0.5rem center;
+        background-size: 0.8em;
+    }
+    .provider-select.active {
+        background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'><path stroke-linecap='round' stroke-linejoin='round' d='M19 9l-7 7-7-7'/></svg>");
+    }
+    .provider-select option {
+        color: initial;
+        background-color: white;
+    }
+    :global(.dark) .provider-select option {
+        color: white;
+        background-color: #0f172a;
     }
 </style>

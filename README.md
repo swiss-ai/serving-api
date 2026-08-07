@@ -37,36 +37,37 @@ Frontend and backend API proxy for SwissAI LLM serving. For examples on how to l
 ## Model Namespaces & Passthrough Providers
 
 Model ids are namespaced by their **first path segment**, which selects
-who serves the model. Three namespaces exist today:
+who serves the model:
 
 | First segment | Serves | Example |
 | :- | :- | :- |
-| `SwissAI-Research/` | **This platform** — models we serve ourselves via OpenTela | `SwissAI-Research/swiss-ai/Apertus-70B-Instruct-2509` |
+| `SwissAI-Research/` | Models we serve on our Kubernetes cluster (via OpenTela) | `SwissAI-Research/swiss-ai/Apertus-70B-Instruct-2509` |
+| `{username}/` | Models launched by users through model-launch | `{username}/Qwen/Qwen2.5-72B-Instruct` |
 | `CSCS-Inference/` | CSCS L1 inference service (`api.inference.cscs.ch`) | `CSCS-Inference/swiss-ai/Apertus-70B-Instruct-2509` |
 | `RCP-AIaaS/` | EPFL RCP AIaaS (`inference-rcp.epfl.ch`) | `RCP-AIaaS/swiss-ai/Apertus-8B-Instruct-2509` |
 
-Bare `{org}/{model}` ids remain accepted and equivalent to
-`SwissAI-Research/{org}/{model}` — the model list currently shows the bare
-form; flipping the listing to the prefixed form is a pending decision
-(it changes every advertised id, so clients need a migration window).
+The model list only advertises ids of exactly three non-empty segments
+(`{owner}/{hf_org}/{hf_model}`); user launches additionally need OpenTela
+`sai-v0.0.6` or newer. This is listing-only curation — anything running
+stays routable by its id (admins see the full unfiltered set, with the
+reason each hidden entry is dropped, on `/all_models`).
 
 Requests are forwarded with the prefix stripped (the serving side only
 knows its own id) and responses — including streamed chunks — are
 rewritten back to the prefixed id. The same upstream model on two
 providers is two distinct, individually-routable entries; a prefixed id
-can never collide with (or shadow) a local model. All three prefixes are
+can never collide with (or shadow) a local model. The
+`SwissAI-Research`, `CSCS-Inference` and `RCP-AIaaS` prefixes are
 reserved names: never launch a local model whose id starts with one.
 
-**Curation.** What each provider surfaces is governed by its
-`allowed_ids` in `backend/services/passthrough_service.py`:
+**Passthrough curation.** What each provider surfaces is governed by its
+`hidden_id_suffixes` in `backend/services/passthrough_service.py`:
 
 - **CSCS L1** — unrestricted: everything its `/models` endpoint
   advertises is listed and routable (tracked live, ~30 s discovery TTL).
-- **EPFL RCP** — allowlisted to the two Apertus Instruct models only.
-  RCP's `/models` advertises many more (quant variants, scale-to-zero
-  deployments that cold-start on first request); surfacing them would
-  advertise capacity that responds slowly or misleadingly, so the
-  allowlist stays deliberately narrow.
+- **EPFL RCP** — everything it advertises, minus alias/quant variants of
+  the same weights (`-bfloat16`, `-float32`, `-fp8`, `-int4` suffixes,
+  case-insensitive): one row per model is enough.
 
 **Rate limiting** applies only to passthrough traffic: external
 providers are a shared, platform-accountable resource, while
@@ -78,8 +79,7 @@ route during a deprecation window — logged, first provider in
 registration order wins — and responses already return the prefixed id
 to advertise the migration target.
 
-Planned (not yet implemented): `$OWNER/{org}/{model}` for private
-user/group launches, and per-model health status for passthrough
+Planned (not yet implemented): per-model health status for passthrough
 entries.
 
 ## Repo Structure
