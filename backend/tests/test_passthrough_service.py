@@ -246,6 +246,7 @@ def test_rcp_hides_alias_and_quant_suffixes_from_listing_and_routing():
         APERTUS_70B,
         f"{APERTUS_70B}-bfloat16",
         f"{APERTUS_70B}-Int4",
+        f"{APERTUS_70B}-float32",
     ]
     settings = _FakeSettings(
         cscs_l1_base_url="",

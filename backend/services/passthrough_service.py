@@ -122,7 +122,7 @@ def registered_providers() -> list[Provider]:
                 # RCP lists every model twice: canonical id + a -bfloat16
                 # alias of the same weights. One row per model is enough,
                 # and quantized variants stay hidden too.
-                hidden_id_suffixes=("-bfloat16", "-fp8", "-int4"),
+                hidden_id_suffixes=("-bfloat16", "-float32", "-fp8", "-int4"),
             )
         )
     return providers
