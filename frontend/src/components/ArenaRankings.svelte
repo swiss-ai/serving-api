@@ -11,13 +11,11 @@
   let currentData = elosData;
 
   // Calendar-day windows against usage_daily (days=1 is "today"), matching
-  // the My Usage page — same store, same semantics, same numbers.
-  const timeRanges = [
-    { label: 'Today', value: 1 },
-    { label: 'Last 7 Days', value: 7 },
-    { label: 'Last 30 Days', value: 30 },
-    { label: 'Last 60 Days', value: 60 },
-  ];
+  // the My Usage page — same store, same semantics, same windows, same labels.
+  const timeRanges = [1, 7, 30, 90].map(d => ({
+    label: d === 1 ? 'Today' : `${d} days`,
+    value: d,
+  }));
 
   // If initial data is provided, use it. But better to rely on fetching for consistency 
   // if we want to ensure the "Last X Days" logic is strictly followed from the client's 'now'.
@@ -35,7 +33,11 @@
       rank: index + 1,
       model,
       tokens,
-      displayName: getDisplayName(model)
+      displayName: getDisplayName(model),
+      subtitle: [
+        `${formatNumber(tokens.requests)} requests`,
+        formatLastActive(tokens.lastActive),
+      ].filter(Boolean).join(' · ')
     }));
   
   function getDisplayName(modelName) {
@@ -58,6 +60,14 @@
       case 3: return 'text-amber-600 dark:text-amber-400';
       default: return 'text-gray-700 dark:text-gray-300';
     }
+  }
+
+  function formatLastActive(iso) {
+    if (!iso) return '';
+    const days = Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
+    if (days <= 0) return 'active today';
+    if (days === 1) return 'active yesterday';
+    return `active ${days}d ago`;
   }
 
   function formatNumber(num) {
@@ -87,6 +97,8 @@
           input: m.prompt_tokens || 0,
           output: m.completion_tokens || 0,
           total: m.total_tokens || 0,
+          requests: m.requests || 0,
+          lastActive: m.last_active || null,
         };
       }
       currentData = newData;
@@ -143,7 +155,7 @@
               </tr>
             </thead>
             <tbody>
-              {#each sortedRankings as {rank, model, tokens, displayName}}
+              {#each sortedRankings as {rank, model, tokens, displayName, subtitle}}
                 <tr class="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                   <td class="py-3 px-2">
                     <div class="flex items-center space-x-2">
@@ -161,8 +173,11 @@
                         <img src={getModelLogo(model)} alt="" class="w-6 h-6 rounded-sm flex-shrink-0" />
                       {/if}
                       <div>
-                        <div class="font-medium text-gray-900 dark:text-gray-100">{displayName}</div>
-                        <div class="text-xs text-gray-500 dark:text-gray-400">{model}</div>
+                        <div class="font-medium text-gray-900 dark:text-gray-100" title={model}>{displayName}</div>
+                        {#if displayName !== model}
+                          <div class="text-xs text-gray-500 dark:text-gray-400">{model}</div>
+                        {/if}
+                        <div class="text-xs text-gray-500 dark:text-gray-400">{subtitle}</div>
                       </div>
                     </div>
                   </td>

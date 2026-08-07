@@ -25,6 +25,8 @@ try {
                 input: m.prompt_tokens || 0,
                 output: m.completion_tokens || 0,
                 total: m.total_tokens || 0,
+                requests: m.requests || 0,
+                lastActive: m.last_active || null,
             };
     }
 } catch (e: any) {
