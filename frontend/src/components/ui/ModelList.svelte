@@ -2,7 +2,7 @@
     import { onMount } from "svelte";
     import ModelCard from "./ModelCard.svelte";
     import { getApiUrl } from "../../lib/config";
-    import { getTierFromLaunchedBy } from "../../lib/modelMetrics";
+    import { getTierFromLaunchedBy, isPassthroughLauncher } from "../../lib/modelMetrics";
 
     export let chatAppUrl;
 
@@ -14,6 +14,18 @@
 
     let search = "";
     let activeFilter = "all"; // "all" | "24/7" | "slurm"
+    let activeProvider = "all"; // "all" | a provider label from providerOf
+
+    // Provider facet, derived from the data: passthrough models carry
+    // their provider's namespace as the id's first segment (CSCS-Inference,
+    // RCP-AIaaS), our own OpenTela-served models live under
+    // SwissAI-Research, and anything else is a user-launched Slurm job.
+    function providerOf(m) {
+        const launched = m.data.replicas[0]?.head?.launched_by;
+        if (isPassthroughLauncher(launched)) return m.data.title.split("/")[0];
+        if (m.data.title.startsWith("SwissAI-Research/")) return "SwissAI-Research";
+        return "User-launched";
+    }
 
     onMount(async () => {
         try {
@@ -108,11 +120,16 @@
             if (!haystack.includes(q)) return false;
         }
 
+        if (activeProvider !== "all" && providerOf(m) !== activeProvider) return false;
+
         const tier = getTierFromLaunchedBy(m.data.replicas[0]?.head?.launched_by);
         if (activeFilter === "24/7") return tier === "L2";
         if (activeFilter === "slurm") return tier === "slurm";
         return true;
     });
+
+    // Pills appear only when there is actually something to choose between.
+    $: providers = Array.from(new Set(models.map(providerOf))).sort();
 </script>
 
 <div>
@@ -150,6 +167,21 @@
                 class:active={activeFilter === "slurm"}
                 on:click={() => (activeFilter = "slurm")}
             >Slurm</button>
+            {#if providers.length > 1}
+                <span class="pill-sep" aria-hidden="true"></span>
+                <button
+                    class="pill"
+                    class:active={activeProvider === "all"}
+                    on:click={() => (activeProvider = "all")}
+                >All providers</button>
+                {#each providers as provider (provider)}
+                    <button
+                        class="pill"
+                        class:active={activeProvider === provider}
+                        on:click={() => (activeProvider = provider)}
+                    >{provider}</button>
+                {/each}
+            {/if}
         </div>
         <input
             type="text"
@@ -224,5 +256,14 @@
         background-color: #6366f1;
         border-color: #6366f1;
         color: white;
+    }
+
+    .pill-sep {
+        align-self: stretch;
+        width: 1px;
+        background-color: rgba(0, 0, 0, 0.15);
+    }
+    :global(.dark) .pill-sep {
+        background-color: rgba(255, 255, 255, 0.2);
     }
 </style>
