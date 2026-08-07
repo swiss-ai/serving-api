@@ -1,9 +1,26 @@
 ---
+import { getSession } from 'auth-astro/server';
 import PageLayout from "@layouts/PageLayout.astro";
 import Container from "@components/Container.astro";
 import UserActivity from "@components/UserActivity.svelte";
 
 export const prerender = false;
+
+// Same SSR session handling as usage/index.astro. Signed-out visitors are
+// bounced; whether the signed-in caller is an admin is the API's decision —
+// the component shows its access-required state on a 403.
+const authBypass =
+  (process.env.VITE_DEV_AUTH_BYPASS || import.meta.env.VITE_DEV_AUTH_BYPASS) === 'true';
+
+let session: any;
+if (authBypass) {
+  session = { user: { email: 'dev@localhost' }, accessToken: 'dev-dummy-token' };
+} else {
+  session = await getSession(Astro.request);
+  if (!session) {
+    return Astro.redirect('/');
+  }
+}
 ---
 
 <PageLayout title="User Activity" description="Most active users (admin only)">
@@ -25,7 +42,7 @@ export const prerender = false;
 
             <div class="card p-1">
                 <div class="p-6 bg-white dark:bg-slate-900 rounded-xl">
-                    <UserActivity client:load />
+                    <UserActivity client:load accessToken={session.accessToken} />
                 </div>
             </div>
         </div>

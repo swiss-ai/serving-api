@@ -1,7 +1,9 @@
 <script>
   import { onMount } from 'svelte';
   import { getApiUrl } from '../lib/config';
-  import { getAccessToken, getApiKey } from '../lib/auth';
+
+  // Provided by the page after its server-side session check.
+  export let accessToken = '';
 
   let days = 7;
   let users = [];
@@ -27,7 +29,7 @@
     error = null;
     forbidden = false;
     try {
-      const token = (await getAccessToken()) || getApiKey();
+      const token = accessToken;
       if (!token) {
         forbidden = true;
         return;

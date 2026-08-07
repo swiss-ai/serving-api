@@ -1,7 +1,10 @@
 <script>
   import { onMount } from 'svelte';
   import { getApiUrl } from '../lib/config';
-  import { getAccessToken } from '../lib/auth';
+
+  // Provided by the page after its server-side session check — sessions are
+  // auth-astro cookies, so there is no token in localStorage to read here.
+  export let accessToken = '';
 
   let days = 30;
   let models = [];
@@ -22,7 +25,7 @@
     error = null;
     signedOut = false;
     try {
-      const token = await getAccessToken();
+      const token = accessToken;
       if (!token) {
         signedOut = true;
         return;
