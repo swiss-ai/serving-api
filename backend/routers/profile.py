@@ -40,6 +40,10 @@ async def get_profile(
             api_key = get_or_create_apikey(engine, user_profile["email"])
         user_profile["api_key"] = api_key.key
         user_profile["budget"] = api_key.budget
+        # Lets the UI decide whether to offer the admin menu. Endpoints
+        # still check for themselves — this is presentation, not access
+        # control.
+        user_profile["is_admin"] = bool(api_key.is_admin)
         return user_profile
     except Exception:
         raise HTTPException(
@@ -73,6 +77,7 @@ async def rotate_profile_key(
 
     user_profile["api_key"] = api_key.key
     user_profile["budget"] = api_key.budget
+    user_profile["is_admin"] = bool(api_key.is_admin)
     return user_profile
 
 

@@ -2,6 +2,7 @@
 import Container from "@components/Container.astro";
 import Link from "@components/Link.astro";
 import { SITE } from "@consts";
+import AdminMenu from "@components/AdminMenu.svelte";
 ---
 
 <header>
@@ -57,12 +58,6 @@ import { SITE } from "@consts";
           Performance
         </Link>
         <Link
-          href="/users"
-          class="text-sm font-medium text-slate-600 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-400 transition-colors"
-        >
-          Users
-        </Link>
-        <Link
           href="/articles"
           class="text-sm font-medium text-slate-600 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-400 transition-colors"
         >
@@ -74,6 +69,7 @@ import { SITE } from "@consts";
         >
           FAQ
         </Link>
+        <AdminMenu client:load />
         <a
           href="https://swissai-initiative.slack.com/archives/C07DHJFRE2X"
           target="_blank"
@@ -151,12 +147,6 @@ import { SITE } from "@consts";
         Performance
       </Link>
       <Link
-        href="/users"
-        class="text-sm font-medium text-slate-600 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-400 transition-colors py-2"
-      >
-        Users
-      </Link>
-      <Link
         href="/articles"
         class="text-sm font-medium text-slate-600 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-400 transition-colors py-2"
       >
@@ -168,6 +158,7 @@ import { SITE } from "@consts";
       >
         FAQ
       </Link>
+      <AdminMenu client:load mobile={true} />
       <a
         href="https://swissai-initiative.slack.com/archives/C07DHJFRE2X"
         target="_blank"
