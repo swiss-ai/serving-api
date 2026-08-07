@@ -106,10 +106,13 @@ OpenTela peer label `authorization` that controls who can see and use them:
 - missing/empty label — treated as `public`, so every model launched before
   this feature keeps working and stays visible.
 
-SML's `--authorization private` (the default) never reaches OpenTela: SML
-resolves it to the launcher's own email before submission via
-`GET /v1/whoami` with the user's API key (`Authorization: Bearer sk-rc-...`),
-which returns `{"email": "<owner_email>"}` (401 on an unknown key).
+A launch is `public` unless it says otherwise — SML's `--authorization` defaults
+to it, and so does a missing label.
+
+SML's `--authorization private` never reaches OpenTela: SML resolves it to the
+launcher's own email before submission via `GET /v1/whoami` with the user's API
+key (`Authorization: Bearer sk-rc-...`), which returns `{"email":
+"<owner_email>"}` (401 on an unknown key).
 
 `/v1/models` and `/v1/models_detailed` accept an *optional* bearer API key:
 anonymous callers see only public entries (public/missing label, plus the
