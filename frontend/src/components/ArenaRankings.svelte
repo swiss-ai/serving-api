@@ -11,7 +11,10 @@
   let loading = false;
   let currentData = elosData;
 
+  // Calendar-day windows against usage_daily (days=1 is "today"), matching
+  // the My Usage page — same store, same semantics, same numbers.
   const timeRanges = [
+    { label: 'Today', value: 1 },
     { label: 'Last 7 Days', value: 7 },
     { label: 'Last 30 Days', value: 30 },
     { label: 'Last 60 Days', value: 60 },
@@ -76,45 +79,15 @@
   async function fetchData(days) {
     loading = true;
     try {
-      const toDate = new Date();
-      const fromDate = new Date();
-      fromDate.setDate(toDate.getDate() - days);
-
-      // Reset time to start of day for consistency if needed, 
-      // but API seems to accept ISO strings.
-      // Ensuring UTC 00:00:00 might match the user's curl example better:
-      // "2025-12-01T00:00:00Z"
-      
-      const response = await fetch(`${getApiUrl()}/v1/metrics`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          view: "observations",
-          metrics: [{ measure: "totalTokens", aggregation: "sum" }],
-          dimensions: [{ field: "providedModelName" }],
-          filters: [],
-          fromTimestamp: fromDate.toISOString(),
-          toTimestamp: toDate.toISOString(),
-        }),
-      });
-
+      const response = await fetch(`${getApiUrl()}/v1/leaderboard?days=${days}`);
       if (!response.ok) throw new Error('Network response was not ok');
-
       const result = await response.json();
-      
+
       let newData = {};
-      if (result.data && Array.isArray(result.data)) {
-        newData = result.data.reduce((acc, item) => {
-          if (item.providedModelName) {
-            acc[item.providedModelName] = parseInt(item.sum_totalTokens || "0", 10);
-          }
-          return acc;
-        }, {});
+      for (const m of result.models || []) {
+        if (m.model) newData[m.model] = m.total_tokens || 0;
       }
       currentData = newData;
-
     } catch (error) {
       console.error("Failed to fetch data:", error);
     } finally {

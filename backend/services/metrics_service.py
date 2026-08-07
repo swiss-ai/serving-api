@@ -1,10 +1,6 @@
-import os
-import json
 import logging
-import base64
 import time
 import requests
-import aiohttp
 from collections import defaultdict
 from typing import Dict, Any, Optional
 from threading import Lock
@@ -14,42 +10,9 @@ from backend.config import parse_hardware_info, get_settings
 logger = logging.getLogger(__name__)
 
 
-def _daily_metrics_endpoint() -> str:
-    """Daily-metrics API on the configured Langfuse (self-hosted since
-    2026-08-05); cloud remains the fallback when no host is configured."""
-    host = get_settings().langfuse_host.rstrip("/") or "https://cloud.langfuse.com"
-    return f"{host}/api/public/metrics/daily"
-
-
 def get_ttl_hash(seconds=24 * 3600):
     """Return the same value within `seconds` time period"""
     return round(time.time() / seconds)
-
-
-@lru_cache()
-def get_statistics(api_key: Optional[str] = None, ttl_hash=None):
-    # Langfuse disabled — to re-enable, set LANGFUSE_PUBLIC_KEY and LANGFUSE_SECRET_KEY
-    username = os.getenv("LANGFUSE_PUBLIC_KEY")
-    password = os.getenv("LANGFUSE_SECRET_KEY")
-    if not username or not password:
-        return {}
-    lf_endpoint = _daily_metrics_endpoint()
-    if api_key is not None:
-        lf_endpoint += f"?userId={api_key}"
-    data = {}
-    try:
-        response = requests.get(lf_endpoint, auth=(username, password))
-        response.raise_for_status()
-        data = response.json()
-    except requests.exceptions.HTTPError as errh:
-        print(f"HTTP Error: {errh}")
-    except requests.exceptions.ConnectionError as errc:
-        print(f"Error Connecting: {errc}")
-    except requests.exceptions.Timeout as errt:
-        print(f"Timeout Error: {errt}")
-    except requests.exceptions.RequestException as err:
-        print(f"Error: {err}")
-    return data
 
 
 @lru_cache(maxsize=128)
@@ -65,92 +28,6 @@ def get_hardware_spec(node_id: str, dnt_endpoint: str) -> str:
     except Exception as e:
         logger.warning(f"Failed to fetch hardware info for node {node_id}: {e}")
     return "Unknown"
-
-
-_metrics_cache = {}
-
-
-def summarize_daily_usage(days: list[dict]) -> dict:
-    """Daily-metrics rows -> the leaderboard shape the frontend expects
-    ({data: [{providedModelName, sum_totalTokens}]}, tokens descending)."""
-    per_model: dict[str, int] = defaultdict(int)
-    for day in days:
-        for u in day.get("usage") or []:
-            model = u.get("model")
-            if not model:
-                continue
-            total = u.get("totalUsage")
-            if total is None:
-                total = (u.get("inputUsage") or 0) + (u.get("outputUsage") or 0)
-            per_model[model] += int(total or 0)
-    data = [
-        {"providedModelName": m, "sum_totalTokens": str(n)}
-        for m, n in sorted(per_model.items(), key=lambda kv: -kv[1])
-    ]
-    return {"data": data}
-
-
-async def get_langfuse_metrics(query_json: dict, ttl_hash: int = None):
-    """Serve the leaderboard query from Langfuse's daily-metrics API.
-
-    The frontend sends a v2-metrics-style query (sum totalTokens by model
-    over a window), but that API is v4-only and the self-hosted instance
-    runs v3. The daily API exists on both and carries usage-by-model, so we
-    aggregate server-side and answer in the shape the frontend expects."""
-    settings = get_settings()
-    if not settings.langfuse_public_key or not settings.langfuse_secret_key:
-        return {}
-    if not settings.langfuse_host:
-        return {}
-
-    query_str = json.dumps(query_json, sort_keys=True)
-    cache_key = (query_str, ttl_hash)
-
-    if cache_key in _metrics_cache:
-        return _metrics_cache[cache_key]
-
-    params = {"limit": "100"}
-    if query_json.get("fromTimestamp"):
-        params["fromTimestamp"] = query_json["fromTimestamp"]
-    if query_json.get("toTimestamp"):
-        params["toTimestamp"] = query_json["toTimestamp"]
-
-    auth_s = f"{settings.langfuse_public_key}:{settings.langfuse_secret_key}"
-    auth_b64 = base64.b64encode(auth_s.encode()).decode()
-    headers = {"Authorization": f"Basic {auth_b64}"}
-    base = f"{settings.langfuse_host.rstrip('/')}/api/public/metrics/daily"
-
-    days: list[dict] = []
-    try:
-        async with aiohttp.ClientSession() as session:
-            for page in range(1, 11):  # up to 1000 days — effectively all
-                async with session.get(
-                    base,
-                    params={**params, "page": str(page)},
-                    headers=headers,
-                    timeout=aiohttp.ClientTimeout(total=15),
-                ) as resp:
-                    if resp.status != 200:
-                        logger.warning(
-                            "Langfuse daily metrics unavailable (%s): %s",
-                            resp.status,
-                            (await resp.text())[:200],
-                        )
-                        return {}
-                    payload = await resp.json()
-                days.extend(payload.get("data") or [])
-                meta = payload.get("meta") or {}
-                if page >= (meta.get("totalPages") or 1):
-                    break
-    except Exception as exc:
-        # Never let a Langfuse outage 500 the leaderboard; don't cache so a
-        # recovered Langfuse is picked up on the next request.
-        logger.warning("Langfuse daily metrics request failed: %s", exc)
-        return {}
-
-    data = summarize_daily_usage(days)
-    _metrics_cache[cache_key] = data
-    return data
 
 
 def merged_averages(prev_count: int, prev_avgs: dict, stats: dict) -> tuple[int, dict]:

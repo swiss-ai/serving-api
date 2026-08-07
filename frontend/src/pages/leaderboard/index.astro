@@ -9,48 +9,21 @@ let tokenData = {};
 let error = null;
 
 try {
+    // Postgres usage_daily via the public leaderboard endpoint — the same
+    // store behind My Usage, so the pages agree. Langfuse is not read.
     const apiUrl = process.env.VITE_API_URL || import.meta.env.VITE_API_URL || 'https://api.swissai.svc.cscs.ch';
-    const response = await fetch(`${apiUrl}/v1/metrics`, {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-            view: "observations",
-            metrics: [{ measure: "totalTokens", aggregation: "sum" }],
-            dimensions: [{ field: "providedModelName" }],
-            filters: [],
-            // Rolling 30-day window (was a hardcoded Dec 2025 range).
-            fromTimestamp: new Date(Date.now() - 30 * 86400 * 1000).toISOString(),
-            toTimestamp: new Date().toISOString(),
-        }),
-    });
+    const response = await fetch(`${apiUrl}/v1/leaderboard?days=30`);
 
     if (!response.ok) {
         throw new Error(`API request failed with status ${response.status}`);
     }
 
     const result = await response.json();
-
-    // Transform API response to expected format
-    // API returns { data: [ { providedModelName: "...", sum_totalTokens: "..." } ] }
-    if (result.data && Array.isArray(result.data)) {
-        tokenData = result.data.reduce(
-            (acc: Record<string, number>, item: any) => {
-                if (item.providedModelName) {
-                    // Parse the token count as an integer
-                    acc[item.providedModelName] = parseInt(
-                        item.sum_totalTokens || "0",
-                        10,
-                    );
-                }
-                return acc;
-            },
-            {},
-        );
+    for (const m of result.models || []) {
+        if (m.model) (tokenData as Record<string, number>)[m.model] = m.total_tokens || 0;
     }
 } catch (e: any) {
-    console.error("Failed to fetch metrics:", e);
+    console.error("Failed to fetch leaderboard:", e);
     error = e.message;
 }
 ---

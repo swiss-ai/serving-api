@@ -299,23 +299,6 @@ def test_normalize_usage_openai_keys():
     assert _normalize_usage(None) is None
 
 
-def test_summarize_daily_usage_shapes_leaderboard():
-    from backend.services.metrics_service import summarize_daily_usage
-
-    days = [
-        {"usage": [{"model": "a", "totalUsage": 100}, {"model": "b", "totalUsage": 5}]},
-        {"usage": [{"model": "a", "inputUsage": 20, "outputUsage": 30}]},
-        {"usage": []},
-    ]
-    out = summarize_daily_usage(days)
-    assert out == {
-        "data": [
-            {"providedModelName": "a", "sum_totalTokens": "150"},
-            {"providedModelName": "b", "sum_totalTokens": "5"},
-        ]
-    }
-
-
 def test_aggregate_user_activity_orders_and_sums():
     from backend.services.langfuse_service import aggregate_user_activity
 
