@@ -42,14 +42,16 @@
     const SESSION_ENDPOINT = "/api/auth/session";
 
     // Resolve the bearer sent with /v1/models_detailed so the backend can
-    // include restricted models this viewer is authorized for. Order: key
-    // cached by api_key.astro (localStorage 'apiKey') → exchange the
-    // auth-astro session accessToken via /v1/profile (caching under the
-    // same keys api_key.astro uses) → anonymous. Every failure degrades to
-    // anonymous — the public list must render for logged-out visitors.
+    // include restricted models this viewer is authorized for: exchange the
+    // auth-astro session accessToken for the caller's key via /v1/profile,
+    // or null when nobody is logged in. Every failure degrades to anonymous —
+    // the public list must render for logged-out visitors.
+    //
+    // Deliberately NOT cached in localStorage (see api_key.astro): that store
+    // is per-browser, not per-account, so a cached key outlives an account
+    // switch and would let this page list another account's restricted models.
+    // One /v1/profile round-trip per page load is the cost of that being right.
     async function resolveApiKey(apiUrl) {
-        const stored = localStorage.getItem("apiKey");
-        if (stored) return stored;
         try {
             const sessionRes = await fetch(SESSION_ENDPOINT);
             if (!sessionRes.ok) return null;
@@ -60,10 +62,7 @@
             });
             if (!profileRes.ok) return null;
             const profile = await profileRes.json();
-            if (!profile.api_key) return null;
-            localStorage.setItem("apiKey", profile.api_key);
-            localStorage.setItem("apiBudget", String(profile.budget));
-            return profile.api_key;
+            return profile.api_key || null;
         } catch {
             return null;
         }
@@ -82,11 +81,9 @@
             const apiKey = await resolveApiKey(apiUrl);
             let response = await fetchModels(apiUrl, apiKey);
             if (response.status === 401 && apiKey) {
-                // Stale/rotated stored key — drop the cache (api_key.astro
-                // will re-fetch a fresh one on next visit) and retry
-                // anonymously so the public models still render.
-                localStorage.removeItem("apiKey");
-                localStorage.removeItem("apiBudget");
+                // The key came straight from /v1/profile, so a 401 here means
+                // it was rotated mid-flight. Retry anonymously rather than
+                // failing the page — the public models must still render.
                 response = await fetchModels(apiUrl, null);
             }
             const data = await response.json();
