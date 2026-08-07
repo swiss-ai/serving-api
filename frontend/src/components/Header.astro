@@ -2,7 +2,7 @@
 import Container from "@components/Container.astro";
 import Link from "@components/Link.astro";
 import { SITE } from "@consts";
-import AccountNav from "@components/AccountNav.svelte";
+import NavMenus from "@components/NavMenus.svelte";
 import { getSession } from 'auth-astro/server';
 
 // Sessions are auth-astro cookies resolved during SSR; local dev signs in
@@ -34,6 +34,7 @@ if (session?.accessToken) {
   }
 }
 const signedIn = !!session;
+const userEmail = session?.user?.email || '';
 ---
 
 <header>
@@ -71,12 +72,6 @@ const signedIn = !!session;
       <!-- Desktop Navigation -->
       <nav class="hidden md:flex items-center gap-6">
         <Link
-          href="/guides"
-          class="text-sm font-medium text-slate-600 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-400 transition-colors"
-        >
-          Docs
-        </Link>
-        <Link
           href="/leaderboard"
           class="text-sm font-medium text-slate-600 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-400 transition-colors"
         >
@@ -88,19 +83,7 @@ const signedIn = !!session;
         >
           Performance
         </Link>
-        <Link
-          href="/articles"
-          class="text-sm font-medium text-slate-600 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-400 transition-colors"
-        >
-          Research
-        </Link>
-        <Link
-          href="/faq"
-          class="text-sm font-medium text-slate-600 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-400 transition-colors"
-        >
-          FAQ
-        </Link>
-        <AccountNav client:load signedIn={signedIn} isAdmin={isAdmin} />
+        <NavMenus client:load signedIn={signedIn} isAdmin={isAdmin} email={userEmail} />
         <a
           href="https://swissai-initiative.slack.com/archives/C07DHJFRE2X"
           target="_blank"
@@ -160,12 +143,6 @@ const signedIn = !!session;
       class="hidden md:hidden flex-col gap-4 pt-4 pb-2 border-t border-slate-200 dark:border-slate-800 mt-4"
     >
       <Link
-        href="/guides"
-        class="text-sm font-medium text-slate-600 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-400 transition-colors py-2"
-      >
-        Docs
-      </Link>
-      <Link
         href="/leaderboard"
         class="text-sm font-medium text-slate-600 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-400 transition-colors py-2"
       >
@@ -177,19 +154,7 @@ const signedIn = !!session;
       >
         Performance
       </Link>
-      <Link
-        href="/articles"
-        class="text-sm font-medium text-slate-600 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-400 transition-colors py-2"
-      >
-        Research
-      </Link>
-      <Link
-        href="/faq"
-        class="text-sm font-medium text-slate-600 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-400 transition-colors py-2"
-      >
-        FAQ
-      </Link>
-      <AccountNav client:load signedIn={signedIn} isAdmin={isAdmin} mobile={true} />
+      <NavMenus client:load signedIn={signedIn} isAdmin={isAdmin} email={userEmail} mobile={true} />
       <a
         href="https://swissai-initiative.slack.com/archives/C07DHJFRE2X"
         target="_blank"
