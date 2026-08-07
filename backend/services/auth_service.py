@@ -15,8 +15,8 @@ from backend.redis_cache import get_token_cache
 # when running under `make run`; the backend honours it only when
 # settings.dev_auth_bypass is explicitly enabled.
 DEV_DUMMY_TOKEN = "dev-dummy-token"
-# Who the dummy token resolves to. `make auth-run` leaves the default;
-# `make admin-run` sets DEV_AUTH_EMAIL=admin@localhost and seeds that row
+# Who the dummy token resolves to. `make admin-run` sets
+# DEV_AUTH_EMAIL=admin@localhost and seeds that row
 # with is_admin, so the admin UI is exercisable locally. Only consulted
 # when the bypass is active, which requires a localhost database.
 DEV_EMAIL = os.environ.get("DEV_AUTH_EMAIL", "dev@localhost")

@@ -70,3 +70,16 @@ entries:
       name: serving-api (local)
       slug: serving-api-local
       provider: !KeyOf provider-serving-api-local
+
+  # Ordinary (non-admin) login for testing the regular-user perspective —
+  # the bootstrap admin (admin@localhost) is seeded is_admin on the API
+  # side, so without this every local view would be the admin view.
+  - model: authentik_core.user
+    identifiers:
+      username: user@localhost
+    attrs:
+      username: user@localhost
+      name: Local User
+      email: user@localhost
+      password: user
+      is_active: true
