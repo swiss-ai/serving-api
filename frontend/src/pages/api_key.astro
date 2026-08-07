@@ -1,5 +1,5 @@
 ---
-import { getSession } from 'auth-astro/server';
+import { getActiveSession } from '@lib/activeSession';
 import PageLayout from "@layouts/PageLayout.astro";
 import Container from "@components/Container.astro";
 import { SITE } from "@consts";
@@ -10,7 +10,7 @@ export const prerender = false;
 // Sessions come from auth-astro (cookie, resolved server-side). Local dev
 // signs in through the docker-compose Authentik (`make run`,
 // admin@localhost / admin or user@localhost / user) — there is no bypass.
-let session = await getSession(Astro.request);
+let session = await getActiveSession(Astro.request);
 if (!session) {
   return Astro.redirect('/');
 }

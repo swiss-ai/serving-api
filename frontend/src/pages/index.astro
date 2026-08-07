@@ -10,7 +10,7 @@ import SponsorCard from "@components/SponsorCard.astro";
 import CSCSLogo from "@components/CSCSLogo.astro";
 import { SITE, HOME } from "@consts";
 import { SignIn } from 'auth-astro/components';
-import { getSession } from 'auth-astro/server';
+import { getActiveSession } from '@lib/activeSession';
 
 export const prerender = false;
 const docs = (await getCollection("guides"))
@@ -61,7 +61,7 @@ async function resolveEndSessionEndpoint(issuer: string): Promise<string> {
   return '';
 }
 const endSessionEndpoint = await resolveEndSessionEndpoint(oidcIssuer);
-const session = await getSession(Astro.request);
+const session = await getActiveSession(Astro.request);
 const isSessionValid = session && session.user;
 const idToken = isSessionValid && 'idToken' in session ? session.idToken : '';
 const chatAppUrl = process.env.CHAT_APP_URL || "https://chat.swissai.svc.cscs.ch";
