@@ -126,7 +126,7 @@ run: _ensure-env _ensure-frontend-env _guard-local-api idp-up migrate
 	wait
 
 # Demo rows for the leaderboard / My Usage pages, so a fresh local DB has
-# something to render. Spread across days so the Today / 7 / 30 / 60-day
+# something to render. Spread across days so the Today / 7 / 30 / 90-day
 # window buttons show different totals. Idempotent: the PK is
 # (day, owner_email, model), so re-running is a no-op.
 seed-usage: _guard-local-db db-up migrate
