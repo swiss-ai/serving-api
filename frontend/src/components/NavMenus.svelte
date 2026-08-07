@@ -28,7 +28,12 @@
   $: profileLinks = [
     { href: '/usage', label: 'My Usage' },
     { href: '/api_key', label: 'API Key' },
-    ...(isAdmin ? [{ href: '/users', label: 'Users' }] : []),
+    ...(isAdmin
+      ? [
+          { href: '/users', label: 'Users' },
+          { href: '/all_models', label: 'All Models' },
+        ]
+      : []),
   ];
 
   let openMenu = null; // 'about' | 'profile' | null

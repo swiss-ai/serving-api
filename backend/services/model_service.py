@@ -67,8 +67,8 @@ def _at_least(version: str, minimum: str) -> bool:
     return got + (0,) * (width - len(got)) >= want + (0,) * (width - len(want))
 
 
-def platform_namespaced(models: list[dict]) -> list[dict]:
-    """Filter /v1/models* down to what we are willing to advertise.
+def listing_exclusion(model: dict) -> str | None:
+    """Why the public listing hides this entry — None when it is advertised.
 
     Launch ids are namespaced by their first segment: our own k8s launches
     become ``SwissAI-Research/<hf_org>/<hf_model>``, a user launching on the
@@ -79,24 +79,33 @@ def platform_namespaced(models: list[dict]) -> list[dict]:
     Ours are always listed. A user launch is listed only when its peer runs
     at least MIN_USER_OTELA_VERSION — older nodes predate namespaced ids.
 
-    Listing only: everything keeps running and stays routable by id.
-    Disable the whole filter with ENFORCE_MODEL_NAMESPACE=false.
+    The reason string is surfaced verbatim on the admin all-models page,
+    so keep it something a model owner can act on.
     """
     settings = get_settings()
     if not settings.enforce_model_namespace:
-        return models
-    kept = []
-    for model in models:
-        segments = (model.get("id") or "").split("/")
-        if len(segments) != 3 or not all(segments):
-            continue
-        if segments[0] == PLATFORM_PREFIX:
-            kept.append(model)
-        elif _at_least(
-            model.get("otela_version") or "", settings.min_user_otela_version
-        ):
-            kept.append(model)
-    return kept
+        return None
+    segments = (model.get("id") or "").split("/")
+    if len(segments) != 3 or not all(segments):
+        return "id is not <owner>/<hf_org>/<hf_model> (exactly 3 segments)"
+    if segments[0] == PLATFORM_PREFIX:
+        return None
+    if _at_least(model.get("otela_version") or "", settings.min_user_otela_version):
+        return None
+    return (
+        f"otela_version {model.get('otela_version') or '(missing)'} is below "
+        f"{settings.min_user_otela_version}"
+    )
+
+
+def platform_namespaced(models: list[dict]) -> list[dict]:
+    """Filter /v1/models* down to what we are willing to advertise — the
+    entries ``listing_exclusion`` has no complaint about.
+
+    Listing only: everything keeps running and stays routable by id.
+    Disable the whole filter with ENFORCE_MODEL_NAMESPACE=false.
+    """
+    return [m for m in models if listing_exclusion(m) is None]
 
 
 def get_all_models(endpoint: str, with_details: bool = False):

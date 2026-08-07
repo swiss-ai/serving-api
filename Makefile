@@ -125,12 +125,15 @@ run: _ensure-env _ensure-frontend-env _guard-local-api idp-up migrate
 	cd frontend && npm run dev & \
 	wait
 
-# Same as `run` but forces the model list to come from the synthesised
-# upgraded fixture instead of the live OpenTela endpoint. Useful for
-# iterating on the model-card UI without depending on prod state.
+# Same as `run` but forces the model list to come from a snapshot of the
+# prod DNT table instead of the live OpenTela endpoint (the head is not
+# reachable from a laptop). Refresh the snapshot with:
+#   kubectl --context breithorn-oidc -n rob-poc exec deploy/serving-backend-prod -- \
+#     python -c "import requests,sys; sys.stdout.write(requests.get('http://148.187.108.178:8092/v1/dnt/table', timeout=(3,20)).text)" \
+#     > backend/tests/fixtures/dnt_table_live.json
 dummy-run: _ensure-env _ensure-frontend-env _guard-local-api db-up migrate
 	@trap 'sleep 1; lsof -ti :8080 -ti :4321 -sTCP:LISTEN 2>/dev/null | xargs kill -9 2>/dev/null; exit 0' EXIT INT TERM; \
-	OTELA_FIXTURE_PATH=$(PWD)/backend/tests/fixtures/dnt_table_dev_live.json \
+	OTELA_FIXTURE_PATH=$(PWD)/backend/tests/fixtures/dnt_table_live.json \
 	uvicorn backend.main:app --reload --host 0.0.0.0 --port 8080 & \
 	cd frontend && npm run dev & \
 	wait
