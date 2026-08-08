@@ -28,6 +28,10 @@ def _peer_metadata(node_info: dict) -> dict:
         "worker_group_id": labels.get("worker_group_id", ""),
         "launched_by": labels.get("launched_by", ""),
         "authorization": labels.get("authorization", ""),
+        # Which SML rendered the launch, per its own label. Empty for our k8s
+        # launches (not launched by SML) and for anything launched before SML
+        # started emitting it.
+        "sml_version": labels.get("sml_version", ""),
         "slurm_job_id": labels.get("slurm_job_id", ""),
         "framework": labels.get("framework", ""),
         "started_at": labels.get("started_at", ""),
@@ -78,7 +82,9 @@ def listing_exclusion(model: dict) -> str | None:
     such as a bare name or a checkpoint path.
 
     Ours are always listed. A user launch is listed only when its peer runs
-    at least MIN_USER_OTELA_VERSION — older nodes predate namespaced ids.
+    at least MIN_USER_OTELA_VERSION — older nodes predate namespaced ids —
+    and, once MIN_SML_VERSION is set, when the SML that rendered it is at
+    least that version.
 
     The reason string is surfaced verbatim on the admin all-models page,
     so keep it something a model owner can act on.
@@ -90,12 +96,39 @@ def listing_exclusion(model: dict) -> str | None:
     if len(segments) != 3 or not all(segments):
         return "id is not <owner>/<hf_org>/<hf_model> (exactly 3 segments)"
     if segments[0] == PLATFORM_PREFIX:
+        # Ours: launched by k8s, not by SML, so it carries no sml_version and
+        # the check below must not apply to it.
         return None
-    if _at_least(model.get("otela_version") or "", settings.min_user_otela_version):
+    if not _at_least(model.get("otela_version") or "", settings.min_user_otela_version):
+        return (
+            f"otela_version {model.get('otela_version') or '(missing)'} is below "
+            f"{settings.min_user_otela_version}"
+        )
+    return _sml_version_exclusion(model)
+
+
+def _sml_version_exclusion(model: dict) -> str | None:
+    """Why this launch's SML version disqualifies it — None when it passes.
+
+    **Inert until MIN_SML_VERSION is set**, which it is not by default: with
+    no minimum configured this returns None for everything, so no entry is
+    excluded and the surrounding filter behaves exactly as it did before.
+    The machinery is here so turning it on is a config change, not a code
+    change.
+
+    A missing label fails once a minimum IS set: peers launched by an SML too
+    old to emit ``sml_version`` are precisely the ones a minimum is meant to
+    exclude. Note SML sends the literal "unknown" when it cannot read its own
+    package metadata, which has no digits and so also fails.
+    """
+    settings = get_settings()
+    if not settings.min_sml_version:
+        return None
+    if _at_least(model.get("sml_version") or "", settings.min_sml_version):
         return None
     return (
-        f"otela_version {model.get('otela_version') or '(missing)'} is below "
-        f"{settings.min_user_otela_version}"
+        f"sml_version {model.get('sml_version') or '(missing)'} is below "
+        f"{settings.min_sml_version}"
     )
 
 
