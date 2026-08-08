@@ -68,6 +68,13 @@ class Settings(BaseSettings):
     # when the peer runs at least this OpenTela version — older nodes
     # predate namespaced ids and produce entries we don't want listed.
     min_user_otela_version: str = "sai-v0.0.6"
+    # Same idea for the SML that rendered the launch (peer label
+    # ``sml_version``), but OFF by default: empty means the check does not
+    # run and nothing is excluded for it. Set MIN_SML_VERSION (e.g. "26.5.0")
+    # to start requiring it. Before switching it on, check the admin
+    # all-models page — the SML column shows what is out there, and every
+    # peer that is blank or older would stop being listed.
+    min_sml_version: str = ""
     langfuse_host: str = ""
     langfuse_public_key: str = ""
     langfuse_secret_key: str = ""
