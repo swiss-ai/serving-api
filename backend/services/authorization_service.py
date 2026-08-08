@@ -173,23 +173,26 @@ async def _dnt_keys_for(model_id: str) -> list[str] | None:
     """The DNT ids a requested model id may be advertised under, or None
     when it belongs to a passthrough provider (always public).
 
-    ``SwissAI-Research/<org>/<model>`` is this platform's public alias for
-    a model on our own OpenTela network, and the proxy strips the prefix
-    before forwarding (see passthrough_service.resolve_model). Peers may
-    therefore be advertising either form, so both are checked and their
-    labels pooled: if the two forms carry *different* policies they are
-    independent launches reachable under one routed name, which is exactly
-    the collision the conflict rule below refuses.
+    The policy has to be looked up under the id OpenTela will actually be
+    asked for, or the check guards a different model than the one served.
+    Today that is always the requested id: user launches, bare names and —
+    since #122 — ``SwissAI-Research/<org>/<model>`` are all forwarded
+    verbatim, because the full prefixed id IS the k8s deployment's served
+    name.
 
-    Every other id — a user launch (``<username>/<org>/<model>``) or a
-    pre-namespacing bare name — is forwarded unchanged, so it is its own
-    only key."""
+    The upstream id is still pooled in whenever the proxy rewrites it, so
+    this keeps working if id rewriting ever comes back. If the two forms
+    then carried *different* policies they would be independent launches
+    reachable under one routed name — exactly the collision the conflict
+    rule below refuses."""
     resolved = await resolve_model(model_id)
     if resolved is None:
         return [model_id]
     if resolved.provider is not None:
         return None
-    return [model_id, resolved.upstream_id]
+    if resolved.upstream_id != model_id:
+        return [model_id, resolved.upstream_id]
+    return [model_id]
 
 
 async def ensure_model_access(engine, token: str, model_id: str) -> None:
