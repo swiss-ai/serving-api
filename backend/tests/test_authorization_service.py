@@ -291,10 +291,33 @@ def test_passthrough_model_always_allowed():
     assert fetch.await_count == 0
 
 
-def test_platform_alias_checks_both_the_prefixed_and_upstream_id():
-    """SwissAI-Research/<org>/<model> is an alias the proxy strips before
-    forwarding, so a policy attached to EITHER form must be enforced —
-    otherwise the alias would be a way around a restricted model's label."""
+def test_platform_id_is_checked_under_the_id_that_gets_routed():
+    """Since #122 a SwissAI-Research/ id is forwarded verbatim — the full
+    prefixed id is the k8s deployment's served name — so the policy must be
+    read from the DNT under that same id."""
+    resolved = ResolvedModel(
+        provider=None,
+        upstream_id="SwissAI-Research/org/m",
+        public_id="SwissAI-Research/org/m",
+    )
+    with (
+        patch.object(
+            authorization_service,
+            "resolve_model",
+            new=AsyncMock(return_value=resolved),
+        ),
+        _patch_fetch_dnt({"/p": _dnt_peer("SwissAI-Research/org/m", "owner@epfl.ch")}),
+        _patch_email("outsider@epfl.ch"),
+    ):
+        with pytest.raises(HTTPException) as exc_info:
+            _run(ensure_model_access(None, "sk-rc-x", "SwissAI-Research/org/m"))
+    assert exc_info.value.status_code == 403
+
+
+def test_a_rewritten_upstream_id_is_still_checked():
+    """Guard for the day id rewriting comes back: if the proxy forwards a
+    different id than the caller asked for, a policy on the forwarded id
+    must still bind, or the public alias becomes a way around it."""
     resolved = ResolvedModel(
         provider=None,
         upstream_id="org/m",
