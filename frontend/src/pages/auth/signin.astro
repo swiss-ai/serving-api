@@ -1,0 +1,91 @@
+---
+import { getActiveSession } from '@lib/activeSession';
+import PageLayout from "@layouts/PageLayout.astro";
+import Container from "@components/Container.astro";
+
+export const prerender = false;
+
+// A GET entry point into sign-in.
+//
+// Auth.js only starts a sign-in from a POST carrying its CSRF token, which is
+// why the nav button is a client-side signIn() call rather than a link. So
+// nothing that can only send a browser somewhere — an IdP finishing an
+// enrolment, a mail, the Sign In button on the API key page — can start it.
+// Landing such a user on `/` leaves them looking at an anonymous page with a
+// Sign in button they have to press, even when they already hold an IdP
+// session and the handshake would complete without a prompt.
+//
+// This page is that missing link: it runs the same signIn() the nav button
+// runs, on load. It deliberately does not reimplement the POST — the CSRF
+// dance stays in auth-astro's helper.
+const url = new URL(Astro.request.url);
+const requested = url.searchParams.get('callbackUrl') ?? '/';
+// Site-relative targets only. This comes from the query string, and passing an
+// absolute URL through would turn the route into an open redirect. `//host` is
+// protocol-relative, hence the second check.
+const callbackUrl =
+  requested.startsWith('/') && !requested.startsWith('//') ? requested : '/';
+
+// Nothing to do for someone who already has a session, and going ahead would
+// bounce them through the IdP for no reason.
+if (await getActiveSession(Astro.request)) {
+  return Astro.redirect(callbackUrl);
+}
+---
+
+<PageLayout title="Signing you in" description="Redirecting to sign in">
+  <Container>
+    <div class="space-y-6 py-16 text-center" data-callback-url={callbackUrl}>
+      <h1 class="text-2xl font-bold text-slate-900 dark:text-slate-100">
+        Signing you in…
+      </h1>
+      <p class="text-slate-600 dark:text-slate-400">
+        Taking you to the sign-in page.
+      </p>
+
+      <!-- Shown only if the redirect cannot run: no JavaScript, or signIn()
+           failed. Otherwise this page is gone before it can be read. -->
+      <div id="signin-fallback" class="hidden space-y-4">
+        <p class="text-slate-600 dark:text-slate-400">
+          If you are not redirected automatically, continue here.
+        </p>
+        <a
+          href="/api/auth/signin"
+          class="inline-block bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-4 rounded transition-colors"
+        >
+          Sign in
+        </a>
+      </div>
+      <noscript>
+        <p class="text-slate-600 dark:text-slate-400">
+          JavaScript is required to sign in automatically.
+          <a href="/api/auth/signin" class="text-indigo-600 dark:text-indigo-400 underline">
+            Continue to sign in
+          </a>.
+        </p>
+      </noscript>
+    </div>
+  </Container>
+</PageLayout>
+
+<script>
+  import { signIn } from 'auth-astro/client';
+
+  const target = document.querySelector<HTMLElement>('[data-callback-url]');
+  const callbackUrl = target?.dataset.callbackUrl || '/';
+
+  // 'auth0' is the provider id, not the provider: auth.config.ts keeps the id
+  // stable across the Auth0 -> Authentik cutover so the callback URLs
+  // registered with the IdP did not have to change. Same string the nav
+  // button passes.
+  //
+  // The cast covers a types-only gap: auth-astro declares its options through
+  // `next-auth/react`, which this app does not install, so the compiler sees an
+  // options type carrying just `prefix` and rejects callbackUrl. signIn()
+  // destructures callbackUrl and posts it, so the behaviour is there.
+  // Passing it explicitly rather than letting it default to this page's own URL
+  // is what stops a failed sign-in from bouncing back here and retrying.
+  signIn('auth0', { callbackUrl } as any).catch(() => {
+    document.getElementById('signin-fallback')?.classList.remove('hidden');
+  });
+</script>
