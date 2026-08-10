@@ -136,6 +136,10 @@ def flush(engine=None) -> int:
         }
         for (day, email, model), counts in pending.items()
     ]
+    # Deterministic row order so concurrent flushes (other workers, other
+    # pods) acquire row locks in the same sequence; unordered batches
+    # deadlock against each other under load (2026-08-09 prod incident).
+    rows.sort(key=lambda r: (r["day"], r["owner_email"], r["model"]))
     try:
         stmt = pg_insert(UsageDaily).values(rows)
         stmt = stmt.on_conflict_do_update(
@@ -163,9 +167,11 @@ def flush(engine=None) -> int:
                 entry[0] += counts[0]
                 entry[1] += counts[1]
                 entry[2] += counts[2]
-                # Counts toward the threshold again, so the next request
-                # retries promptly instead of waiting out a fresh window.
-                _requests_since_flush += counts[0]
+            # Deliberately not re-armed toward the threshold: when the DB is
+            # unhealthy, counting the failed batch again turns every incoming
+            # request into another flush attempt, and the retry storm holds
+            # connections the rest of the system needs. The max-age timer
+            # retries within FLUSH_MAX_AGE_S regardless.
         return 0
 
 
