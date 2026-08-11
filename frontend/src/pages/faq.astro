@@ -6,6 +6,26 @@ export const prerender = false;
 
 const faqs = [
   {
+    q: "What are providers?",
+    a: 'Providers are external inference platforms we have a partnership with. We route requests through our SwissAI Research platform to them, so you can reach their models with the same API key and OpenAI-compatible API you already use here. All current providers are Swiss universities, so access remains academic. Requests to external providers are currently rate-limited to 15 requests per minute per user.',
+  },
+  {
+    q: "Which providers are available?",
+    a: '(1) <a class="text-indigo-600 dark:text-indigo-400 underline" href="https://docs.cscs.ch/services/inference/" target="_blank" rel="noopener noreferrer">CSCS Inference</a> — a curated list of always-on models with production-grade autoscaling.<br /><br />(2) <a class="text-indigo-600 dark:text-indigo-400 underline" href="https://www.epfl.ch/research/facilities/rcp/ai-inference-as-a-service/" target="_blank" rel="noopener noreferrer">EPFL RCP AIaaS</a> — curated models on the EPFL RCP cluster that scale to zero when not in use.',
+  },
+  {
+    q: "What if the provider rate limits are not enough?",
+    a: 'You have two options: <br /><br />(1) Use <a class="text-indigo-600 dark:text-indigo-400 underline" href="https://github.com/swiss-ai/model-launch" target="_blank" rel="noopener noreferrer">model launch</a> to launch your own model — we recommend this if you want to process large amounts of data in batch and need high throughput. <br />(2) Go directly to the provider and request access with them.',
+  },
+  {
+    q: "Why do you route to providers instead of hosting everything yourself?",
+    a: 'Often the same models are already hosted by a provider (for example on CSCS), so hosting them twice would waste GPU resources. Routing also adds resiliency: if CSCS has an outage, traffic can still be served via RCP.',
+  },
+  {
+    q: "What is the tech stack behind a provider?",
+    a: 'It is best to ask the provider directly, as their stack may change over time — see the provider links above for their documentation and contact details.',
+  },
+  {
     q: "Can I use this in my project?",
     a: "Yes, as long as it's an academic project, we should be able to grant you access.",
   },
