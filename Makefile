@@ -67,10 +67,9 @@ db-down:
 	-docker rm $(PG_CONTAINER) > /dev/null 2>&1
 
 # Local Authentik so `make run` can do a real OIDC login now that Auth0 is
-# gone. Sign in as admin@localhost / admin. Seeds the matching apikey row
-# (with is_admin) so the account has a budget and the admin UI works —
-# localhost is not a swiss_domains entry, so an unseeded first login would
-# get budget -1 and every API call rejected.
+# gone. Sign in as admin@localhost / admin. Seeds the matching apikey rows so
+# the admin UI works before any login: a first sign-in now creates an active
+# key on its own, but never an admin one (is_admin is SQL-only).
 idp-up: db-up
 	docker compose up -d --wait authentik-server authentik-worker
 	@docker exec $(PG_CONTAINER) psql -q -U $(PG_USER) -d $(PG_DB) -c "\
