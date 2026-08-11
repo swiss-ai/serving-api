@@ -138,6 +138,11 @@ const faqs = [
 }</code></pre>`,
   },
 ];
+
+// Anchor id per question, so entries are deep-linkable (/faq#what-are-providers)
+// and the flowchart can point at them.
+const slug = (q: string) =>
+  q.toLowerCase().replace(/[^a-z0-9\s-]/g, "").trim().replace(/\s+/g, "-");
 ---
 
 <PageLayout title="FAQ" description="Frequently asked questions about the Swiss AI Research Platform">
@@ -157,10 +162,7 @@ const faqs = [
           Which option should I use?
         </h2>
         <p class="text-slate-600 dark:text-slate-300 leading-relaxed mb-2">
-          Follow the questions below to find the best fit for your use case.
-        </p>
-        <p class="font-semibold text-slate-900 dark:text-white mb-4">
-          Valid for academic use only:
+          Follow the questions below to find the best fit for your use case. Valid for academic use only:
         </p>
         <div class="overflow-x-auto">
           <svg
@@ -224,7 +226,7 @@ const faqs = [
               <text x="465" y="87">as fast as possible?</text>
               <text x="180" y="208">Do you have a CSCS grant</text>
               <text x="180" y="228">or project with compute?</text>
-              <text x="750" y="208">Chat, RAG or agentic use?</text>
+              <text x="750" y="208">Personal Chat, RAG or agentic use?</text>
               <text x="750" y="228">(low request rate)</text>
               <text x="560" y="351">Is the model already</text>
               <text x="560" y="371">hosted here or via a provider?</text>
@@ -253,11 +255,11 @@ const faqs = [
                 <line x1="10" y1="14" x2="21" y2="3" />
               </g>
             </a>
-            <g>
+            <a href="#what-if-the-provider-rate-limits-are-not-enough" class="hover:opacity-75">
               <rect class="fill-emerald-100 dark:fill-emerald-900 stroke-emerald-400" x="381" y="470" width="168" height="76" rx="8" />
               <text font-size="13" font-weight="600" text-anchor="middle" class="fill-emerald-800 dark:fill-emerald-200" x="465" y="499">Use SwissAI Research</text>
-              <text font-size="13" text-anchor="middle" class="fill-emerald-700 dark:fill-emerald-300" x="465" y="519">need more? see below</text>
-            </g>
+              <text font-size="13" text-anchor="middle" class="fill-emerald-700 dark:fill-emerald-300" x="465" y="519">need more? see FAQ ↓</text>
+            </a>
             <g>
               <rect class="fill-slate-100 dark:fill-slate-700 stroke-slate-300 dark:stroke-slate-500" x="571" y="470" width="168" height="76" rx="8" />
               <text font-size="13" font-weight="600" text-anchor="middle" class="fill-slate-700 dark:fill-slate-200" x="655" y="489">Launch it yourself</text>
@@ -292,7 +294,7 @@ const faqs = [
       <div class="space-y-6">
         {faqs.map((faq) => (
           <div class="animate card p-8">
-            <h2 class="text-xl font-bold text-slate-900 dark:text-white mb-3">
+            <h2 id={slug(faq.q)} class="scroll-mt-24 text-xl font-bold text-slate-900 dark:text-white mb-3">
               {faq.q}
             </h2>
             <div
