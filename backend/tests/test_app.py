@@ -140,7 +140,10 @@ def test_classify_forwards_to_pod_root(client, monkeypatch):
     monkeypatch.setattr(classify_router, "llm_proxy_classify", fake_classify)
     client.app.dependency_overrides[require_auth] = lambda: "test-token"
     try:
-        response = client.post("/v1/classify", json={"model": "m", "input": "hello"})
+        response = client.post(
+            "/v1/classify",
+            json={"model": "SwissAI-Research/org/m", "input": "hello"},
+        )
     finally:
         client.app.dependency_overrides.pop(require_auth, None)
 
@@ -182,25 +185,25 @@ def test_leaderboard_no_auth(client):
             "/v1/score",
             "backend.routers.rerank",
             "llm_proxy_score",
-            {"model": "m", "text_1": "a", "text_2": "b"},
+            {"model": "SwissAI-Research/org/m", "text_1": "a", "text_2": "b"},
         ),
         (
             "/v1/rerank",
             "backend.routers.rerank",
             "llm_proxy_rerank",
-            {"model": "m", "query": "q", "documents": ["a"]},
+            {"model": "SwissAI-Research/org/m", "query": "q", "documents": ["a"]},
         ),
         (
             "/v1/tokenize",
             "backend.routers.tokenization",
             "llm_proxy_tokenize",
-            {"model": "m", "prompt": "hello"},
+            {"model": "SwissAI-Research/org/m", "prompt": "hello"},
         ),
         (
             "/v1/detokenize",
             "backend.routers.tokenization",
             "llm_proxy_detokenize",
-            {"model": "m", "tokens": [1, 2, 3]},
+            {"model": "SwissAI-Research/org/m", "tokens": [1, 2, 3]},
         ),
     ],
 )
