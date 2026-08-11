@@ -159,11 +159,12 @@ const faqs = [
           <svg
             viewBox="0 0 1140 560"
             class="min-w-[760px] w-full h-auto"
-            role="img"
-            aria-label="Decision flowchart for choosing between SwissAI Research, CSCS Inference and other options"
+            role="group"
+            aria-labelledby="decision-flowchart-title decision-flowchart-desc"
           >
+            <title id="decision-flowchart-title">Decision flowchart: which option should I use?</title>
+            <desc id="decision-flowchart-desc">Flowchart with Yes/No branches linking to model launch on Slurm, compute grants, CSCS Inference, and contact options.</desc>
             <!-- edges: YES = emerald, NO = rose -->
-            <g stroke-width="2" fill="none" stroke-linejoin="round">
               <path class="stroke-emerald-500" d="M465,110 V145 H180 V172" />
               <path class="stroke-rose-400" d="M465,110 V145 H750 V172" />
               <path class="stroke-emerald-500" d="M180,250 V285 H85 V312" />
