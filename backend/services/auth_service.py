@@ -15,11 +15,6 @@ def get_or_create_apikey(engine, owner_email: str) -> APIKey:
         ).first()
         if api_key is None:
             key = f"sk-rc-{secrets.token_urlsafe(16)}"
-            # Every account starts active, whatever the email domain. Accounts
-            # are reviewed before they exist, so the old default of -1 for
-            # unrecognised domains guarded nothing and only stranded users whose
-            # IdP hands us a personal address (issue #64). Suspension is still
-            # a matter of setting the budget to 0.
             api_key = APIKey(key=key, owner_email=owner_email, budget=1000)
             session.add(api_key)
             session.commit()
