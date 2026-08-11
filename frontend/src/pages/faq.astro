@@ -225,7 +225,7 @@ const faqs = [
               <text x="180" y="208">2. Do you have a CSCS grant</text>
               <text x="180" y="228">or project with compute?</text>
               <text x="750" y="208">3. Chat or agentic use?</text>
-              <text x="750" y="228">(low rate)</text>
+              <text x="750" y="228">(low request rate)</text>
               <text x="560" y="351">4. Is the model already</text>
               <text x="560" y="371">hosted here or via a provider?</text>
               <text x="940" y="351">5. Need a production-grade,</text>
@@ -276,7 +276,7 @@ const faqs = [
               {faq.q}
             </h2>
             <div
-              class="text-slate-600 dark:text-slate-300 leading-relaxed min-w-0 [&_pre]:whitespace-pre-wrap [&_pre]:break-words"
+              class="faq-answer text-slate-600 dark:text-slate-300 leading-relaxed min-w-0 [&_pre]:whitespace-pre-wrap [&_pre]:break-words"
               set:html={faq.a}
             />
           </div>
@@ -285,3 +285,18 @@ const faqs = [
     </div>
   </Container>
 </PageLayout>
+
+<!-- External links (target=_blank) get an ↗ icon so it's clear they leave
+     the site. set:html content escapes Astro's scoped styles, hence :global. -->
+<style>
+  .faq-answer :global(a[target="_blank"])::after {
+    content: "";
+    display: inline-block;
+    width: 0.7em;
+    height: 0.7em;
+    margin-left: 0.2em;
+    background-color: currentColor;
+    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6'/%3E%3Cpolyline points='15 3 21 3 21 9'/%3E%3Cline x1='10' y1='14' x2='21' y2='3'/%3E%3C/svg%3E") no-repeat center / 100% 100%;
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6'/%3E%3Cpolyline points='15 3 21 3 21 9'/%3E%3Cline x1='10' y1='14' x2='21' y2='3'/%3E%3C/svg%3E") no-repeat center / 100% 100%;
+  }
+</style>
