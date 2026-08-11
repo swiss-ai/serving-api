@@ -18,6 +18,10 @@ const faqs = [
     a: 'We can host models on both Slurm <em>and</em> Kubernetes — a combination that is unique to this platform, made possible by <a class="text-indigo-600 dark:text-indigo-400 underline" href="https://www.usenix.org/conference/osdi26/presentation/yao" target="_blank" rel="noopener noreferrer">OpenTela</a> routing. That means the same OpenAI-compatible API can serve models from batch-style GPU allocations on CSCS Alps as well as always-on Kubernetes deployments.',
   },
   {
+    q: "What repos make this service?",
+    a: '<ul class="list-disc pl-8 space-y-2"><li><a class="text-indigo-600 dark:text-indigo-400 underline" href="https://github.com/eth-easl/OpenTela" target="_blank" rel="noopener noreferrer">OpenTela</a> — the decentralized compute fabric that routes requests to models wherever they run (we deploy from a <a class="text-indigo-600 dark:text-indigo-400 underline" href="https://github.com/swiss-ai/opentela" target="_blank" rel="noopener noreferrer">swiss-ai fork</a>).</li><li><a class="text-indigo-600 dark:text-indigo-400 underline" href="https://github.com/swiss-ai/serving-api" target="_blank" rel="noopener noreferrer">serving-api</a> — this website: the API gateway, budgets and the frontend.</li><li><a class="text-indigo-600 dark:text-indigo-400 underline" href="https://github.com/swiss-ai/model-launch" target="_blank" rel="noopener noreferrer">model-launch</a> — tooling to launch and serve your own models on Slurm.</li><li><a class="text-indigo-600 dark:text-indigo-400 underline" href="https://github.com/swiss-ai/infra-tool-box" target="_blank" rel="noopener noreferrer">infra-tool-box</a> — infrastructure and ArgoCD deployment configs (private).</li></ul>',
+  },
+  {
     q: "What are providers?",
     a: 'Providers are external inference platforms we have a partnership with. We route requests through our <a class="text-indigo-600 dark:text-indigo-400 underline" href="/">SwissAI Research</a> platform to them, so you can reach their models with the same API key and OpenAI-compatible API you already use here. All current providers are Swiss universities, so access remains academic. Requests to external providers are currently rate-limited to 15 requests per minute per user.',
   },
@@ -165,6 +169,7 @@ const faqs = [
             <title id="decision-flowchart-title">Decision flowchart: which option should I use?</title>
             <desc id="decision-flowchart-desc">Flowchart with Yes/No branches linking to model launch on Slurm, compute grants, CSCS Inference, and contact options.</desc>
             <!-- edges: YES = emerald, NO = rose -->
+            <g stroke-width="2" fill="none" stroke-linejoin="round">
               <path class="stroke-emerald-500" d="M465,110 V145 H180 V172" />
               <path class="stroke-rose-400" d="M465,110 V145 H750 V172" />
               <path class="stroke-emerald-500" d="M180,250 V285 H85 V312" />
