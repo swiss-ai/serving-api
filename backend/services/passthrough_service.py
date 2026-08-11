@@ -21,8 +21,10 @@ Every id a provider surfaces is namespaced under its reserved prefix
 collision-free across providers and against OpenTela-served models: the
 first path segment of a requested id selects the provider, the remainder
 is forwarded verbatim as the upstream id (see ``resolve_model``).
-Un-prefixed upstream ids still route during a deprecation window, where
-registration order is precedence.
+Un-prefixed upstream ids do NOT route to providers: they fall through to
+OpenTela and 404 there. (They used to route by registration order during
+a deprecation window; that silent rerouting is gone — we only log when a
+bare id would have matched, so operators can spot unmigrated clients.)
 
 Curation is per provider via ``Provider.hidden_id_suffixes``: RCP
 advertises every model twice — once under its canonical id and once
@@ -255,9 +257,10 @@ async def resolve_model(model_id: str) -> ResolvedModel | None:
       through to OpenTela by another name; it returns None and 404s there
       under its full (never-launched) id.
 
-    Back-compat: a bare upstream id that a provider advertises still routes
-    (first provider in registration order wins), logged as deprecated.
-    Remove after clients have migrated to prefixed ids."""
+    Anything else — including a bare upstream id a provider advertises —
+    returns None and falls through to OpenTela. Bare ids briefly routed to
+    the first matching provider as back-compat; that silent rerouting was
+    ambiguous (registration order picked the winner) and is removed."""
     if not model_id:
         return None
     providers = registered_providers()
@@ -278,19 +281,19 @@ async def resolve_model(model_id: str) -> ResolvedModel | None:
                     provider=provider, upstream_id=rest, public_id=model_id
                 )
             return None
+    # Log-only scan: a bare id that matches a provider's advertised set is
+    # an unmigrated client. It must NOT route (which provider wins would be
+    # an accident of registration order), but the warning names the client
+    # and the remedy so operators can chase stragglers before the 404s do.
     for provider in providers:
         if model_id in await _get_cached_ids(provider):
             logger.warning(
-                "Deprecated un-prefixed passthrough model id %r; use %s/%s",
+                "Refusing un-prefixed passthrough model id %r; use %s/%s",
                 model_id,
                 provider.prefix,
                 model_id,
             )
-            return ResolvedModel(
-                provider=provider,
-                upstream_id=model_id,
-                public_id=f"{provider.prefix}/{model_id}",
-            )
+            return None
     return None
 
 

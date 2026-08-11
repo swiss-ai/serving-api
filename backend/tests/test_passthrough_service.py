@@ -1,6 +1,6 @@
 """Unit tests for the OpenAI-compatible passthrough registry — provider
 prefix namespacing, dynamic model discovery with per-provider TTL cache,
-stale fallback, gating on configuration, and un-prefixed back-compat."""
+stale fallback, gating on configuration, and bare-id refusal."""
 
 import asyncio
 from unittest.mock import AsyncMock, patch
@@ -147,16 +147,17 @@ def test_platform_prefix_works_without_any_provider_configured():
         assert _run(resolve_model("SwissAI-Research/")) is None
 
 
-def test_bare_upstream_id_still_routes_for_back_compat():
-    """Deprecation window: clients using the historical un-prefixed ids
-    keep working, and the resolution carries the prefixed public_id so
-    responses advertise the migration target."""
+def test_bare_upstream_id_does_not_route(caplog):
+    """A historical un-prefixed id must NOT silently route to whichever
+    provider registered first — it falls through to OpenTela (404) and
+    logs the prefixed id clients should migrate to."""
     with _patch_settings(_FakeSettings()), _patch_fetch([APERTUS_8B]):
-        resolved = _run(resolve_model(APERTUS_8B))
-    assert resolved is not None
-    assert resolved.provider.name == "cscs_L1"
-    assert resolved.upstream_id == APERTUS_8B
-    assert resolved.public_id == f"CSCS-Inference/{APERTUS_8B}"
+        with caplog.at_level("WARNING", logger="backend.services.passthrough_service"):
+            resolved = _run(resolve_model(APERTUS_8B))
+    assert resolved is None
+    assert any(
+        f"CSCS-Inference/{APERTUS_8B}" in r.getMessage() for r in caplog.records
+    )
 
 
 # ── listing ─────────────────────────────────────────────────────────────────
@@ -187,8 +188,7 @@ def test_synthetic_entries_are_prefixed():
 def test_same_upstream_id_on_two_providers_lists_two_rows():
     """Prefixes make cross-provider collisions structurally impossible:
     the same upstream model on CSCS and RCP is two distinct rows, each
-    individually routable. Bare-id back-compat picks the first provider
-    in registration order."""
+    individually routable. The bare id routes to neither."""
     settings = _FakeSettings(rcp_base_url="https://rcp/v1", rcp_api_key="rcp-key")
     with _patch_settings(settings), _patch_fetch([APERTUS_8B]):
         entries = _run(get_synthetic_entries())
@@ -200,7 +200,7 @@ def test_same_upstream_id_on_two_providers_lists_two_rows():
     assert via_cscs.provider.name == "cscs_L1"
     assert via_rcp.provider.name == "rcp"
     assert via_rcp.provider.api_key == "rcp-key"
-    assert bare.provider.name == "cscs_L1"  # registered before rcp
+    assert bare is None
 
 
 # ── discovery cache ─────────────────────────────────────────────────────────
