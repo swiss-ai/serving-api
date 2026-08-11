@@ -58,6 +58,10 @@ const faqs = [
     a: 'Yes, see <a class="text-indigo-600 dark:text-indigo-400 underline" href="https://github.com/swiss-ai/model-launch" target="_blank" rel="noopener noreferrer">model launch</a>. This usually requires a CSCS GPU grant. Compute grants come in two tiers: small (&lt;32k GPU hrs) and large (&gt;500k GPU hrs). See the <a class="text-indigo-600 dark:text-indigo-400 underline" href="https://www.swiss-ai.org/compute-grants" target="_blank" rel="noopener noreferrer">compute grants process</a>.',
   },
   {
+    q: "How do I launch my own models?",
+    a: 'Use <a class="text-indigo-600 dark:text-indigo-400 underline" href="https://github.com/swiss-ai/model-launch" target="_blank" rel="noopener noreferrer">model launch</a> — a framework-agnostic tool that submits Slurm jobs for distributed inference with vLLM or SGLang on CSCS Alps, for single- or multi-node deployments. It registers your model with OpenTela automatically, so it becomes reachable through this platform\'s API and appears under your username. You need a CSCS GPU grant (see the previous question). Start with the <a class="text-indigo-600 dark:text-indigo-400 underline" href="/guides/01-getting-started/model-launch">model launch guide</a>, then the repository\'s examples for popular models.',
+  },
+  {
     q: "Is my institution enabled?",
     a: 'Members of supported Swiss institutions are auto-enabled, getting an active budget on first sign-in. If your institution is not recognised when you sign in, please <a class="text-indigo-600 dark:text-indigo-400 underline" href="https://apertus-ai.org/contact/" target="_blank" rel="noopener noreferrer">contact us</a>.',
   },
@@ -262,12 +266,14 @@ const slug = (q: string) =>
               <text font-size="13" font-weight="600" text-anchor="middle" class="fill-emerald-800 dark:fill-emerald-200" x="465" y="499">Use SwissAI Research</text>
               <text font-size="13" text-anchor="middle" class="fill-emerald-700 dark:fill-emerald-300" x="465" y="519">need more? see FAQ ↓</text>
             </a>
-            <g>
+            <a href="#how-do-i-launch-my-own-models" class="hover:opacity-75">
+              <title>How to launch your own models with model launch — see FAQ below.</title>
               <rect class="fill-slate-100 dark:fill-slate-700 stroke-slate-300 dark:stroke-slate-500" x="571" y="470" width="168" height="76" rx="8" />
               <text font-size="13" font-weight="600" text-anchor="middle" class="fill-slate-700 dark:fill-slate-200" x="655" y="489">Launch it yourself</text>
               <text font-size="13" text-anchor="middle" class="fill-slate-600 dark:fill-slate-300" x="655" y="509">(needs a grant), or</text>
               <text font-size="13" text-anchor="middle" class="fill-slate-600 dark:fill-slate-300" x="655" y="529">contact us to request</text>
-            </g>
+              <text font-size="13" font-weight="600" text-anchor="end" class="fill-slate-500 dark:fill-slate-400" x="731" y="486">↓</text>
+            </a>
             <a href="https://docs.cscs.ch/services/inference/" target="_blank" rel="noopener noreferrer" class="hover:opacity-75">
               <rect class="fill-slate-100 dark:fill-slate-700 stroke-slate-300 dark:stroke-slate-500" x="761" y="470" width="168" height="76" rx="8" />
               <text font-size="13" font-weight="600" text-anchor="middle" class="fill-slate-700 dark:fill-slate-200" x="845" y="489">Use CSCS Inference</text>
