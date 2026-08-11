@@ -6,3 +6,4 @@ details.json
 secrets/*.json
 .venv/*
 __pycache__/
+.claude
