@@ -19,7 +19,7 @@ const faqs = [
   },
   {
     q: "What repos make this service?",
-    a: '<ul class="list-disc pl-8 space-y-2"><li><a class="text-indigo-600 dark:text-indigo-400 underline" href="https://github.com/eth-easl/OpenTela" target="_blank" rel="noopener noreferrer">OpenTela</a> — the decentralized compute fabric that routes requests to models wherever they run (we deploy from a <a class="text-indigo-600 dark:text-indigo-400 underline" href="https://github.com/swiss-ai/opentela" target="_blank" rel="noopener noreferrer">swiss-ai fork</a>).</li><li><a class="text-indigo-600 dark:text-indigo-400 underline" href="https://github.com/swiss-ai/serving-api" target="_blank" rel="noopener noreferrer">serving-api</a> — this website: the API gateway, budgets and the frontend.</li><li><a class="text-indigo-600 dark:text-indigo-400 underline" href="https://github.com/swiss-ai/model-launch" target="_blank" rel="noopener noreferrer">model-launch</a> — tooling to launch and serve your own models on Slurm.</li><li><a class="text-indigo-600 dark:text-indigo-400 underline" href="https://github.com/swiss-ai/infra-tool-box" target="_blank" rel="noopener noreferrer">infra-tool-box</a> — infrastructure and ArgoCD deployment configs (private).</li></ul>',
+    a: '<ul class="list-disc pl-8 space-y-2"><li><a class="text-indigo-600 dark:text-indigo-400 underline" href="https://github.com/eth-easl/OpenTela" target="_blank" rel="noopener noreferrer">OpenTela</a> — the decentralized compute fabric that routes requests to models wherever they run (we deploy from a <a class="text-indigo-600 dark:text-indigo-400 underline" href="https://github.com/swiss-ai/opentela" target="_blank" rel="noopener noreferrer">swiss-ai fork</a>).</li><li><a class="text-indigo-600 dark:text-indigo-400 underline" href="https://github.com/swiss-ai/serving-api" target="_blank" rel="noopener noreferrer">serving-api</a> — this website: the API gateway, budgets and the frontend.</li><li><a class="text-indigo-600 dark:text-indigo-400 underline" href="https://github.com/swiss-ai/model-launch" target="_blank" rel="noopener noreferrer">model-launch</a> — tooling to launch and serve your own models on Slurm.</li><li><a class="text-indigo-600 dark:text-indigo-400 underline" href="https://github.com/swiss-ai/infra-tool-box" target="_blank" rel="noopener noreferrer">infra</a> — infrastructure and ArgoCD deployment configs (private).</li></ul>',
   },
   {
     q: "What are providers?",
@@ -107,7 +107,7 @@ const faqs = [
   },
   {
     q: "Are there rate limits or usage budgets?",
-    a: 'Yes. Each user/institution has a usage budget, and requests may be rate-limited to keep the service fair and available. If you need a higher limit for a project, please <a class="text-indigo-600 dark:text-indigo-400 underline" href="https://apertus-ai.org/contact/" target="_blank" rel="noopener noreferrer">contact us</a>.',
+    a: 'Yes. Each user/institution has a usage budget, and requests may be rate-limited to keep the service fair and available. A <strong>low request rate</strong> is currently under 15 requests per minute per user for provider-routed models, and slightly higher for models served directly on the SwissAI platform. If you need a higher limit for a project, please <a class="text-indigo-600 dark:text-indigo-400 underline" href="https://apertus-ai.org/contact/" target="_blank" rel="noopener noreferrer">contact us</a>.',
   },
   {
     q: "How do I get or reset my API key?",
@@ -227,7 +227,9 @@ const slug = (q: string) =>
               <text x="180" y="208">Do you have a CSCS grant</text>
               <text x="180" y="228">or project with compute?</text>
               <text x="750" y="208">Personal Chat, RAG or agentic use?</text>
-              <text x="750" y="228">(low request rate)</text>
+              <a href="#are-there-rate-limits-or-usage-budgets" class="group">
+                <text x="750" y="228" class="group-hover:underline">(low request rate)</text>
+              </a>
               <text x="560" y="351">Is the model already</text>
               <text x="560" y="371">hosted here or via a provider?</text>
               <text x="940" y="351">Need a production-grade,</text>
