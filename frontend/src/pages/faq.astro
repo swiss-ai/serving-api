@@ -168,11 +168,9 @@ const slug = (q: string) =>
           <svg
             viewBox="0 0 1140 560"
             class="min-w-[760px] w-full h-auto"
-            role="group"
-            aria-labelledby="decision-flowchart-title decision-flowchart-desc"
+            role="img"
+            aria-label="Decision flowchart with Yes/No branches linking to model launch on Slurm, compute grants, CSCS Inference, and contact options."
           >
-            <title id="decision-flowchart-title">Decision flowchart: which option should I use?</title>
-            <desc id="decision-flowchart-desc">Flowchart with Yes/No branches linking to model launch on Slurm, compute grants, CSCS Inference, and contact options.</desc>
             <!-- edges: YES = emerald, NO = rose -->
             <g stroke-width="2" fill="none" stroke-linejoin="round">
               <path class="stroke-emerald-500" d="M465,110 V145 H180 V172" />
@@ -228,6 +226,7 @@ const slug = (q: string) =>
               <text x="180" y="228">or project with compute?</text>
               <text x="750" y="208">Personal Chat, RAG or agentic use?</text>
               <a href="#are-there-rate-limits-or-usage-budgets" class="group">
+                <title>Currently under 15 requests/minute for provider models, slightly higher for platform-served models — click for details.</title>
                 <text x="750" y="228" class="group-hover:underline">(low request rate)</text>
                 <line x1="687" y1="233" x2="813" y2="233" stroke-width="1.5" stroke-dasharray="2 3" class="stroke-slate-500 dark:stroke-slate-400 group-hover:opacity-0" />
               </a>
