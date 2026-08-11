@@ -21,8 +21,10 @@ Every id a provider surfaces is namespaced under its reserved prefix
 collision-free across providers and against OpenTela-served models: the
 first path segment of a requested id selects the provider, the remainder
 is forwarded verbatim as the upstream id (see ``resolve_model``).
-Un-prefixed upstream ids still route during a deprecation window, where
-registration order is precedence.
+Un-prefixed upstream ids no longer route: the canonical three-segment
+shape is enforced at the request boundary (see
+``backend/middleware/model_id.py``), which retired the old
+registration-order back-compat for bare ids.
 
 Curation is per provider via ``Provider.hidden_id_suffixes``: RCP
 advertises every model twice — once under its canonical id and once
@@ -35,15 +37,12 @@ Secrets (base URLs, API keys) come from env via Settings.
 """
 
 import asyncio
-import logging
 import time
 from dataclasses import dataclass
 
 import aiohttp
 
 from backend.config import get_settings
-
-logger = logging.getLogger(__name__)
 
 
 # 30 s strikes a balance: short enough that a new upstream model is
@@ -255,9 +254,11 @@ async def resolve_model(model_id: str) -> ResolvedModel | None:
       through to OpenTela by another name; it returns None and 404s there
       under its full (never-launched) id.
 
-    Back-compat: a bare upstream id that a provider advertises still routes
-    (first provider in registration order wins), logged as deprecated.
-    Remove after clients have migrated to prefixed ids."""
+    Any other first segment (usernames, unknown prefixes) falls through
+    to OpenTela. Bare upstream ids never reach this function — the
+    request boundary 404s ids without the canonical three-segment shape
+    (``backend/middleware/model_id.py``), which replaced the old
+    registration-order back-compat routing for bare ids."""
     if not model_id:
         return None
     providers = registered_providers()
@@ -278,19 +279,6 @@ async def resolve_model(model_id: str) -> ResolvedModel | None:
                     provider=provider, upstream_id=rest, public_id=model_id
                 )
             return None
-    for provider in providers:
-        if model_id in await _get_cached_ids(provider):
-            logger.warning(
-                "Deprecated un-prefixed passthrough model id %r; use %s/%s",
-                model_id,
-                provider.prefix,
-                model_id,
-            )
-            return ResolvedModel(
-                provider=provider,
-                upstream_id=model_id,
-                public_id=f"{provider.prefix}/{model_id}",
-            )
     return None
 
 

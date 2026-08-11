@@ -3,6 +3,7 @@ from fastapi.responses import StreamingResponse
 from backend.middleware.auth import require_auth
 from backend.middleware.ratelimit import enforce_rate_limit
 from backend.middleware.body import json_body
+from backend.middleware.model_id import require_namespaced_model
 from backend.services.llm_service import llm_proxy_responses, response_generator_raw
 from backend.services.passthrough_service import (
     resolve_model,
@@ -20,7 +21,7 @@ async def create_response(
     data: dict = Depends(json_body),
 ):
     stream = data.get("stream", False)
-    model = data.get("model", "unknown")
+    model = require_namespaced_model(data.get("model", "unknown"))
 
     resolved = await resolve_model(model)
     if resolved is not None:

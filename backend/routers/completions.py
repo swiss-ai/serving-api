@@ -5,6 +5,7 @@ from fastapi.responses import StreamingResponse
 from backend.middleware.auth import require_auth
 from backend.middleware.ratelimit import enforce_rate_limit
 from backend.middleware.body import json_body
+from backend.middleware.model_id import require_namespaced_model
 from backend.services.langfuse_service import (
     prepare_stream_trace,
     record_if_monitored,
@@ -149,6 +150,7 @@ async def chat_completion(
         user_id=token, opt_out=opt_out, app_title=app_title, **reorg_data
     )
 
+    require_namespaced_model(llm_request.model)
     endpoint, api_key, provider_label, resolved = await _resolve_route(
         llm_request.model, token
     )
@@ -240,6 +242,7 @@ async def completion(
         user_id=token, opt_out=opt_out, app_title=app_title, **reorg_data
     )
 
+    require_namespaced_model(llm_request.model)
     endpoint, api_key, provider_label, resolved = await _resolve_route(
         llm_request.model, token
     )
