@@ -4,6 +4,7 @@ import Link from "@components/Link.astro";
 import { SITE } from "@consts";
 import NavMenus from "@components/NavMenus.svelte";
 import { getActiveSession } from '@lib/activeSession';
+import { endSessionConfig } from '@lib/endSession';
 
 // Sessions are auth-astro cookies resolved during SSR; local dev signs in
 // through the compose Authentik — there is no bypass.
@@ -35,6 +36,7 @@ if (session?.accessToken) {
 }
 const signedIn = !!session;
 const userEmail = session?.user?.email || '';
+const endSession = await endSessionConfig(session);
 ---
 
 <header>
@@ -95,7 +97,7 @@ const userEmail = session?.user?.email || '';
           </svg>
           Get Help
         </a>
-        <NavMenus client:load signedIn={signedIn} isAdmin={isAdmin} email={userEmail} section="profile" />
+        <NavMenus client:load signedIn={signedIn} isAdmin={isAdmin} email={userEmail} endSession={endSession} section="profile" />
       </nav>
 
       <!-- Mobile Menu Button -->
@@ -155,7 +157,7 @@ const userEmail = session?.user?.email || '';
       >
         Performance
       </Link>
-      <NavMenus client:load signedIn={signedIn} isAdmin={isAdmin} email={userEmail} mobile={true} />
+      <NavMenus client:load signedIn={signedIn} isAdmin={isAdmin} email={userEmail} endSession={endSession} mobile={true} />
       <a
         href="https://swissai-initiative.slack.com/archives/C07DHJFRE2X"
         target="_blank"

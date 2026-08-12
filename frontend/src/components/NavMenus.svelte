@@ -9,11 +9,14 @@
   // checks apikey.is_admin for itself.
   import { onMount, onDestroy } from 'svelte';
   import { signIn, signOut } from 'auth-astro/client';
+  import { endSessionUrl } from '@lib/endSessionUrl';
 
   export let signedIn = false;
   export let isAdmin = false;
   export let email = '';
   export let mobile = false;
+  // Resolved in Header.astro; the ID token and issuer are server-side only.
+  export let endSession = { endpoint: '', clientId: '', idToken: '' };
   // Which part to render: 'about', 'profile', or 'both' (mobile). Lets the
   // header put Get Help between the two on desktop while the profile menu
   // keeps the rightmost slot.
@@ -54,8 +57,11 @@
   }
 
   async function doSignOut() {
+    const target = endSessionUrl(endSession, window.location.origin);
     await signOut({ redirect: false });
-    window.location.href = '/';
+    // Clearing our own cookie leaves the IdP session alive, so the next sign in
+    // completes with no prompt and "signed out" is not signed out.
+    window.location.href = target || '/';
   }
 
   onMount(() => {
