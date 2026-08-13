@@ -1,6 +1,5 @@
 import json
 import secrets
-import time
 from functools import lru_cache
 from pathlib import Path
 
@@ -46,7 +45,7 @@ def rotate_key(engine, key: str) -> APIKey:
             raise ValueError("Invalid key")
 
         token_cache.remove_token(key)
-        _email_cache.pop(key, None)
+        token_cache.remove_email(key)
 
         api_key.key = f"sk-rc-{secrets.token_urlsafe(16)}"
         session.add(api_key)
@@ -66,7 +65,7 @@ def rotate_key_by_email(engine, owner_email: str) -> APIKey:
             raise ValueError("No API key for this user")
 
         token_cache.remove_token(api_key.key)
-        _email_cache.pop(api_key.key, None)
+        token_cache.remove_email(api_key.key)
 
         api_key.key = f"sk-rc-{secrets.token_urlsafe(16)}"
         session.add(api_key)
@@ -95,14 +94,21 @@ def verify_token(engine, token: str) -> bool:
 # Token → owner_email, resolved once per TTL instead of per request. The
 # redis token cache only stores *validity*, so per-model authorization
 # checks on the inference hot path would otherwise hit the DB every call.
-_EMAIL_CACHE_TTL_SECONDS = 300.0
-# Keyed by token → (cached_at, owner_email).
-_email_cache: dict[str, tuple[float, str]] = {}
+#
+# It lives in Redis alongside that validity cache rather than in a module
+# dict, because prod runs several serving-api replicas: a per-process dict
+# means a rotated key keeps resolving to its old owner on every replica
+# except the one that served the rotation, for as long as the TTL. Redis is
+# already on the authed request path (verify_token), so this adds no new
+# dependency — and when it is unreachable the client falls back to a
+# per-process dict, which is the old behaviour rather than an outage.
+_EMAIL_CACHE_TTL_SECONDS = 300
 
 
 def _reset_email_cache_for_tests() -> None:
-    """Test helper — clears the cache so tests don't leak identities."""
-    _email_cache.clear()
+    """Test helper — clears cached identities so tests don't leak them.
+    Leaves token *validity* alone; that is a separate cache."""
+    get_token_cache().clear_emails()
 
 
 def get_email_for_token(engine, token: str) -> str | None:
@@ -111,19 +117,19 @@ def get_email_for_token(engine, token: str) -> str | None:
     Identity only — no budget gate; verify_token already gates usability.
     Negative results are not cached so a freshly created key resolves
     immediately. Rotation evicts the old key from this cache (whoami and
-    the models filter authenticate with identity alone, no require_auth);
-    the cache is per-process, so in a multi-worker deployment other
-    workers' entries age out within the TTL."""
-    now = time.time()
-    slot = _email_cache.get(token)
-    if slot is not None and (now - slot[0]) < _EMAIL_CACHE_TTL_SECONDS:
-        return slot[1]
+    the models filter authenticate with identity alone, no require_auth),
+    and because the cache is shared that eviction applies to every replica
+    at once."""
+    token_cache = get_token_cache()
+    cached = token_cache.get_email(token)
+    if cached is not None:
+        return cached
 
     with Session(engine) as session:
         api_key = session.exec(select(APIKey).where(APIKey.key == token)).first()
     if api_key is None:
         return None
-    _email_cache[token] = (now, api_key.owner_email)
+    token_cache.set_email(token, api_key.owner_email, ttl=_EMAIL_CACHE_TTL_SECONDS)
     return api_key.owner_email
 
 
