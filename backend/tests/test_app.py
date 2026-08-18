@@ -321,3 +321,34 @@ def test_profile_rotate_replaces_key_and_clears_cache(client, monkeypatch):
         assert session.exec(select(APIKey).where(APIKey.key == old_key)).first() is None
         row = session.exec(select(APIKey).where(APIKey.owner_email == email)).first()
         assert row.key == new_key
+
+
+@pytest.mark.parametrize(
+    "email", ["someone@ethz.ch", "someone@gmail.com", "someone@localhost"]
+)
+def test_first_signin_creates_an_active_key(client, email):
+    """Provisioning no longer reads the email domain: whoever gets far enough to
+    sign in gets a usable key, with no manual budget fix afterwards."""
+    from backend.services.auth_service import get_or_create_apikey, verify_token
+
+    engine = client.app.state.engine
+    api_key = get_or_create_apikey(engine, email)
+
+    assert api_key.budget > 0
+    assert verify_token(engine, api_key.key)
+
+
+def test_existing_budget_survives_later_signins(client):
+    """Provisioning sets a budget only when it creates the row, so a suspended
+    account is not silently reactivated on the owner's next sign-in."""
+    from sqlmodel import Session
+    from backend.models.entities import APIKey
+    from backend.services.auth_service import get_or_create_apikey
+
+    email = "suspended@example.org"
+    engine = client.app.state.engine
+    with Session(engine) as session:
+        session.add(APIKey(key="sk-rc-suspended-test", owner_email=email, budget=0))
+        session.commit()
+
+    assert get_or_create_apikey(engine, email).budget == 0
