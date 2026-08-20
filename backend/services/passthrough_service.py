@@ -259,7 +259,11 @@ async def resolve_model(model_id: str) -> ResolvedModel | None:
     request boundary 404s ids without the canonical three-segment shape
     (``backend/middleware/model_id.py``), which replaced the old
     registration-order back-compat routing for bare ids."""
-    if not model_id:
+    if not model_id or not isinstance(model_id, str):
+        # The authorization gate also calls this with the raw body value,
+        # which the shape check has not necessarily vetted; a non-string id
+        # can't be a member of the advertised-id set (and would raise on
+        # lookup), so treat it as unresolvable.
         return None
     providers = registered_providers()
     first, _, rest = model_id.partition("/")

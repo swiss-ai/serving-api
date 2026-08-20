@@ -8,6 +8,7 @@
     status?: string;
     device?: string;
     launched_by?: string;
+    authorization?: string;
     slurm_job_id?: string;
     started_at?: string;
     expires_at?: string;
@@ -61,6 +62,35 @@
   // same launcher/framework, but we render them per-replica below anyway.
   $: firstHead = entry.data.replicas[0]?.head ?? {};
   $: framework = firstHead.framework || "";
+
+  // The backend mirrors the peer's `authorization` label as a top-level
+  // convenience field (like launched_by). Empty or "public" means anyone
+  // can use the model; anything else is an email allowlist — the entry
+  // only reached us because the backend authorized this viewer, so badge
+  // it to explain the model isn't generally visible.
+  $: isRestricted = !!firstHead.authorization && firstHead.authorization !== "public";
+
+  // Same canonical form the backend's conflict check uses: "" / "public"
+  // (any case) → "public"; otherwise the email list sorted, lowercased.
+  function normalizedPolicy(auth: string | undefined): string {
+    const value = (auth || "").trim();
+    if (!value || value.toLowerCase() === "public") return "public";
+    // Dedupe like the backend's frozenset does, so a duplicated entry in
+    // one label can't show a conflict badge the backend doesn't act on.
+    const emails = value.split(",").map(p => p.trim().toLowerCase()).filter(Boolean);
+    return Array.from(new Set(emails)).sort().join(",");
+  }
+
+  // Peers of one launch always share one label, so disagreement means
+  // independent launches are squatting the same served name — the backend
+  // refuses to route those (403) until the collision is resolved. Badge
+  // it so the card explains why requests are failing.
+  $: hasAuthConflict = new Set(
+    entry.data.replicas
+      .flatMap(r => [r.head, ...(r.followers ?? [])])
+      .filter(Boolean)
+      .map(p => normalizedPolicy(p.authorization))
+  ).size > 1;
 
   // Aggregated status across all replicas:
   //   "ready"   — every replica's head is ready
@@ -197,6 +227,11 @@
           <span class="uptime-badge" title="This service is running on CSCS L2 Kubernetes">24/7</span>
         {:else if tier === "slurm"}
           <span class="slurm-badge" title="Model-launch Slurm job">Slurm</span>
+        {/if}
+        {#if hasAuthConflict}
+          <span class="auth-conflict-badge" title="Independent launches are serving this model name with different authorization labels. The API refuses to route requests for it until the conflict is resolved (relaunch under a unique name or with matching authorization).">Auth conflict</span>
+        {:else if isRestricted}
+          <span class="restricted-badge" title="Restricted model: only users on its authorization list can see and use it">Restricted</span>
         {/if}
         {#if entry.data.replicaCount > 1}
           <span class="instance-count" title="Replicas of this model (separately-launched instances)">
@@ -383,6 +418,8 @@
   .tile-pending img,
   .tile-pending .uptime-badge,
   .tile-pending .slurm-badge,
+  .tile-pending .restricted-badge,
+  .tile-pending .auth-conflict-badge,
   .tile-pending .instance-count {
     filter: grayscale(1);
   }
@@ -400,6 +437,28 @@
 
   .slurm-badge {
     background-color: #9333ea;
+    color: white;
+    font-weight: bold;
+    font-size: 0.75em;
+    padding: 0 6px;
+    border-radius: 4px;
+    flex-shrink: 0;
+    cursor: help;
+  }
+
+  .restricted-badge {
+    background-color: #d97706; /* amber-600 */
+    color: white;
+    font-weight: bold;
+    font-size: 0.75em;
+    padding: 0 6px;
+    border-radius: 4px;
+    flex-shrink: 0;
+    cursor: help;
+  }
+
+  .auth-conflict-badge {
+    background-color: #dc2626; /* red-600 */
     color: white;
     font-weight: bold;
     font-size: 0.75em;

@@ -145,6 +145,7 @@ async def all_models(
                 "source": "OpenTela",
                 "launched_by": peer.get("launched_by") or "",
                 "otela_version": peer.get("otela_version") or "",
+                "sml_version": peer.get("sml_version") or "",
                 "status": peer.get("status") or "",
                 "device": peer.get("device") or "",
                 "peers": 0,
@@ -160,6 +161,8 @@ async def all_models(
                 "source": entry["source"],
                 "launched_by": entry["source"],
                 "otela_version": "",
+                # Passthrough models are hosted upstream, not launched by SML.
+                "sml_version": "",
                 "status": "ready",
                 "device": entry["device"],
                 "peers": 0,
