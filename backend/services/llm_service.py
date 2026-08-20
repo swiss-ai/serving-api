@@ -7,6 +7,7 @@ from backend.models.protocols import (
     LLMRequest,
     LLMCompletionsRequest,
 )
+from backend.config import get_settings
 from backend.services.metrics_service import metrics_collector
 import time
 
@@ -164,6 +165,32 @@ class RawResponse:
         self.headers = headers or {}
 
 
+def _upstream_timeout(stream: bool) -> aiohttp.ClientTimeout:
+    """Timeout for one upstream inference call.
+
+    Must be passed explicitly: aiohttp's default is ``total=300``, and
+    ``total`` spans the whole exchange including every streamed chunk, so
+    the default quietly kills any generation past 5 minutes regardless of
+    how healthy it is.
+
+    Streaming gets ``sock_read`` and no total — chunks arrive continuously,
+    so a gap means the upstream died while elapsed time means only that the
+    answer is long. Non-streaming can't use that signal: nothing comes back
+    until the completion is finished, so one long silence is the expected
+    shape and an overall cap is all that's left.
+    """
+    settings = get_settings()
+    if stream:
+        return aiohttp.ClientTimeout(
+            total=None,
+            sock_connect=30,
+            sock_read=settings.upstream_stream_stall_seconds,
+        )
+    return aiohttp.ClientTimeout(
+        total=settings.upstream_timeout_seconds, sock_connect=30
+    )
+
+
 async def _execute_http_request(
     session: aiohttp.ClientSession,
     url: str,
@@ -233,7 +260,7 @@ async def _shared_proxy_handler(
     headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
     headers.update(headers_extra)
 
-    session = aiohttp.ClientSession()
+    session = aiohttp.ClientSession(timeout=_upstream_timeout(stream))
     try:
         resp = await _execute_http_request(
             session=session,
