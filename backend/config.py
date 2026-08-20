@@ -59,6 +59,17 @@ class Settings(BaseSettings):
     # take precedence so admins can adjust live without a redeploy — see
     # backend/services/rate_limit_service.py.
     rate_limit_rpm: int = 0
+    # Upstream inference timeouts. aiohttp's default is total=300s, which
+    # silently caps every generation at 5 minutes — long-output work (eval
+    # suites with a big max_gen_toks, reasoning traces) dies mid-flight.
+    # Non-streaming replies send nothing until the whole completion is
+    # ready, so the only safe bound there is an overall cap.
+    upstream_timeout_seconds: int = 3600
+    # Streaming replies arrive as a steady chunk flow, so silence — not
+    # elapsed time — is what distinguishes a wedged upstream from a slow
+    # one. Bounding the gap instead of the total lets a long generation run
+    # to completion while still reaping dead connections.
+    upstream_stream_stall_seconds: int = 300
     # /v1/models* advertises only OpenTela ids under the platform
     # namespace, i.e. SwissAI-Research/<hf_org>/<hf_model>. User launches
     # carry their own first segment ($USERNAME/<hf_org>/<hf_model>) and are
