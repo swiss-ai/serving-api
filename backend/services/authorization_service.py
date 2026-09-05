@@ -11,46 +11,61 @@ Two consumers:
 - Every inference proxy route calls ensure_model_access before proxying.
 
 The model → authorization map is derived from the same DNT table the
-models router reads, cached module-level with a short TTL so the check
-adds no upstream round-trip on the hot path. Failure policy: serve stale
-cache when the DNT is briefly unreachable; only at true cold start (no
-cache at all) do we fail OPEN with a logged warning — an unreachable DNT
-must never 500 (or wrongly 403) inference traffic.
+models router reads, cached in Redis with a short refresh interval so the
+check adds no upstream round-trip on the hot path. Redis rather than a
+module dict because prod runs several serving-api replicas: a per-process
+map would let one replica keep enforcing a policy the others have already
+refreshed past, and would give each replica its own cold start — its own
+fail-open window — on every deploy. Redis is already on the authed
+request path (verify_token), so this adds no new dependency, and when it
+is unreachable the client falls back to a per-process dict, which is the
+old behaviour rather than an outage.
+
+Failure policy: serve the stale cache when the DNT is briefly
+unreachable; only at true cold start (no cache at all) do we fail OPEN
+with a logged warning — an unreachable DNT must never 500 (or wrongly
+403) inference traffic.
 """
 
 import asyncio
 import json
 import logging
 import pathlib
-import time
 
 import aiohttp
 from fastapi import HTTPException
 
 from backend.config import get_settings
+from backend.redis_cache import get_token_cache
 from backend.services.auth_service import get_email_for_token
 from backend.services.passthrough_service import resolve_model
 
 logger = logging.getLogger("backend")
 
-# Short TTL: a permission change on relaunch should take effect within
-# seconds, while burst traffic for one model still coalesces to a single
-# DNT fetch.
-_CACHE_TTL_SECONDS = 10.0
+# Short refresh interval: a permission change on relaunch should take
+# effect within seconds, while burst traffic for one model still coalesces
+# to a single DNT fetch.
+_CACHE_TTL_SECONDS = 10
+# How long a successfully fetched map stays servable as stale data. Much
+# longer than the refresh interval on purpose: while the DNT is down,
+# enforcing a stale map is strictly safer than the cold-start fail-open we
+# fall back to once it expires. An hour bounds how long a revoked policy
+# can outlive its relaunch if the DNT never comes back.
+_STALE_TTL_SECONDS = 3600
 # Timeout for the DNT fetch — keep tight so a wedged head node can't
 # stall inference requests on our side.
 _FETCH_TIMEOUT_SECONDS = 5.0
 
+# Still worth holding per-process even though the cache is shared: it
+# collapses a burst of concurrent requests on one replica into a single
+# refresh instead of a stampede of identical DNT fetches.
 _cache_lock = asyncio.Lock()
-# {"fetched_at": float, "auth_map": dict[str, list[str]] | None}
-_cache: dict = {"fetched_at": 0.0, "auth_map": None}
 
 
 def _reset_cache_for_tests() -> None:
     """Test helper — clears the cache so tests can simulate cold start
     without leaking state across cases."""
-    _cache["fetched_at"] = 0.0
-    _cache["auth_map"] = None
+    get_token_cache().clear_auth_map()
 
 
 def normalize_policy(auth_value: str) -> frozenset[str] | None:
@@ -147,26 +162,32 @@ def _build_auth_map(data: dict) -> dict[str, list[str]]:
 
 
 async def _get_auth_map() -> dict[str, list[str]] | None:
-    """The cached model → authorization-values map. Refreshes past the TTL;
-    on fetch failure keeps serving the stale map. Returns None only at true
-    cold start (never fetched successfully) — the caller fails open.
+    """The cached model → authorization-values map. Refreshes once the
+    freshness sentinel expires; on fetch failure keeps serving the stale
+    map. Returns None only at true cold start (never fetched successfully,
+    by any replica) — the caller fails open.
 
-    ``fetched_at`` records the last *attempt*, successful or not: retrying
-    on every request while the DNT is down would make each inference call
-    pay the fetch timeout. One retry per TTL is enough."""
-    if (time.time() - _cache["fetched_at"]) < _CACHE_TTL_SECONDS:
-        return _cache["auth_map"]
+    The sentinel records the last *attempt*, successful or not: retrying on
+    every request while the DNT is down would make each inference call pay
+    the fetch timeout. One retry per interval, across all replicas, is
+    enough."""
+    cache = get_token_cache()
+    if cache.auth_map_is_fresh():
+        return cache.get_auth_map()
 
     async with _cache_lock:
         # Another coroutine may have refreshed while we waited on the lock.
-        if (time.time() - _cache["fetched_at"]) < _CACHE_TTL_SECONDS:
-            return _cache["auth_map"]
+        if cache.auth_map_is_fresh():
+            return cache.get_auth_map()
 
         data = await _fetch_dnt()
         if data is not None:
-            _cache["auth_map"] = _build_auth_map(data)
-        _cache["fetched_at"] = time.time()
-        return _cache["auth_map"]
+            cache.set_auth_map(_build_auth_map(data), ttl=_STALE_TTL_SECONDS)
+        # Set after the write, so a replica that reads between the two
+        # still sees "not fresh" and retries rather than racing onto a
+        # sentinel with no map behind it.
+        cache.mark_auth_map_fetched(ttl=_CACHE_TTL_SECONDS)
+        return cache.get_auth_map()
 
 
 async def _dnt_keys_for(model_id: str) -> list[str] | None:
@@ -201,8 +222,8 @@ async def ensure_model_access(engine, token: str, model_id: str) -> None:
     Allowed when: the model routes to a passthrough provider (always
     public), the id is unknown to the DNT (falls through to upstream which
     404s — unchanged behavior), every peer entry agrees on one policy and
-    that policy grants the caller, or the DNT has never been fetchable
-    (fail open, logged).
+    that policy grants the caller, or the DNT has never been fetchable by any
+    replica (fail open, logged).
 
     Entries that disagree (after normalization) are an authorization
     CONFLICT and everyone is refused — even a caller granted by all of

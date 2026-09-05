@@ -1,14 +1,14 @@
 """Unit tests for per-user model authorization: the ``authorization`` label
-grammar, the TTL-cached DNT-derived model → authorization map, and the
+grammar, the Redis-cached DNT-derived model → authorization map, and the
 ensure_model_access decision matrix incl. its fail-open policy."""
 
 import asyncio
-import time
 from unittest.mock import AsyncMock, patch
 
 import pytest
 from fastapi import HTTPException
 
+from backend.redis_cache import get_token_cache
 from backend.services import authorization_service
 from backend.services.authorization_service import (
     _build_auth_map,
@@ -371,8 +371,8 @@ def test_stale_cache_still_enforced_after_fetch_failure():
     ):
         with pytest.raises(HTTPException):
             _run(ensure_model_access(None, "sk-rc-x", "m"))
-        # Expire the cache; the next refresh attempt fails.
-        authorization_service._cache["fetched_at"] = 0.0
+        # Expire the freshness sentinel; the next refresh attempt fails.
+        get_token_cache().invalidate_auth_map_freshness()
         with pytest.raises(HTTPException) as exc_info:
             _run(ensure_model_access(None, "sk-rc-x", "m"))
     assert exc_info.value.status_code == 403
@@ -391,7 +391,108 @@ def test_auth_map_cached_within_ttl():
         _run(ensure_model_access(None, "sk-rc-x", "m"))
         _run(ensure_model_access(None, "sk-rc-x", "m"))
     assert fake.await_count == 1
-    assert time.time() - authorization_service._cache["fetched_at"] < 10
+    assert get_token_cache().auth_map_is_fresh()
+
+
+def test_auth_map_lives_in_the_shared_cache_not_the_module():
+    """The map is stored in the token cache, so every serving-api replica
+    reads the same one instead of each keeping (and cold-starting) its own."""
+    with (
+        _patch_no_passthrough(),
+        _patch_fetch_dnt({"/p": _dnt_peer("m", "a@epfl.ch")}),
+        _patch_email("a@epfl.ch"),
+    ):
+        _run(ensure_model_access(None, "sk-rc-x", "m"))
+    assert get_token_cache().get_auth_map() == {"m": ["a@epfl.ch"]}
+
+
+def test_map_another_replica_cached_is_used_without_fetching():
+    """A replica that never fetched anything itself still enforces from the
+    map a peer replica put in the shared cache — no cold-start fail-open of
+    its own, and no duplicate DNT fetch."""
+    cache = get_token_cache()
+    cache.set_auth_map({"m": ["a@epfl.ch"]}, ttl=60)
+    cache.mark_auth_map_fetched(ttl=10)
+
+    fake = AsyncMock(return_value=None)
+    with (
+        _patch_no_passthrough(),
+        patch.object(authorization_service, "_fetch_dnt", new=fake),
+        _patch_email("intruder@ethz.ch"),
+    ):
+        with pytest.raises(HTTPException) as exc_info:
+            _run(ensure_model_access(None, "sk-rc-x", "m"))
+    assert exc_info.value.status_code == 403
+    assert fake.await_count == 0
+
+
+def test_failed_refresh_still_backs_off():
+    """A failed refresh marks the attempt too, so a DNT outage costs one
+    fetch timeout per interval rather than one per inference request."""
+    fake = AsyncMock(return_value=None)
+    with (
+        _patch_no_passthrough(),
+        patch.object(authorization_service, "_fetch_dnt", new=fake),
+        _patch_email(None),
+    ):
+        _run(ensure_model_access(None, "sk-rc-x", "m"))
+        _run(ensure_model_access(None, "sk-rc-x", "m"))
+    assert fake.await_count == 1
+
+
+def test_expired_stale_map_falls_back_to_fail_open(caplog):
+    """The stale map is servable for a bounded window, not forever: once it
+    expires with the DNT still down we are back at cold start."""
+    cache = get_token_cache()
+    cache.set_auth_map({"m": ["a@epfl.ch"]}, ttl=0)
+
+    with (
+        _patch_no_passthrough(),
+        _patch_fetch_dnt(None),
+        _patch_email("intruder@ethz.ch"),
+        caplog.at_level("WARNING", logger="backend"),
+    ):
+        _run(ensure_model_access(None, "sk-rc-x", "m"))
+    assert any("fail open" in r.message for r in caplog.records)
+
+
+# ── shared-cache primitives ─────────────────────────────────────────────────
+
+
+def test_invalidating_freshness_keeps_the_stale_map():
+    """Forcing a refresh must not open a fail-open window in the meantime:
+    the sentinel goes, the data stays."""
+    cache = get_token_cache()
+    cache.set_auth_map({"m": ["a@epfl.ch"]}, ttl=60)
+    cache.mark_auth_map_fetched(ttl=60)
+
+    cache.invalidate_auth_map_freshness()
+
+    assert cache.auth_map_is_fresh() is False
+    assert cache.get_auth_map() == {"m": ["a@epfl.ch"]}
+
+
+def test_clear_auth_map_drops_both_data_and_sentinel():
+    cache = get_token_cache()
+    cache.set_auth_map({"m": ["a@epfl.ch"]}, ttl=60)
+    cache.mark_auth_map_fetched(ttl=60)
+
+    cache.clear_auth_map()
+
+    assert cache.auth_map_is_fresh() is False
+    assert cache.get_auth_map() is None
+
+
+def test_auth_map_cache_does_not_disturb_identities():
+    """The three caches share a client but not a namespace — clearing the
+    map must not log every user back out."""
+    cache = get_token_cache()
+    cache.set_email("sk-rc-x", "a@epfl.ch", ttl=60)
+    cache.set_auth_map({"m": ["a@epfl.ch"]}, ttl=60)
+
+    cache.clear_auth_map()
+
+    assert cache.get_email("sk-rc-x") == "a@epfl.ch"
 
 
 # ── fixture-mode DNT source ─────────────────────────────────────────────────

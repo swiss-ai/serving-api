@@ -1,6 +1,8 @@
+import json
 import os
 import redis
 import logging
+import time
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -47,6 +49,9 @@ class RedisTokenCache:
             self.redis_client = None
             self._fallback_cache = set()
             self._fallback_emails = {}
+            self._fallback_auth_map = None
+            self._fallback_auth_map_expires_at = 0.0
+            self._fallback_auth_map_fresh_until = 0.0
 
     def add_token(self, token: str, ttl: int = 3600) -> bool:
         """
@@ -193,17 +198,164 @@ class RedisTokenCache:
             logger.error(f"Error clearing cached emails: {e}")
             return False
 
-    def clear_cache(self) -> bool:
+    # ── DNT-derived model → authorization map ────────────────────────────
+    #
+    # Two keys rather than one, because the map has two independent
+    # lifetimes. "authmap:fresh" is a short-lived sentinel recording that a
+    # refresh was *attempted*; "authmap:data" holds the last map that was
+    # actually fetched and outlives it by a long way. That split is what
+    # lets a DNT outage keep enforcing from a stale map (safe) instead of
+    # falling through to fail-open (not safe), while still costing at most
+    # one fetch attempt per sentinel TTL.
+    #
+    # Shared for the same reason identities are: prod runs several
+    # serving-api replicas, and a per-process map means one replica can
+    # still be enforcing a revoked policy — or paying its own cold-start
+    # fail-open — while the others have moved on.
+
+    def set_auth_map(self, auth_map: dict, ttl: int = 3600) -> bool:
         """
-        Clear all cached tokens and their resolved identities
+        Cache the model → authorization-label map.
+
+        Args:
+            auth_map: model_id → list of ``authorization`` label values
+            ttl: how long the map stays servable as stale data, in seconds
+
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            if ttl <= 0:
+                # "Servable for zero seconds" is a drop, not a write. Spelled
+                # out because redis rejects a non-positive expiry outright,
+                # which would otherwise leave the previous map in place.
+                return self.clear_auth_map()
+            if self.redis_client:
+                return bool(
+                    self.redis_client.setex("authmap:data", ttl, json.dumps(auth_map))
+                )
+            else:
+                self._fallback_auth_map = auth_map
+                self._fallback_auth_map_expires_at = time.time() + ttl
+                return True
+        except Exception as e:
+            logger.error(f"Error caching authorization map: {e}")
+            return False
+
+    def get_auth_map(self) -> dict | None:
+        """
+        Look up the cached model → authorization-label map.
+
+        Returns:
+            The map, or None when nothing is cached (also on any Redis or
+            decode error — the caller treats that as a cold start, which is
+            the conservative reading of "we don't know").
+        """
+        try:
+            if self.redis_client:
+                raw = self.redis_client.get("authmap:data")
+                return json.loads(raw) if raw else None
+            else:
+                if time.time() >= self._fallback_auth_map_expires_at:
+                    self._fallback_auth_map = None
+                return self._fallback_auth_map
+        except Exception as e:
+            logger.error(f"Error reading cached authorization map: {e}")
+            return None
+
+    def mark_auth_map_fetched(self, ttl: int) -> bool:
+        """
+        Record that a refresh was just attempted, successful or not, so that
+        every replica backs off for ``ttl`` seconds instead of each paying
+        the DNT fetch timeout on every request while it is down.
 
         Returns:
             True if successful, False otherwise
         """
         try:
             if self.redis_client:
-                keys = self.redis_client.keys("token:*") + self.redis_client.keys(
-                    "email:*"
+                return bool(self.redis_client.setex("authmap:fresh", ttl, "1"))
+            else:
+                self._fallback_auth_map_fresh_until = time.time() + ttl
+                return True
+        except Exception as e:
+            logger.error(f"Error marking authorization map fetched: {e}")
+            return False
+
+    def auth_map_is_fresh(self) -> bool:
+        """
+        Has a refresh been attempted recently enough to skip another one?
+
+        Returns:
+            True while the sentinel is live, False otherwise (including on
+            any Redis error, so a cache failure becomes a refetch rather
+            than an indefinitely stale map).
+        """
+        try:
+            if self.redis_client:
+                return self.redis_client.exists("authmap:fresh") > 0
+            else:
+                return time.time() < self._fallback_auth_map_fresh_until
+        except Exception as e:
+            logger.error(f"Error checking authorization map freshness: {e}")
+            return False
+
+    def invalidate_auth_map_freshness(self) -> bool:
+        """
+        Drop only the freshness sentinel, so the next check refreshes the
+        map while the current one stays servable as stale data in the
+        meantime. The way to force a re-read of the DNT without opening a
+        fail-open window.
+
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            if self.redis_client:
+                self.redis_client.delete("authmap:fresh")
+                return True
+            else:
+                self._fallback_auth_map_fresh_until = 0.0
+                return True
+        except Exception as e:
+            logger.error(f"Error invalidating authorization map freshness: {e}")
+            return False
+
+    def clear_auth_map(self) -> bool:
+        """
+        Drop the cached authorization map and its freshness sentinel,
+        leaving token validity and identities untouched.
+
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            if self.redis_client:
+                self.redis_client.delete("authmap:data", "authmap:fresh")
+                return True
+            else:
+                self._fallback_auth_map = None
+                self._fallback_auth_map_expires_at = 0.0
+                self._fallback_auth_map_fresh_until = 0.0
+                return True
+        except Exception as e:
+            logger.error(f"Error clearing cached authorization map: {e}")
+            return False
+
+    def clear_cache(self) -> bool:
+        """
+        Clear all cached tokens, their resolved identities, and the
+        authorization map
+
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            if self.redis_client:
+                keys = (
+                    self.redis_client.keys("token:*")
+                    + self.redis_client.keys("email:*")
+                    + self.redis_client.keys("authmap:*")
                 )
                 if keys:
                     return self.redis_client.delete(*keys) > 0
@@ -212,6 +364,7 @@ class RedisTokenCache:
                 # Fallback to in-memory
                 self._fallback_cache.clear()
                 self._fallback_emails.clear()
+                self.clear_auth_map()
                 return True
         except Exception as e:
             logger.error(f"Error clearing cache: {e}")

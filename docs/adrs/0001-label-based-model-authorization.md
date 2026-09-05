@@ -48,7 +48,11 @@ Deny-all on conflict is deliberate. OpenTela load-balances a model name across e
 
 ### Failure policy: availability over strictness
 
-The authorization map is cached module-level with a ~10s TTL (one fetch retry per TTL, so a down DNT cannot add its fetch timeout to every request). On fetch failure the stale map keeps serving. Only at **true cold start** — no successful fetch ever — does enforcement fail open, with a logged warning. A DNT blip must never 500 (or wrongly 403) inference traffic; if the DNT is down long enough for this to matter, OpenTela routing is typically down too.
+The authorization map is cached in **Redis**, alongside the token-validity and identity caches, under two keys with deliberately different lifetimes: a `~10s` freshness sentinel recording that a refresh was *attempted*, and the fetched map itself, servable as stale data for up to an hour. The sentinel is what bounds cost — one fetch retry per interval across all replicas, so a down DNT cannot add its fetch timeout to every request — while the long data TTL is what bounds risk: enforcing a stale map is strictly safer than the fail-open below, so it should outlive the sentinel by a wide margin.
+
+On fetch failure the stale map keeps serving. Only at **true cold start** — no successful fetch by any replica, or an outage that has outlasted the stale window — does enforcement fail open, with a logged warning. A DNT blip must never 500 (or wrongly 403) inference traffic; if the DNT is down long enough for this to matter, OpenTela routing is typically down too.
+
+Shared rather than per-process for the same reason identity resolution is (see Consequences): prod runs several serving-api replicas. A module-level map gave each replica its own cold start — its own fail-open window — on every deploy or scale-out, and let one replica keep enforcing a policy the others had already refreshed past. An in-process `asyncio` lock is still held around the refresh, since it collapses a burst on one replica into a single fetch rather than a stampede of identical ones.
 
 ## Consequences
 
