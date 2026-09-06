@@ -52,6 +52,8 @@ class RedisTokenCache:
             self._fallback_auth_map = None
             self._fallback_auth_map_expires_at = 0.0
             self._fallback_auth_map_fresh_until = 0.0
+            self._fallback_overrides = None
+            self._fallback_overrides_expires_at = 0.0
 
     def add_token(self, token: str, ttl: int = 3600) -> bool:
         """
@@ -200,9 +202,14 @@ class RedisTokenCache:
 
     # ── DNT-derived model → authorization map ────────────────────────────
     #
+    # The key carries a shape version. A rolling deploy runs old and new
+    # pods against one Redis, and a map written in the old shape would be
+    # read as garbage by the new code (and vice versa); separate keys let
+    # each generation stay self-consistent and cost only one refetch.
+    #
     # Two keys rather than one, because the map has two independent
-    # lifetimes. "authmap:fresh" is a short-lived sentinel recording that a
-    # refresh was *attempted*; "authmap:data" holds the last map that was
+    # lifetimes. "authmap:v2:fresh" is a short-lived sentinel recording that a
+    # refresh was *attempted*; "authmap:v2:data" holds the last map that was
     # actually fetched and outlives it by a long way. That split is what
     # lets a DNT outage keep enforcing from a stale map (safe) instead of
     # falling through to fail-open (not safe), while still costing at most
@@ -232,7 +239,9 @@ class RedisTokenCache:
                 return self.clear_auth_map()
             if self.redis_client:
                 return bool(
-                    self.redis_client.setex("authmap:data", ttl, json.dumps(auth_map))
+                    self.redis_client.setex(
+                        "authmap:v2:data", ttl, json.dumps(auth_map)
+                    )
                 )
             else:
                 self._fallback_auth_map = auth_map
@@ -253,7 +262,7 @@ class RedisTokenCache:
         """
         try:
             if self.redis_client:
-                raw = self.redis_client.get("authmap:data")
+                raw = self.redis_client.get("authmap:v2:data")
                 return json.loads(raw) if raw else None
             else:
                 if time.time() >= self._fallback_auth_map_expires_at:
@@ -274,7 +283,7 @@ class RedisTokenCache:
         """
         try:
             if self.redis_client:
-                return bool(self.redis_client.setex("authmap:fresh", ttl, "1"))
+                return bool(self.redis_client.setex("authmap:v2:fresh", ttl, "1"))
             else:
                 self._fallback_auth_map_fresh_until = time.time() + ttl
                 return True
@@ -293,7 +302,7 @@ class RedisTokenCache:
         """
         try:
             if self.redis_client:
-                return self.redis_client.exists("authmap:fresh") > 0
+                return self.redis_client.exists("authmap:v2:fresh") > 0
             else:
                 return time.time() < self._fallback_auth_map_fresh_until
         except Exception as e:
@@ -312,7 +321,7 @@ class RedisTokenCache:
         """
         try:
             if self.redis_client:
-                self.redis_client.delete("authmap:fresh")
+                self.redis_client.delete("authmap:v2:fresh")
                 return True
             else:
                 self._fallback_auth_map_fresh_until = 0.0
@@ -331,7 +340,7 @@ class RedisTokenCache:
         """
         try:
             if self.redis_client:
-                self.redis_client.delete("authmap:data", "authmap:fresh")
+                self.redis_client.delete("authmap:v2:data", "authmap:v2:fresh")
                 return True
             else:
                 self._fallback_auth_map = None
@@ -340,6 +349,81 @@ class RedisTokenCache:
                 return True
         except Exception as e:
             logger.error(f"Error clearing cached authorization map: {e}")
+            return False
+
+    # ── post-launch access overrides ─────────────────────────────────────
+    #
+    # The override table is the authority; this is just a read-through cache
+    # so the inference hot path doesn't hit Postgres per request. Unlike the
+    # authorization map there is no stale/fresh split, because we control
+    # every write: set_override and clear_override drop this key, so a
+    # change takes effect on the next request across all replicas. The TTL
+    # is only a safety net for an invalidation that never landed.
+
+    def set_access_overrides(self, overrides: dict, ttl: int = 30) -> bool:
+        """
+        Cache the launch_id → policy map read from model_access_override.
+
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            if ttl <= 0:
+                return self.clear_access_overrides()
+            if self.redis_client:
+                return bool(
+                    self.redis_client.setex(
+                        "access:overrides", ttl, json.dumps(overrides)
+                    )
+                )
+            else:
+                self._fallback_overrides = overrides
+                self._fallback_overrides_expires_at = time.time() + ttl
+                return True
+        except Exception as e:
+            logger.error(f"Error caching access overrides: {e}")
+            return False
+
+    def get_access_overrides(self) -> dict | None:
+        """
+        Look up the cached launch_id → policy map.
+
+        Returns:
+            The map, or None when nothing is cached (also on any Redis or
+            decode error, so a cache failure becomes a DB read rather than
+            silently dropping everyone's overrides).
+        """
+        try:
+            if self.redis_client:
+                raw = self.redis_client.get("access:overrides")
+                return json.loads(raw) if raw else None
+            else:
+                if time.time() >= self._fallback_overrides_expires_at:
+                    self._fallback_overrides = None
+                return self._fallback_overrides
+        except Exception as e:
+            logger.error(f"Error reading cached access overrides: {e}")
+            return None
+
+    def clear_access_overrides(self) -> bool:
+        """
+        Drop the cached override map — called on every write, so an access
+        change takes effect on the next request on every replica rather
+        than after the TTL on the ones that didn't serve the write.
+
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            if self.redis_client:
+                self.redis_client.delete("access:overrides")
+                return True
+            else:
+                self._fallback_overrides = None
+                self._fallback_overrides_expires_at = 0.0
+                return True
+        except Exception as e:
+            logger.error(f"Error clearing cached access overrides: {e}")
             return False
 
     def clear_cache(self) -> bool:
@@ -356,6 +440,7 @@ class RedisTokenCache:
                     self.redis_client.keys("token:*")
                     + self.redis_client.keys("email:*")
                     + self.redis_client.keys("authmap:*")
+                    + self.redis_client.keys("access:*")
                 )
                 if keys:
                     return self.redis_client.delete(*keys) > 0
@@ -365,6 +450,7 @@ class RedisTokenCache:
                 self._fallback_cache.clear()
                 self._fallback_emails.clear()
                 self.clear_auth_map()
+                self.clear_access_overrides()
                 return True
         except Exception as e:
             logger.error(f"Error clearing cache: {e}")

@@ -1,6 +1,6 @@
 # ADR-0001: Model authorization is a launch-time OpenTela label, resolved by the client
 
-**Status**: Accepted (2026-08-03)
+**Status**: Accepted (2026-08-03) — one consequence amended by [ADR-0002](0002-post-launch-access-overrides.md)
 
 ## Context
 
@@ -59,7 +59,7 @@ Shared rather than per-process for the same reason identity resolution is (see C
 - Authorization lives and dies with the peer: when the job ends, the policy disappears with the model. There is no ACL store to garbage-collect and no second source of truth.
 - **Labels are self-asserted; the mesh is the trust boundary.** Anyone who can join the mesh can set any labels — including copying a restricted model's exact `authorization` list onto their own same-named peer, which the gateway cannot distinguish from a legitimate relaunch. Conflict detection therefore protects against *accidental* collisions and *policy-changing* squatting, not against a peer that impersonates the policy verbatim. Closing that hole needs mesh-level name ownership / authenticated labels in OpenTela, which is out of scope here. `sml preconfigured` mitigates by salting generated names (`<model>-<4-char salt>`); `sml advanced` users choosing explicit names should treat them as claims on a shared namespace.
 - A conflicted name recovers by attrition: peers expire with their SLURM jobs, and the moment the surviving entries agree the model routes again — no gateway state to reset.
-- A permission change requires a relaunch (labels are set at peer start). Acceptable for SLURM-scheduled models whose lifetime is hours.
+- ~~A permission change requires a relaunch (labels are set at peer start). Acceptable for SLURM-scheduled models whose lifetime is hours.~~ **Amended by [ADR-0002](0002-post-launch-access-overrides.md):** the label is now only the *initial* policy; an owner can change a running model's audience through a launch-scoped override table, and reset it back to the label.
 - Identity is the API key's `owner_email`. Identity resolution (`get_email_for_token`) is cached ~5 min in **Redis**, alongside the existing token-validity cache, and key rotation evicts the rotated key so `/v1/whoami` and `/v1/models` stop honoring it immediately — on every replica, not just the one that served the rotation. A per-process cache was the first cut and was wrong for prod, which runs several serving-api replicas: the two that did not handle a rotation would keep resolving the old key to its owner for the rest of the TTL, and those two endpoints authenticate on identity alone (no `require_auth`), so the stale entry was the whole check. Redis is already consulted on every authed request by `verify_token`, so this adds no dependency or extra hop; when it is unreachable the client falls back to a per-process dict, which is the old behaviour rather than an outage.
 - The label — including the collaborator email list — is visible to whoever can see the model, which is exactly the set of people on the list (or everyone, for public models).
 - An explicit email list does **not** auto-include the launcher. Spec-literal: `--authorization a@x.ch` means exactly that user, so a launcher can hand a model to someone else — or lock themselves out. SML could auto-append the launcher later without a gateway change.

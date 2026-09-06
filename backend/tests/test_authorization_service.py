@@ -11,7 +11,7 @@ from fastapi import HTTPException
 from backend.redis_cache import get_token_cache
 from backend.services import authorization_service
 from backend.services.authorization_service import (
-    _build_auth_map,
+    _build_dnt_view,
     _reset_cache_for_tests,
     ensure_model_access,
     grants_access,
@@ -123,9 +123,12 @@ def test_auth_map_reads_identity_group_and_served_model_name_fallback():
         },
         "/QmPublic": _dnt_peer("meta/Llama", None),
     }
-    auth_map = _build_auth_map(data)
-    assert auth_map["swiss-ai/Apertus-8B"] == ["user1@epfl.ch", "user1@epfl.ch"]
-    assert auth_map["meta/Llama"] == [""]
+    entries = _build_dnt_view(data)["entries"]
+    assert entries["swiss-ai/Apertus-8B"] == [
+        ["user1@epfl.ch", ""],
+        ["user1@epfl.ch", ""],
+    ]
+    assert entries["meta/Llama"] == [["", ""]]
 
 
 # ── ensure_model_access decision matrix ─────────────────────────────────────
@@ -395,7 +398,7 @@ def test_auth_map_cached_within_ttl():
 
 
 def test_auth_map_lives_in_the_shared_cache_not_the_module():
-    """The map is stored in the token cache, so every serving-api replica
+    """The view is stored in the token cache, so every serving-api replica
     reads the same one instead of each keeping (and cold-starting) its own."""
     with (
         _patch_no_passthrough(),
@@ -403,7 +406,7 @@ def test_auth_map_lives_in_the_shared_cache_not_the_module():
         _patch_email("a@epfl.ch"),
     ):
         _run(ensure_model_access(None, "sk-rc-x", "m"))
-    assert get_token_cache().get_auth_map() == {"m": ["a@epfl.ch"]}
+    assert get_token_cache().get_auth_map()["entries"] == {"m": [["a@epfl.ch", ""]]}
 
 
 def test_map_another_replica_cached_is_used_without_fetching():
@@ -411,7 +414,7 @@ def test_map_another_replica_cached_is_used_without_fetching():
     map a peer replica put in the shared cache — no cold-start fail-open of
     its own, and no duplicate DNT fetch."""
     cache = get_token_cache()
-    cache.set_auth_map({"m": ["a@epfl.ch"]}, ttl=60)
+    cache.set_auth_map({"entries": {"m": [["a@epfl.ch", ""]]}, "owners": {}}, ttl=60)
     cache.mark_auth_map_fetched(ttl=10)
 
     fake = AsyncMock(return_value=None)
@@ -444,7 +447,7 @@ def test_expired_stale_map_falls_back_to_fail_open(caplog):
     """The stale map is servable for a bounded window, not forever: once it
     expires with the DNT still down we are back at cold start."""
     cache = get_token_cache()
-    cache.set_auth_map({"m": ["a@epfl.ch"]}, ttl=0)
+    cache.set_auth_map({"entries": {"m": [["a@epfl.ch", ""]]}, "owners": {}}, ttl=0)
 
     with (
         _patch_no_passthrough(),
@@ -456,6 +459,156 @@ def test_expired_stale_map_falls_back_to_fail_open(caplog):
     assert any("fail open" in r.message for r in caplog.records)
 
 
+# ── overrides layered over the labels ───────────────────────────────────────
+
+
+def _dnt_peer_owned(model_id, auth_value, launch_id, owner="a@epfl.ch"):
+    peer = _dnt_peer(model_id, auth_value)
+    peer["labels"]["launch_id"] = launch_id
+    peer["labels"]["launched_by_email"] = owner
+    return peer
+
+
+def _patch_overrides(overrides):
+    return patch.object(authorization_service, "load_overrides", return_value=overrides)
+
+
+def test_override_can_restrict_a_public_model():
+    """The case labels cannot express: a model launched public is closed
+    without relaunching it."""
+    with (
+        _patch_no_passthrough(),
+        _patch_fetch_dnt({"/p": _dnt_peer_owned("m", "public", "L1")}),
+        _patch_overrides({"L1": "a@epfl.ch"}),
+        _patch_email("intruder@ethz.ch"),
+    ):
+        with pytest.raises(HTTPException) as exc_info:
+            _run(ensure_model_access(None, "sk-rc-x", "m"))
+    assert exc_info.value.status_code == 403
+
+
+def test_override_can_open_a_restricted_model():
+    with (
+        _patch_no_passthrough(),
+        _patch_fetch_dnt({"/p": _dnt_peer_owned("m", "a@epfl.ch", "L1")}),
+        _patch_overrides({"L1": "public"}),
+        _patch_email("anyone@ethz.ch"),
+    ):
+        _run(ensure_model_access(None, "sk-rc-x", "m"))
+
+
+def test_override_replaces_rather_than_unions_with_the_label():
+    """Replace, not widen: someone dropped from the list loses access even
+    though the launch label still names them."""
+    with (
+        _patch_no_passthrough(),
+        _patch_fetch_dnt({"/p": _dnt_peer_owned("m", "a@epfl.ch,b@ethz.ch", "L1")}),
+        _patch_overrides({"L1": "a@epfl.ch"}),
+        _patch_email("b@ethz.ch"),
+    ):
+        with pytest.raises(HTTPException):
+            _run(ensure_model_access(None, "sk-rc-x", "m"))
+
+
+def test_reset_restores_the_launch_label():
+    """With the row gone, the label decides again — which is what makes the
+    Reset button meaningful rather than just another edit."""
+    with (
+        _patch_no_passthrough(),
+        _patch_fetch_dnt({"/p": _dnt_peer_owned("m", "b@ethz.ch", "L1")}),
+        _patch_overrides({}),
+        _patch_email("b@ethz.ch"),
+    ):
+        _run(ensure_model_access(None, "sk-rc-x", "m"))
+
+
+def test_override_for_another_launch_does_not_apply():
+    """An override is scoped to one launch. A model presenting a different
+    launch_id must be judged by its own label, not by a stale row."""
+    with (
+        _patch_no_passthrough(),
+        _patch_fetch_dnt({"/p": _dnt_peer_owned("m", "public", "fresh")}),
+        _patch_overrides({"dead": "nobody@epfl.ch"}),
+        _patch_email(None),
+    ):
+        _run(ensure_model_access(None, "sk-rc-x", "m"))
+
+
+def test_unlabelled_launch_never_matches_an_override():
+    """A launch from before SML stamped UUIDs has launch_id "". That empty
+    key must not collide with any override — least of all with each other's,
+    since every such launch would share it."""
+    with (
+        _patch_no_passthrough(),
+        _patch_fetch_dnt({"/p": _dnt_peer("m", "public")}),
+        _patch_overrides({"": "nobody@epfl.ch"}),
+        _patch_email(None),
+    ):
+        _run(ensure_model_access(None, "sk-rc-x", "m"))
+
+
+def test_overrides_that_disagree_across_launches_are_a_conflict():
+    """Two launches under one name, one of them overridden, now disagree on
+    the EFFECTIVE policy — and OpenTela still can't pin a request to either,
+    so the same deny-all rule has to apply."""
+    with (
+        _patch_no_passthrough(),
+        _patch_fetch_dnt(
+            {
+                "/p1": _dnt_peer_owned("m", "public", "L1"),
+                "/p2": _dnt_peer_owned("m", "public", "L2"),
+            }
+        ),
+        _patch_overrides({"L1": "a@epfl.ch"}),
+        _patch_email("a@epfl.ch"),
+    ):
+        with pytest.raises(HTTPException) as exc_info:
+            _run(ensure_model_access(None, "sk-rc-x", "m"))
+    assert exc_info.value.status_code == 403
+    assert "conflicting" in exc_info.value.detail
+
+
+def test_matching_overrides_across_launches_are_not_a_conflict():
+    """Setting the same policy on every launch of a name is exactly what the
+    PUT endpoint does, so it must not read as a collision."""
+    with (
+        _patch_no_passthrough(),
+        _patch_fetch_dnt(
+            {
+                "/p1": _dnt_peer_owned("m", "public", "L1"),
+                "/p2": _dnt_peer_owned("m", "public", "L2"),
+            }
+        ),
+        _patch_overrides({"L1": "a@epfl.ch", "L2": "a@epfl.ch"}),
+        _patch_email("a@epfl.ch"),
+    ):
+        _run(ensure_model_access(None, "sk-rc-x", "m"))
+
+
+def test_dnt_view_indexes_launch_owners():
+    """The owner index is what the management endpoints authorize against —
+    launched_by is a shell account and matches no platform identity."""
+    view = _build_dnt_view({"/p": _dnt_peer_owned("m", "public", "L1", "a@epfl.ch")})
+    assert view["owners"] == {"L1": "a@epfl.ch"}
+    assert view["entries"]["m"] == [["public", "L1"]]
+
+
+def test_effective_authorization_prefers_the_override():
+    assert (
+        authorization_service.effective_authorization(
+            {"authorization": "public", "launch_id": "L1"}, {"L1": "a@epfl.ch"}
+        )
+        == "a@epfl.ch"
+    )
+    assert (
+        authorization_service.effective_authorization(
+            {"authorization": "public", "launch_id": "L1"}, {}
+        )
+        == "public"
+    )
+    assert authorization_service.effective_authorization(None, {}) == ""
+
+
 # ── shared-cache primitives ─────────────────────────────────────────────────
 
 
@@ -463,18 +616,19 @@ def test_invalidating_freshness_keeps_the_stale_map():
     """Forcing a refresh must not open a fail-open window in the meantime:
     the sentinel goes, the data stays."""
     cache = get_token_cache()
-    cache.set_auth_map({"m": ["a@epfl.ch"]}, ttl=60)
+    view = {"entries": {"m": [["a@epfl.ch", ""]]}, "owners": {}}
+    cache.set_auth_map(view, ttl=60)
     cache.mark_auth_map_fetched(ttl=60)
 
     cache.invalidate_auth_map_freshness()
 
     assert cache.auth_map_is_fresh() is False
-    assert cache.get_auth_map() == {"m": ["a@epfl.ch"]}
+    assert cache.get_auth_map() == view
 
 
 def test_clear_auth_map_drops_both_data_and_sentinel():
     cache = get_token_cache()
-    cache.set_auth_map({"m": ["a@epfl.ch"]}, ttl=60)
+    cache.set_auth_map({"entries": {}, "owners": {}}, ttl=60)
     cache.mark_auth_map_fetched(ttl=60)
 
     cache.clear_auth_map()
@@ -488,7 +642,7 @@ def test_auth_map_cache_does_not_disturb_identities():
     map must not log every user back out."""
     cache = get_token_cache()
     cache.set_email("sk-rc-x", "a@epfl.ch", ttl=60)
-    cache.set_auth_map({"m": ["a@epfl.ch"]}, ttl=60)
+    cache.set_auth_map({"entries": {}, "owners": {}}, ttl=60)
 
     cache.clear_auth_map()
 
@@ -511,3 +665,48 @@ def test_fetch_dnt_reads_fixture_file(tmp_path):
     with patch.object(authorization_service, "get_settings", return_value=S()):
         data = _run(authorization_service._fetch_dnt())
     assert data == {"/p": {"labels": {}, "service": []}}
+
+
+# ── the listing path honours overrides too ──────────────────────────────────
+
+
+def _listing_entry(model_id, authorization, launch_id=""):
+    labels = {"authorization": authorization}
+    if launch_id:
+        labels["launch_id"] = launch_id
+    return {"id": model_id, "labels": labels}
+
+
+def test_listing_hides_a_model_an_override_just_restricted():
+    """Hiding has to follow enforcement: a model someone just made private
+    should stop appearing for everyone else, not merely start refusing them."""
+    from backend.routers.models import _visible_to
+
+    entries = [_listing_entry("m", "public", "L1")]
+    assert _visible_to(entries, "outsider@ethz.ch", {}) == entries
+    assert _visible_to(entries, "outsider@ethz.ch", {"L1": "a@epfl.ch"}) == []
+    assert _visible_to(entries, "a@epfl.ch", {"L1": "a@epfl.ch"}) == entries
+
+
+def test_listing_shows_a_model_an_override_just_opened():
+    from backend.routers.models import _visible_to
+
+    entries = [_listing_entry("m", "a@epfl.ch", "L1")]
+    assert _visible_to(entries, "anyone@ethz.ch", {}) == []
+    assert _visible_to(entries, "anyone@ethz.ch", {"L1": "public"}) == entries
+
+
+def test_listing_leaves_passthrough_entries_public():
+    """Synthetic provider entries carry no labels at all — they must read as
+    public rather than blowing up on a missing dict."""
+    from backend.routers.models import _visible_to
+
+    entries = [{"id": "CSCS-Inference/meta/Llama"}]
+    assert _visible_to(entries, None, {"L1": "a@epfl.ch"}) == entries
+
+
+def test_listing_ignores_an_override_for_a_different_launch():
+    from backend.routers.models import _visible_to
+
+    entries = [_listing_entry("m", "public", "fresh")]
+    assert _visible_to(entries, None, {"dead": "a@epfl.ch"}) == entries

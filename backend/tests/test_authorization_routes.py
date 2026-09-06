@@ -351,3 +351,134 @@ def test_chat_completions_authorized_user_passes_the_gate(client, monkeypatch):
         },
     )
     assert response.status_code == 200
+
+
+# ── post-launch access changes, across the whole stack ──────────────────────
+
+
+def _owned_peer(model_id: str, auth_value: str, launch_id: str, owner: str) -> dict:
+    entry = _peer_entry(model_id, auth_value)
+    entry["labels"]["launch_id"] = launch_id
+    entry["labels"]["launched_by_email"] = owner
+    entry["launch_id"] = launch_id
+    entry["launched_by_email"] = owner
+    return entry
+
+
+def _patch_dnt(monkeypatch, entries):
+    """Point BOTH readers at the same fixture: the models router reads it
+    through get_all_models, the authorization service through the DNT table.
+    They have to agree, or listing and enforcement disagree."""
+    from backend.routers import model_access, models as models_router
+    from backend.services import authorization_service
+
+    # Both routers bind get_all_models into their own namespace, so each has
+    # to be patched — patching the service module would reach neither.
+    monkeypatch.setattr(models_router, "get_all_models", lambda *a, **k: list(entries))
+    monkeypatch.setattr(model_access, "get_all_models", lambda *a, **k: list(entries))
+
+    async def _fetch(*_a, **_k):
+        return {
+            f"/p{i}": {
+                "id": e["peer_id"],
+                "labels": e["labels"],
+                "service": [{"name": "llm", "identity_group": [f"model={e['id']}"]}],
+            }
+            for i, e in enumerate(entries)
+        }
+
+    monkeypatch.setattr(authorization_service, "_fetch_dnt", _fetch)
+
+
+MANAGED = "alice/org/managed-model"
+
+
+def test_restricting_a_public_model_takes_effect_across_the_stack(client, monkeypatch):
+    """The whole point of the feature, end to end and against a real database:
+    a model launched public stops being listed for, and stops being usable by,
+    everyone else — without relaunching it."""
+    from backend.services import authorization_service
+    from backend.services.model_access_service import clear_override
+
+    entries = [_owned_peer(MANAGED, "public", "LAUNCH-A", ALICE)]
+    _patch_dnt(monkeypatch, entries)
+
+    def visible_to(key):
+        res = client.get("/v1/models", headers=_bearer(key))
+        return [m["id"] for m in res.json()["data"] if m["id"] == MANAGED]
+
+    try:
+        assert visible_to(BOB_KEY) == [MANAGED]
+
+        res = client.put(
+            f"/v1/model-access/{MANAGED}",
+            headers=_bearer(ALICE_KEY),
+            json={"authorization": ALICE},
+        )
+        assert res.status_code == 200
+        # The label is untouched — that is what Reset goes back to.
+        assert res.json()["label_authorization"] == "public"
+
+        authorization_service._reset_cache_for_tests()
+        assert visible_to(BOB_KEY) == []
+        assert visible_to(ALICE_KEY) == [MANAGED]
+
+        res = client.post(
+            "/v1/chat/completions",
+            headers=_bearer(BOB_KEY),
+            json={"model": MANAGED, "messages": [{"role": "user", "content": "hi"}]},
+        )
+        assert res.status_code == 403
+        assert res.json()["error"]["type"] == "permission_error"
+    finally:
+        clear_override(client.app.state.engine, "LAUNCH-A")
+
+
+def test_reset_restores_the_launch_label_across_the_stack(client, monkeypatch):
+    from backend.services import authorization_service
+    from backend.services.model_access_service import clear_override
+
+    entries = [_owned_peer(MANAGED, "public", "LAUNCH-B", ALICE)]
+    _patch_dnt(monkeypatch, entries)
+
+    try:
+        client.put(
+            f"/v1/model-access/{MANAGED}",
+            headers=_bearer(ALICE_KEY),
+            json={"authorization": ALICE},
+        )
+        res = client.delete(f"/v1/model-access/{MANAGED}", headers=_bearer(ALICE_KEY))
+        assert res.status_code == 200
+        assert res.json()["is_overridden"] is False
+        assert res.json()["effective_authorization"] == "public"
+
+        authorization_service._reset_cache_for_tests()
+        listed = client.get("/v1/models", headers=_bearer(BOB_KEY)).json()["data"]
+        assert MANAGED in [m["id"] for m in listed]
+    finally:
+        clear_override(client.app.state.engine, "LAUNCH-B")
+
+
+def test_an_override_outlives_the_cache_not_the_database(client, monkeypatch):
+    """A restriction has to be durable: it is a row, not a cache entry, so
+    flushing every cache must not quietly re-open the model."""
+    from backend.redis_cache import get_token_cache
+    from backend.services import authorization_service
+    from backend.services.model_access_service import clear_override
+
+    entries = [_owned_peer(MANAGED, "public", "LAUNCH-C", ALICE)]
+    _patch_dnt(monkeypatch, entries)
+
+    try:
+        client.put(
+            f"/v1/model-access/{MANAGED}",
+            headers=_bearer(ALICE_KEY),
+            json={"authorization": ALICE},
+        )
+        get_token_cache().clear_cache()
+        authorization_service._reset_cache_for_tests()
+
+        listed = client.get("/v1/models", headers=_bearer(BOB_KEY)).json()["data"]
+        assert MANAGED not in [m["id"] for m in listed]
+    finally:
+        clear_override(client.app.state.engine, "LAUNCH-C")

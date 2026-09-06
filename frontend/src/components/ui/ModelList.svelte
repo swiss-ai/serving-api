@@ -12,6 +12,12 @@
     let loading = true;
     let error = null;
 
+    // Passed down so a card can offer "Manage access" to the model's owner
+    // (or an admin) and call the access endpoints on their behalf.
+    let viewerEmail = null;
+    let viewerIsAdmin = false;
+    let viewerApiKey = null;
+
     let search = "";
     // One mutually-exclusive facet: "all" | "24/7" | "slurm" | a provider
     // label. Providers are all 24/7, so a provider is a refinement of 24/7
@@ -51,20 +57,28 @@
     // is per-browser, not per-account, so a cached key outlives an account
     // switch and would let this page list another account's restricted models.
     // One /v1/profile round-trip per page load is the cost of that being right.
-    async function resolveApiKey(apiUrl) {
+    async function resolveViewer(apiUrl) {
         try {
             const sessionRes = await fetch(SESSION_ENDPOINT);
-            if (!sessionRes.ok) return null;
+            if (!sessionRes.ok) return {};
             const session = await sessionRes.json();
-            if (!session?.accessToken) return null;
+            if (!session?.accessToken) return {};
             const profileRes = await fetch(`${apiUrl}/v1/profile`, {
                 headers: { Authorization: `Bearer ${session.accessToken}` },
             });
-            if (!profileRes.ok) return null;
+            if (!profileRes.ok) return {};
             const profile = await profileRes.json();
-            return profile.api_key || null;
+            // The email and admin flag come along so a card can decide
+            // locally whether to offer its access menu, instead of every
+            // card asking the backend "may I edit this?" on page load.
+            // Presentation only — the endpoints re-check on every write.
+            return {
+                apiKey: profile.api_key || null,
+                email: profile.email || null,
+                isAdmin: !!profile.is_admin,
+            };
         } catch {
-            return null;
+            return {};
         }
     }
 
@@ -78,7 +92,11 @@
     onMount(async () => {
         try {
             const apiUrl = getApiUrl();
-            const apiKey = await resolveApiKey(apiUrl);
+            const viewer = await resolveViewer(apiUrl);
+            const apiKey = viewer.apiKey ?? null;
+            viewerEmail = viewer.email ?? null;
+            viewerIsAdmin = !!viewer.isAdmin;
+            viewerApiKey = apiKey;
             let response = await fetchModels(apiUrl, apiKey);
             if (response.status === 401 && apiKey) {
                 // The key came straight from /v1/profile, so a 401 here means
@@ -254,7 +272,7 @@
     {:else}
     <div class="model-list space-y-2">
         {#each filteredModels as model (model.data.title)}
-            <ModelCard entry={model} {chatAppUrl} />
+            <ModelCard entry={model} {chatAppUrl} {viewerEmail} {viewerIsAdmin} {viewerApiKey} />
         {/each}
         {#if filteredModels.length === 0}
             <div class="text-center text-slate-500 dark:text-slate-400 py-6">

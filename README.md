@@ -131,6 +131,34 @@ policy conflict it refuses to route the model for **everyone** (403 naming
 the conflict) until one side is relaunched under a unique name or with a
 matching label. See ADR-0001 for the reasoning.
 
+### Changing access after launch
+
+An OpenTela label is fixed for the life of the SLURM job, so the label above
+is only the policy a model **launched with**. To change who may use a model
+that is already running, the owner (or an admin) sets an *override*, which
+replaces the label until it is reset:
+
+```
+GET    /v1/model-access/{model_id}    # effective policy, launch-time label, can_edit
+PUT    /v1/model-access/{model_id}    # {"authorization": "public" | "a@epfl.ch,b@ethz.ch"}
+DELETE /v1/model-access/{model_id}    # reset: the launch-time label decides again
+```
+
+The bearer may be a serving API key or an IdP access token. The web UI exposes
+this as a **Manage access** menu on the model card, with a **Reset** button.
+
+Overrides are keyed by the launch's `launch_id` label rather than by model
+name, so one can never outlive its job and re-apply to a different launch that
+later takes the same name — and consequently an override does not survive a
+relaunch. Who may edit is decided by the `launched_by_email` label (the
+`launched_by` label next to it is a cluster shell account, which matches no
+platform identity); a model launched without one is admin-managed. Both labels
+need a current SML.
+
+Because the collision rule above compares *effective* policies, a change is
+applied to every launch serving the name at once, and is refused unless the
+caller may edit all of them. See ADR-0002.
+
 ## Dev Quick Start
 
 ```bash

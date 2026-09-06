@@ -6,12 +6,21 @@ anyone may use the model; a comma-separated email list restricts it to
 those users. SML normalizes emails (strip, lowercase) before launch, but
 we compare case-insensitively anyway as defense in depth.
 
+A label is only the model's STARTING policy, though: labels are stamped at
+peer start and immutable for the life of the job, so an owner who wants to
+change who may use a running model sets an override instead (see
+:mod:`backend.services.model_access_service`). An override is keyed by the
+launch's ``launch_id`` UUID label and, while it exists, replaces that
+launch's ``authorization`` label everywhere below — enforcement, listing,
+and conflict detection alike. Everything here therefore works on the
+*effective* policy, never on the raw label.
+
 Two consumers:
 - /v1/models* filters what each caller sees (grants_access per entry).
 - Every inference proxy route calls ensure_model_access before proxying.
 
-The model → authorization map is derived from the same DNT table the
-models router reads, cached in Redis with a short refresh interval so the
+The DNT view (per-entry labels, plus a launch → owner index) is derived
+from the same DNT table the models router reads, cached in Redis with a short refresh interval so the
 check adds no upstream round-trip on the hot path. Redis rather than a
 module dict because prod runs several serving-api replicas: a per-process
 map would let one replica keep enforcing a policy the others have already
@@ -38,6 +47,7 @@ from fastapi import HTTPException
 from backend.config import get_settings
 from backend.redis_cache import get_token_cache
 from backend.services.auth_service import get_email_for_token
+from backend.services.model_access_service import load_overrides
 from backend.services.passthrough_service import resolve_model
 
 logger = logging.getLogger("backend")
@@ -130,18 +140,35 @@ async def _fetch_dnt() -> dict | None:
         return None
 
 
-def _build_auth_map(data: dict) -> dict[str, list[str]]:
-    """model_id → the ``authorization`` label value of every peer entry
-    serving it. Mirrors model_service.get_all_models id extraction: service
+def _build_dnt_view(data: dict) -> dict:
+    """The DNT reduced to what authorization needs:
+
+    - ``entries``: model_id → one ``[authorization, launch_id]`` pair per
+      peer entry serving it.
+    - ``owners``: launch_id → the ``launched_by_email`` label of that
+      launch, which is who may change its access.
+
+    Per ENTRY rather than per model, because the whole point of the
+    conflict rule below is that entries under one name may disagree — and
+    now that an override attaches to a launch_id, two entries can differ in
+    effective policy even when their labels match.
+
+    Mirrors model_service.get_all_models id extraction: service
     identity_group "model=..." entries, plus the labels.served_model_name
-    fallback for pending/follower peers. Peers of one launch carry the
-    same labels as their head, so they normalize to one policy; a peer
-    that disagrees belongs to a DIFFERENT launch squatting the same name,
-    which is exactly the conflict ensure_model_access refuses to route."""
-    auth_map: dict[str, list[str]] = {}
+    fallback for pending/follower peers. Peers of one launch carry the same
+    labels as their head, so they share a launch_id and normalize to one
+    policy; a peer that disagrees belongs to a DIFFERENT launch squatting
+    the same name, which is exactly the conflict ensure_model_access
+    refuses to route."""
+    entries: dict[str, list[list[str]]] = {}
+    owners: dict[str, str] = {}
     for node_info in data.values():
         labels = node_info.get("labels") or {}
         auth_value = labels.get("authorization", "")
+        launch_id = labels.get("launch_id", "")
+        owner = labels.get("launched_by_email", "")
+        if launch_id and owner:
+            owners[launch_id] = owner
         model_names = []
         services = node_info.get("service") or []
         if not services:
@@ -157,14 +184,28 @@ def _build_auth_map(data: dict) -> dict[str, list[str]]:
                 if identity.startswith("model=")
             )
         for model_name in model_names:
-            auth_map.setdefault(model_name, []).append(auth_value)
-    return auth_map
+            entries.setdefault(model_name, []).append([auth_value, launch_id])
+    return {"entries": entries, "owners": owners}
 
 
-async def _get_auth_map() -> dict[str, list[str]] | None:
-    """The cached model → authorization-values map. Refreshes once the
+def effective_authorization(labels: dict | None, overrides: dict[str, str]) -> str:
+    """The policy actually in force for one peer entry: its override if the
+    launch has one, otherwise the ``authorization`` label it started with.
+
+    An empty launch_id never matches an override — a launch from before SML
+    stamped UUIDs has no identity to attach one to, and must not collide
+    with every other such launch under the "" key."""
+    labels = labels or {}
+    launch_id = labels.get("launch_id", "")
+    if launch_id and launch_id in overrides:
+        return overrides[launch_id]
+    return labels.get("authorization", "")
+
+
+async def _get_dnt_view() -> dict | None:
+    """The cached DNT view (see _build_dnt_view). Refreshes once the
     freshness sentinel expires; on fetch failure keeps serving the stale
-    map. Returns None only at true cold start (never fetched successfully,
+    view. Returns None only at true cold start (never fetched successfully,
     by any replica) — the caller fails open.
 
     The sentinel records the last *attempt*, successful or not: retrying on
@@ -182,7 +223,7 @@ async def _get_auth_map() -> dict[str, list[str]] | None:
 
         data = await _fetch_dnt()
         if data is not None:
-            cache.set_auth_map(_build_auth_map(data), ttl=_STALE_TTL_SECONDS)
+            cache.set_auth_map(_build_dnt_view(data), ttl=_STALE_TTL_SECONDS)
         # Set after the write, so a replica that reads between the two
         # still sees "not fresh" and retries rather than racing onto a
         # sentinel with no map behind it.
@@ -221,8 +262,9 @@ async def ensure_model_access(engine, token: str, model_id: str) -> None:
 
     Allowed when: the model routes to a passthrough provider (always
     public), the id is unknown to the DNT (falls through to upstream which
-    404s — unchanged behavior), every peer entry agrees on one policy and
-    that policy grants the caller, or the DNT has never been fetchable by any
+    404s — unchanged behavior), every peer entry agrees on one EFFECTIVE
+    policy — its override where it has one, else its label — and that
+    policy grants the caller, or the DNT has never been fetchable by any
     replica (fail open, logged).
 
     Entries that disagree (after normalization) are an authorization
@@ -242,26 +284,46 @@ async def ensure_model_access(engine, token: str, model_id: str) -> None:
     keys = await _dnt_keys_for(model_id)
     if keys is None:
         return
-    auth_map = await _get_auth_map()
-    if auth_map is None:
+    view = await _get_dnt_view()
+    if view is None:
         logger.warning(
             "DNT unreachable with no cached authorization map — "
             "allowing request for model '%s' (fail open)",
             model_id,
         )
         return
-    auth_values = [value for key in keys for value in auth_map.get(key, [])]
-    if not auth_values:
+    entries = view.get("entries", {})
+    records = [record for key in keys for record in entries.get(key, [])]
+    if not records:
         return
-    policies = {normalize_policy(value) for value in auth_values}
+    # Overrides are read per request rather than folded into the cached
+    # view: the view is refreshed on a ~10s timer, and an access change the
+    # owner just made in the UI should not have to wait for it. This read
+    # is itself Redis-cached and invalidated on write, so it costs no
+    # database round-trip.
+    #
+    # Note this is reached only once we HAVE a view. In the cold-start
+    # fail-open above, overrides are not consulted at all — they are keyed by
+    # launch_id, and without the DNT there is no way to learn which launches
+    # serve this id. So that window opens overridden models exactly as it
+    # opens label-restricted ones, which is the trade ADR-0001 already made
+    # and bounded to "no replica ever fetched the DNT".
+    overrides = load_overrides(engine)
+    policies = {
+        normalize_policy(
+            overrides[launch_id] if launch_id and launch_id in overrides else auth_value
+        )
+        for auth_value, launch_id in records
+    }
     if len(policies) > 1:
         raise HTTPException(
             status_code=403,
             detail=(
                 f"Access denied: model '{model_id}' is served by replicas with "
-                f"conflicting authorization labels; requests are refused until "
+                f"conflicting authorization policies; requests are refused until "
                 f"the conflict is resolved (relaunch under a unique "
-                f"--served-model-name or with a matching --authorization)."
+                f"--served-model-name, match their --authorization, or give them "
+                f"the same access setting)."
             ),
         )
     (policy,) = policies

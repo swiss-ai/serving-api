@@ -85,3 +85,42 @@ class UsageDaily(SQLModel, table=True):
     prompt_tokens: int = Field(default=0)
     completion_tokens: int = Field(default=0)
     updated_at: datetime = Field(default_factory=datetime.now)
+
+
+class ModelAccessOverride(SQLModel, table=True):
+    """A model's access policy after someone changed it post-launch.
+
+    OpenTela labels are stamped at peer start and immutable for the life of
+    the SLURM job, which makes the launch-time `--authorization` value a
+    decision you cannot revisit without relaunching. This table is the
+    mutable overlay: while a row exists it REPLACES the peer's
+    `authorization` label as the policy the gateway enforces, and deleting
+    it ("Reset") hands authority straight back to the label. The label is
+    never rewritten, so the original intent stays recoverable.
+
+    Keyed by `launch_id` — the UUID label SML stamps on every launch — and
+    NOT by model name. Names are a shared namespace anyone can relaunch
+    into, and an override that outlived its job must never re-attach itself
+    to whatever comes back under the same name; scoping the row to one
+    launch instance makes that impossible, since a relaunch draws a fresh
+    UUID and therefore starts clean at its own label. It also makes garbage
+    collection obvious: a row whose launch_id is absent from the DNT is
+    dead and can be pruned whenever.
+    """
+
+    __tablename__ = "model_access_override"
+
+    launch_id: str = Field(primary_key=True)
+    # Denormalised from the DNT at write time, for the audit trail: once the
+    # job ends its labels go with it, and a bare UUID then tells nobody
+    # which model was changed or whose it was.
+    model_id: str = Field(index=True)
+    owner_email: str = Field(default="")
+    # Same grammar as the label it stands in for: "public", or a
+    # comma-separated email list. Stored canonicalised (stripped,
+    # lowercased, de-duplicated) so it compares equal to a label meaning
+    # the same thing.
+    policy: str
+    updated_by: str = Field(default="")
+    created_at: datetime = Field(default_factory=datetime.now)
+    updated_at: datetime = Field(default_factory=datetime.now)

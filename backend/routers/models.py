@@ -3,7 +3,11 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.security import HTTPAuthorizationCredentials
 from backend.middleware.auth import optional_security
 from backend.services.auth_service import get_email_for_token
-from backend.services.authorization_service import grants_access
+from backend.services.authorization_service import (
+    effective_authorization,
+    grants_access,
+)
+from backend.services.model_access_service import load_overrides
 from backend.services.model_service import get_all_models, platform_namespaced
 from backend.services.passthrough_service import get_synthetic_entries
 from backend.config import get_settings
@@ -51,14 +55,20 @@ def _caller_email(
     return email
 
 
-def _visible_to(models: list[dict], email: str | None) -> list[dict]:
-    """Filter each entry by its OWN ``authorization`` label (pending and
-    follower peers carry the same labels as their head). Synthetic
-    passthrough entries have no such label, so they read as public."""
+def _visible_to(models: list[dict], email: str | None, overrides: dict) -> list[dict]:
+    """Filter each entry by its OWN effective policy — the override its
+    launch carries if there is one, else the ``authorization`` label it
+    started with (pending and follower peers carry the same labels as their
+    head). Synthetic passthrough entries have neither, so they read as
+    public.
+
+    Listing has to honour overrides for the same reason enforcement does:
+    a model someone has just made private should stop appearing for
+    everyone else, not merely start refusing them."""
     return [
         m
         for m in models
-        if grants_access((m.get("labels") or {}).get("authorization", ""), email)
+        if grants_access(effective_authorization(m.get("labels"), overrides), email)
     ]
 
 
@@ -74,7 +84,7 @@ async def list_models_detailed(
     models = await _with_passthrough(models, with_details=True)
     return dict(
         object="list",
-        data=_visible_to(models, email),
+        data=_visible_to(models, email, load_overrides(request.app.state.engine)),
     )
 
 
@@ -90,5 +100,5 @@ async def list_models(
     models = await _with_passthrough(models, with_details=False)
     return dict(
         object="list",
-        data=_visible_to(models, email),
+        data=_visible_to(models, email, load_overrides(request.app.state.engine)),
     )

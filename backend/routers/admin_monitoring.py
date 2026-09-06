@@ -130,11 +130,24 @@ async def all_models(
     what keeps an entry off the public list (None = it is listed).
     """
     from backend.routers.models import _dnt_endpoint
+    from backend.services.model_access_service import prune_dead_overrides
     from backend.services.model_service import get_all_models, listing_exclusion
     from backend.services.passthrough_service import admin_inventory
 
+    peers = get_all_models(_dnt_endpoint(), with_details=True)
+
+    # Housekeeping, hung off the one admin view that already reads the whole
+    # DNT. An access override whose launch has ended is inert — nothing can
+    # present that launch_id again — so this is only about not accumulating a
+    # row per model whose access was ever changed. It no-ops on an empty read
+    # rather than mistaking a failed DNT fetch for an empty mesh.
+    prune_dead_overrides(
+        request.app.state.engine,
+        {(p.get("labels") or {}).get("launch_id", "") for p in peers} - {""},
+    )
+
     by_id: dict[str, dict] = {}
-    for peer in get_all_models(_dnt_endpoint(), with_details=True):
+    for peer in peers:
         model_id = peer.get("id")
         if not model_id:
             continue

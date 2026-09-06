@@ -27,6 +27,17 @@ def _peer_metadata(node_info: dict) -> dict:
         # without having to dig into labels every time.
         "worker_group_id": labels.get("worker_group_id", ""),
         "launched_by": labels.get("launched_by", ""),
+        # The cluster username above identifies a *shell account*, not a
+        # platform user, so it can't be compared against an API key's
+        # owner_email. launched_by_email is what SML resolves via /v1/whoami
+        # at launch, and it is what decides who may change this model's
+        # access. Empty for k8s-hosted models and anything launched before
+        # SML emitted it — those are admin-managed.
+        "launched_by_email": labels.get("launched_by_email", ""),
+        # Per-launch UUID. An access override attaches to this rather than
+        # to the model name, so it can never outlive its job and re-apply
+        # to a different launch that later takes the same name.
+        "launch_id": labels.get("launch_id", ""),
         "authorization": labels.get("authorization", ""),
         # Which SML rendered the launch, per its own label. Empty for our k8s
         # launches (not launched by SML) and for anything launched before SML

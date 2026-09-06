@@ -77,7 +77,9 @@ def test_unhandled_error_uses_openai_envelope_without_leaking_details():
 
 
 def test_error_type_mapping():
-    from backend.main import _openai_error_type
+    # Lives in backend.errors, not backend.main: importing the app here
+    # would freeze its settings against this module's environment.
+    from backend.errors import openai_error_type as _openai_error_type
 
     assert _openai_error_type(400) == "invalid_request_error"
     assert _openai_error_type(401) == "authentication_error"
