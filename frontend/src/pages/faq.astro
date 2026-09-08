@@ -7,39 +7,39 @@ export const prerender = false;
 const faqs = [
   {
     q: "What is the SwissAI Research Platform?",
-    a: 'An LLM inference service for the academic community, built as part of the Apertus project. It gives you an OpenAI-compatible API and a Chat interface for <a class="text-indigo-600 dark:text-indigo-400 underline" href="/all_models">models hosted</a> on Swiss infrastructure — and, with a compute grant, lets you launch and serve your own models on CSCS Alps via Slurm or Kubernetes.',
+    a: 'An LLM inference service for the academic community, built as part of the Apertus project. It gives you an OpenAI-compatible API and a Chat interface for models we host ourselves or through our partners. With a CSCS compute grant you can easily launch and serve your own models on CSCS via Slurm.',
   },
   {
     q: "Why did you make this?",
-    a: 'We built this service for research purposes as part of the <a class="text-indigo-600 dark:text-indigo-400 underline" href="https://apertus-ai.org" target="_blank" rel="noopener noreferrer">Apertus project</a> — while building our own models, we also needed a place to test and run them. Opening that platform up lets the wider academic community use it too.',
+    a: 'We built this service for research purposes as part of the <a class="text-indigo-600 dark:text-indigo-400 underline" href="https://apertus-ai.org" target="_blank" rel="noopener noreferrer">Apertus project</a> - while building our own models, we also needed a place to test and run them. Opening that platform up lets the wider academic community use it too.',
   },
   {
     q: "What is different about the SwissAI Research Platform?",
-    a: 'We can host models on both Slurm <em>and</em> Kubernetes — a combination that is unique to this platform, made possible by <a class="text-indigo-600 dark:text-indigo-400 underline" href="https://www.usenix.org/conference/osdi26/presentation/yao" target="_blank" rel="noopener noreferrer">OpenTela</a> routing. That means the same OpenAI-compatible API can serve models from batch-style GPU allocations on CSCS Alps as well as always-on Kubernetes deployments.',
+    a: 'We can host models on both Slurm <em>and</em> Kubernetes - a combination that is unique to this platform, made possible by <a class="text-indigo-600 dark:text-indigo-400 underline" href="https://www.usenix.org/conference/osdi26/presentation/yao" target="_blank" rel="noopener noreferrer">OpenTela</a> routing. That means the same OpenAI-compatible API can serve models from batch-style GPU allocations on CSCS Alps as well as always-on Kubernetes deployments.',
   },
   {
     q: "What repos make this service?",
-    a: '<ul class="list-disc pl-8 space-y-2"><li><a class="text-indigo-600 dark:text-indigo-400 underline" href="https://github.com/eth-easl/OpenTela" target="_blank" rel="noopener noreferrer">OpenTela</a> — the decentralized compute fabric that routes requests to models wherever they run (we deploy from a <a class="text-indigo-600 dark:text-indigo-400 underline" href="https://github.com/swiss-ai/opentela" target="_blank" rel="noopener noreferrer">swiss-ai fork</a>).</li><li><a class="text-indigo-600 dark:text-indigo-400 underline" href="https://github.com/swiss-ai/serving-api" target="_blank" rel="noopener noreferrer">serving-api</a> — this website: the API gateway, budgets and the frontend.</li><li><a class="text-indigo-600 dark:text-indigo-400 underline" href="https://github.com/swiss-ai/model-launch" target="_blank" rel="noopener noreferrer">model-launch</a> — tooling to launch and serve your own models on Slurm.</li><li>infra — infrastructure and ArgoCD deployment configs (private).</li></ul>',
+    a: '<ul class="list-disc pl-8 space-y-2"><li><a class="text-indigo-600 dark:text-indigo-400 underline" href="https://github.com/eth-easl/OpenTela" target="_blank" rel="noopener noreferrer">OpenTela</a> - the decentralized compute fabric that routes requests to models wherever they run (we deploy from a <a class="text-indigo-600 dark:text-indigo-400 underline" href="https://github.com/swiss-ai/opentela" target="_blank" rel="noopener noreferrer">swiss-ai fork</a>).</li><li><a class="text-indigo-600 dark:text-indigo-400 underline" href="https://github.com/swiss-ai/serving-api" target="_blank" rel="noopener noreferrer">serving-api</a> - this website: the API gateway, budgets and the frontend.</li><li><a class="text-indigo-600 dark:text-indigo-400 underline" href="https://github.com/swiss-ai/model-launch" target="_blank" rel="noopener noreferrer">model-launch</a> - tooling to launch and serve your own models on Slurm.</li><li>infra - infrastructure and ArgoCD deployment configs (private).</li></ul>',
   },
   {
     q: "What are providers?",
-    a: 'Providers are external inference platforms we have a partnership with. We route requests through our <a class="text-indigo-600 dark:text-indigo-400 underline" href="/">SwissAI Research</a> platform to them, so you can reach their models with the same API key and OpenAI-compatible API you already use here. All current providers are Swiss universities, so access remains academic. Requests to external providers are currently rate-limited to 15 requests per minute per user.',
+    a: 'Providers are external inference platforms we have a partnership with. We route requests through our <a class="text-indigo-600 dark:text-indigo-400 underline" href="/">SwissAI Research</a> platform to them, so you can reach their models with the same API key and OpenAI-compatible API you already use here. All current providers are Swiss universities, so access remains academic. Requests to providers are currently rate-limited to 15 requests per minute per user.',
   },
   {
     q: "I want to use LLMs, what options are available?",
-    a: '(0) <a class="text-indigo-600 dark:text-indigo-400 underline" href="/">SwissAI Research</a> (this website) — hosted models via the OpenAI-compatible API and the Chat app; see the <a class="text-indigo-600 dark:text-indigo-400 underline" href="/all_models">models list</a>.<br /><br />(1) <a class="text-indigo-600 dark:text-indigo-400 underline" href="https://docs.cscs.ch/services/inference/" target="_blank" rel="noopener noreferrer">CSCS Inference</a> — a curated list of always-on models with production-grade autoscaling.<br /><br />(2) <a class="text-indigo-600 dark:text-indigo-400 underline" href="https://www.epfl.ch/research/facilities/rcp/ai-inference-as-a-service/" target="_blank" rel="noopener noreferrer">EPFL RCP AIaaS</a> — curated models on the EPFL RCP cluster. <br /> <br /> All of these have models that change over time.',
+    a: '(0) <a class="text-indigo-600 dark:text-indigo-400 underline" href="/">SwissAI Research</a> (this website) - hosted models via the OpenAI-compatible API and the Chat app; see the <a class="text-indigo-600 dark:text-indigo-400 underline" href="/all_models">models list</a>.<br /><br />(1) <a class="text-indigo-600 dark:text-indigo-400 underline" href="https://docs.cscs.ch/services/inference/" target="_blank" rel="noopener noreferrer">CSCS Inference</a> - a curated list of always-on models with production-grade autoscaling.<br /><br />(2) <a class="text-indigo-600 dark:text-indigo-400 underline" href="https://www.epfl.ch/research/facilities/rcp/ai-inference-as-a-service/" target="_blank" rel="noopener noreferrer">EPFL RCP AIaaS</a> - curated models on the EPFL RCP cluster. <br /> <br /> All of these have models that change over time.',
   },
   {
     q: "I want to run my own LLM, what options are available?",
-    a: 'On <a class="text-indigo-600 dark:text-indigo-400 underline" href="/">SwissAI Research</a>: <ul class="list-disc pl-8 mt-2 mb-2"><li>Slurm, via <a class="text-indigo-600 dark:text-indigo-400 underline" href="https://github.com/swiss-ai/model-launch" target="_blank" rel="noopener noreferrer">model launch</a> — the standard route, using your CSCS GPU grant.</li><li>Kubernetes — in special circumstances; please <a class="text-indigo-600 dark:text-indigo-400 underline" href="mailto:swissaiserving@ai.ethz.ch">contact us</a>.</li></ul>See <a class="text-indigo-600 dark:text-indigo-400 underline" href="#how-do-i-launch-my-own-models">How do I launch my own models?</a> below for the details.',
+    a: 'On <a class="text-indigo-600 dark:text-indigo-400 underline" href="/">SwissAI Research</a>: <ul class="list-disc pl-8 mt-2 mb-2"><li>Slurm, via <a class="text-indigo-600 dark:text-indigo-400 underline" href="https://github.com/swiss-ai/model-launch" target="_blank" rel="noopener noreferrer">model launch</a> - the standard route, using your CSCS GPU grant.</li><li>Kubernetes - in special circumstances; please <a class="text-indigo-600 dark:text-indigo-400 underline" href="mailto:swissaiserving@ai.ethz.ch">contact us</a>.</li></ul>See <a class="text-indigo-600 dark:text-indigo-400 underline" href="#how-do-i-launch-my-own-models">How do I launch my own models?</a> below for the details.',
   },
   {
     q: "When should I use each?",
-    a: '<ul class="list-disc pl-8 space-y-2"><li><strong>Models already listed here</strong> — the default choice for everyday API and Chat use; no setup, no grant needed.</li><li><strong>Slurm via model launch</strong> — when you need high throughput or want to batch-process large amounts of data, or when we don\'t host the model or configuration you need. Requires a CSCS GPU grant.</li><li><strong>Kubernetes</strong> — special cases that need an always-on, production-style deployment; <a class="text-indigo-600 dark:text-indigo-400 underline" href="mailto:swissaiserving@ai.ethz.ch">contact us</a> to discuss.</li><li><strong>CSCS Inference</strong> — when you want a stable, production-grade endpoint for one of their curated models and the rate limits here are too tight.</li><li><strong>EPFL RCP AIaaS</strong> — when you are EPFL-affiliated or their curated model list fits your needs.</li></ul>',
+    a: '<ul class="list-disc pl-8 space-y-2"><li><strong>Models already listed here</strong> - the default choice for everyday API and Chat use; no setup, no grant needed.</li><li><strong>Slurm via model launch</strong> - when you need high throughput or want to batch-process large amounts of data, or when we don\'t host the model or configuration you need. Requires a CSCS GPU grant.</li><li><strong>Kubernetes</strong> - special cases that need an always-on, production-style deployment; <a class="text-indigo-600 dark:text-indigo-400 underline" href="mailto:swissaiserving@ai.ethz.ch">contact us</a> to discuss.</li><li><strong>CSCS Inference</strong> - when you want a stable, production-grade endpoint for one of their curated models and the rate limits here are too tight.</li><li><strong>EPFL RCP AIaaS</strong> - when you are EPFL-affiliated or their curated model list fits your needs.</li></ul>',
   },
   {
     q: "What if the provider rate limits are not enough?",
-    a: 'You have two options: <br /><br />(1) Use <a class="text-indigo-600 dark:text-indigo-400 underline" href="https://github.com/swiss-ai/model-launch" target="_blank" rel="noopener noreferrer">model launch</a> to launch your own model — we recommend this if you want to process large amounts of data in batch and need high throughput. <br />(2) Go directly to the provider and request access with them.',
+    a: 'You have two options: <br /><br />(1) Use <a class="text-indigo-600 dark:text-indigo-400 underline" href="https://github.com/swiss-ai/model-launch" target="_blank" rel="noopener noreferrer">model launch</a> to launch your own model - we recommend this if you want to process large amounts of data in batch and need high throughput. <br />(2) Go directly to the provider and request access with them.',
   },
   {
     q: "Why do you route to providers instead of hosting everything yourself?",
@@ -47,7 +47,7 @@ const faqs = [
   },
   {
     q: "What is the tech stack behind a provider?",
-    a: 'It is best to ask the provider directly, as their stack may change over time — see the provider links above for their documentation and contact details.',
+    a: 'It is best to ask the provider directly, as their stack may change over time - see the provider links above for their documentation and contact details.',
   },
   {
     q: "Can I use this in my project?",
@@ -55,7 +55,7 @@ const faqs = [
   },
   {
     q: "Can I use this for commercial or startup use?",
-    a: 'No, this is for non-commercial use only. Please reach out at <a class="text-indigo-600 dark:text-indigo-400 underline" href="mailto:swissaiserving@ai.ethz.ch">swissaiserving@ai.ethz.ch</a>, including some details and we will forward your request to the right internal team or industry partners',
+    a: 'No, this is for non-commercial use only. Please reach out at <a class="text-indigo-600 dark:text-indigo-400 underline" href="mailto:swissaiserving@ai.ethz.ch">swissaiserving@ai.ethz.ch</a>, including some details and we will forward your request to the right internal team or industry partners.',
   },
   {
     q: "Can I launch any model?",
@@ -63,7 +63,7 @@ const faqs = [
   },
   {
     q: "How do I launch my own models?",
-    a: 'Use <a class="text-indigo-600 dark:text-indigo-400 underline" href="https://github.com/swiss-ai/model-launch" target="_blank" rel="noopener noreferrer">model launch</a> — a framework-agnostic tool that submits Slurm jobs for distributed inference with vLLM or SGLang on CSCS Alps, for single- or multi-node deployments. It registers your model with OpenTela automatically, so it becomes reachable through this platform\'s API and appears under your username. You need a CSCS GPU grant (see the previous question). Start with the <a class="text-indigo-600 dark:text-indigo-400 underline" href="/guides/01-getting-started/model-launch">model launch guide</a>, then the repository\'s examples for popular models.',
+    a: 'Use <a class="text-indigo-600 dark:text-indigo-400 underline" href="https://github.com/swiss-ai/model-launch" target="_blank" rel="noopener noreferrer">model launch</a> - a framework-agnostic tool that submits Slurm jobs for distributed inference with vLLM or SGLang on CSCS Alps, for single- or multi-node deployments. It registers your model with OpenTela automatically, so it becomes reachable through this platform\'s API and appears under your username. You need a CSCS GPU grant (see the previous question). Start with the <a class="text-indigo-600 dark:text-indigo-400 underline" href="/guides/01-getting-started/model-launch">model launch guide</a>, then the repository\'s examples for popular models.',
   },
   {
     q: "Is my institution enabled?",
@@ -71,11 +71,11 @@ const faqs = [
   },
   {
     q: "I'm at a non-Swiss university, can I get access?",
-    a: "Yes, but service is prioritised in this order: <br /><br />(1) ETH and EPFL Apertus-related projects, <br />(2) Swiss AI-related institutions, <br />(3) global academic institutions that focus on Apertus.",
+    a: "Yes, but service is prioritised in this order: <br /><br />(1) ETH and EPFL,<br />(2) Swiss AI-related institutions, <br />(3) global academic institutions that focus on Apertus.",
   },
   {
     q: "I don't have an account at one of the supported universities. How do I get access?",
-    a: 'Sign-in offers only the Swiss university accounts we federate with, so there is no way to register yourself — a Google, GitHub or ORCID identity is turned away.<br /><br />Access from outside those universities is reserved for work on <strong>Apertus</strong>. If your project is Apertus-focused — for example evaluating, fine-tuning or building on the Apertus models — email <a class="text-indigo-600 dark:text-indigo-400 underline" href="mailto:swissaiserving@ai.ethz.ch">swissaiserving@ai.ethz.ch</a> with a short description of the project, how it involves Apertus, and who you are working with, or post it in the <a class="text-indigo-600 dark:text-indigo-400 underline" href="https://swissai-initiative.slack.com/archives/C07DHJFRE2X" target="_blank" rel="noopener noreferrer">Swiss AI Serving Slack channel</a>. If we can support it, we will email you a single-use invitation link; you choose a name and password on it and arrive signed in, with a key waiting on the <a class="text-indigo-600 dark:text-indigo-400 underline" href="/api_key">API key page</a>.<br /><br />We will also send you a sign-in page to bookmark for later visits. The <strong>Sign in</strong> button on this site only offers the university accounts, so it is not the way back into an invited account.',
+    a: 'Sign-in offers only the Swiss university accounts we federate with, so there is no way to register yourself otherwise. <br /><br />Access from outside those universities is reserved for work on <strong>Apertus</strong>. If your project is Apertus-focused - for example evaluating, fine-tuning or building on the Apertus models - email <a class="text-indigo-600 dark:text-indigo-400 underline" href="mailto:swissaiserving@ai.ethz.ch">swissaiserving@ai.ethz.ch</a> with a short description of the project, how it involves Apertus, and who you are working with, or post it in the <a class="text-indigo-600 dark:text-indigo-400 underline" href="https://swissai-initiative.slack.com/archives/C07DHJFRE2X" target="_blank" rel="noopener noreferrer">Swiss AI Serving Slack channel</a>.',
   },
   {
     q: "Can I get access as a guest or external collaborator?",
@@ -95,19 +95,19 @@ const faqs = [
   },
   {
     q: "Do you store my prompts and responses?",
-    a: 'For the <strong>API</strong>: no. We do not store prompt or response content. We keep only metadata logs (e.g. userid, input/output token counts, model, timestamp) for capacity planning and abuse prevention.<br /><br />For the internal facing <strong>Chat app</strong>: yes, your conversation history is retained so you can return to past chats. This is important for the Apertus team development and testing various model types. Your chats are not extracted and used for training. To request deletion of your chat history, please <a class="text-indigo-600 dark:text-indigo-400 underline" href="mailto:swissaiserving@ai.ethz.ch">contact us</a>.',
+    a: 'For the <strong>API</strong>: no. We do not store prompt or response content. We keep only metadata logs (e.g. userid, input/output token counts, model, timestamp) for capacity planning and abuse prevention.<br /><br />For the internal-facing <strong>Chat app</strong>: yes, your conversation history is retained so you can return to past chats. This is important for the Apertus team's development and testing of various model types. Your chats are not extracted and used for training. To request deletion of your chat history, please <a class="text-indigo-600 dark:text-indigo-400 underline" href="mailto:swissaiserving@ai.ethz.ch">contact us</a>.',
   },
   {
     q: "Do you train models on my data?",
-    a: "No. We do not use your prompts or responses to train or fine-tune models. All data used to train Apertus data has strict data standards. ",
+    a: "No. We do not use your prompts or responses to train or fine-tune models. The data used to train Apertus is subject to strict data standards. ",
   },
   {
     q: "How long do you retain data?",
-    a: 'API metadata logs (token counts, model, timestamp) are kept indefinitely for operations and abuse prevention. Individual chat history is retained until you delete it via OpenWebUI settings or you delete your account, to do this please contact us. For specific data retention questions, please <a class="text-indigo-600 dark:text-indigo-400 underline" href="mailto:swissaiserving@ai.ethz.ch">contact us</a>.',
+    a: 'API metadata logs (token counts, model, timestamp) are kept indefinitely for operations and abuse prevention. Individual chat history is retained until you delete it via OpenWebUI settings or you delete your account; to do this, please contact us. For specific data retention questions, please <a class="text-indigo-600 dark:text-indigo-400 underline" href="mailto:swissaiserving@ai.ethz.ch">contact us</a>.',
   },
   {
     q: "For the Chat application, where is my data processed and stored?",
-    a: 'The platform runs on Swiss infrastructure (CSCS) which is based in Lugano. This includes the entire application, including the web application, API, database and storage.',
+    a: 'The platform runs on Swiss infrastructure (CSCS), which is based in Lugano. This includes the entire application, including the web application, API, database and storage.',
   },
   {
     q: "Can I send personal, confidential, or sensitive data?",
@@ -123,11 +123,11 @@ const faqs = [
   },
   {
     q: "How do I get or reset my API key?",
-    a: 'You can create and reset your key on the <a class="text-indigo-600 dark:text-indigo-400 underline" href="/api_key">API key page</a>. Currently there is only 1 API key available per user.',
+    a: 'You can create and reset your key on the <a class="text-indigo-600 dark:text-indigo-400 underline" href="/api_key">API key page</a>. Currently there is only one API key available per user.',
   },
   {
     q: "Can I use OpenAI-compatible tools and SDKs?",
-    a: 'Yes. The API is OpenAI-compatible, so it works with the OpenAI SDKs, LangChain, Open WebUI and similar tools — just point the base URL at our endpoint (<code>.../v1</code>) and use your API key.',
+    a: 'Yes. The API is OpenAI-compatible, so it works with the OpenAI SDKs, LangChain, Open WebUI and similar tools - just point the base URL at our endpoint (<code>.../v1</code>) and use your API key.',
   },
   {
     q: "How should I cite or refer to the service in a paper, proposal, or other document?",
@@ -147,7 +147,7 @@ const faqs = [
   },
   {
     q: "How do I contact you?",
-    a: '(1) <strong>Email</strong> — <a class="text-indigo-600 dark:text-indigo-400 underline" href="mailto:swissaiserving@ai.ethz.ch">swissaiserving@ai.ethz.ch</a> is the address for all correspondence: access requests, higher limits, data-protection questions, deletion requests and anything else.<br /><br />(2) <strong>Community Slack</strong> — the <a class="text-indigo-600 dark:text-indigo-400 underline" href="https://swissai-initiative.slack.com/archives/C07DHJFRE2X" target="_blank" rel="noopener noreferrer">SwissAI Initiative Slack</a> is a good place for community discussion and quick questions (requires a SwissAI Initiative account).',
+    a: '(1) <strong>Email</strong> - <a class="text-indigo-600 dark:text-indigo-400 underline" href="mailto:swissaiserving@ai.ethz.ch">swissaiserving@ai.ethz.ch</a> is the address for all correspondence: access requests, higher limits, data-protection questions, deletion requests and anything else.<br /><br />(2) <strong>Community Slack</strong> - the <a class="text-indigo-600 dark:text-indigo-400 underline" href="https://swissai-initiative.slack.com/archives/C07DHJFRE2X" target="_blank" rel="noopener noreferrer">SwissAI Initiative Slack</a> is a good place for community discussion and quick questions (requires a SwissAI Initiative account).',
   },
 ];
 
@@ -247,7 +247,7 @@ const slug = (q: string) =>
                   <text x="180" y="228">or project with compute?</text>
                   <text x="750" y="208">Individual chat, RAG or agentic usecases?</text>
                   <a href="#are-there-rate-limits-or-usage-budgets" class="group">
-                    <title>Currently under 15 requests/minute for provider models, slightly higher for platform-served models — click for details.</title>
+                    <title>Currently under 15 requests/minute for provider models, slightly higher for platform-served models - click for details.</title>
                     <text x="750" y="228" class="group-hover:underline">(low request rate)</text>
                     <line x1="687" y1="233" x2="813" y2="233" stroke-width="1.5" stroke-dasharray="2 3" class="stroke-slate-500 dark:stroke-slate-400 group-hover:opacity-0" />
                   </a>
@@ -257,14 +257,14 @@ const slug = (q: string) =>
                   <text x="940" y="371">always-on endpoint?</text>
                 </g>
                 <a href="#how-do-i-launch-my-own-models" class="hover:opacity-75">
-                  <title>How to launch your own models — see FAQ below.</title>
+                  <title>How to launch your own models - see FAQ below.</title>
                   <rect class="fill-emerald-100 dark:fill-emerald-900 stroke-emerald-400" x="1" y="320" width="168" height="76" rx="8" />
                   <text font-size="13" font-weight="600" text-anchor="middle" class="fill-emerald-800 dark:fill-emerald-200" x="85" y="349">Use SwissAI Research</text>
                   <text font-size="13" text-anchor="middle" class="fill-emerald-700 dark:fill-emerald-300" x="85" y="369">model launch on Slurm</text>
                   <text font-size="13" font-weight="600" text-anchor="end" class="fill-emerald-700 dark:fill-emerald-300" x="161" y="336">↓</text>
                 </a>
                 <a href="#can-i-launch-any-model" class="hover:opacity-75">
-                  <title>Compute grant tiers and process — see FAQ below.</title>
+                  <title>Compute grant tiers and process - see FAQ below.</title>
                   <rect class="fill-slate-100 dark:fill-slate-700 stroke-slate-300 dark:stroke-slate-500" x="191" y="320" width="168" height="76" rx="8" />
                   <text font-size="13" font-weight="600" text-anchor="middle" class="fill-slate-700 dark:fill-slate-200" x="275" y="339">Apply for a compute</text>
                   <text font-size="13" text-anchor="middle" class="fill-slate-600 dark:fill-slate-300" x="275" y="359">grant, or go directly</text>
@@ -277,7 +277,7 @@ const slug = (q: string) =>
                   <text font-size="13" text-anchor="middle" class="fill-emerald-700 dark:fill-emerald-300" x="465" y="519">need more? see FAQ ↓</text>
                 </a>
                 <a href="#how-do-i-launch-my-own-models" class="hover:opacity-75">
-                  <title>How to launch your own models with model launch — see FAQ below.</title>
+                  <title>How to launch your own models with model launch - see FAQ below.</title>
                   <rect class="fill-slate-100 dark:fill-slate-700 stroke-slate-300 dark:stroke-slate-500" x="571" y="470" width="168" height="76" rx="8" />
                   <text font-size="13" font-weight="600" text-anchor="middle" class="fill-slate-700 dark:fill-slate-200" x="655" y="489">Launch it yourself</text>
                   <text font-size="13" text-anchor="middle" class="fill-slate-600 dark:fill-slate-300" x="655" y="509">(needs a grant), or</text>
@@ -285,7 +285,7 @@ const slug = (q: string) =>
                   <text font-size="13" font-weight="600" text-anchor="end" class="fill-slate-500 dark:fill-slate-400" x="731" y="486">↓</text>
                 </a>
                 <a href="#i-want-to-use-llms-what-options-are-available" class="hover:opacity-75">
-                  <title>CSCS Inference and the other options — see FAQ below.</title>
+                  <title>CSCS Inference and the other options - see FAQ below.</title>
                   <rect class="fill-slate-100 dark:fill-slate-700 stroke-slate-300 dark:stroke-slate-500" x="761" y="470" width="168" height="76" rx="8" />
                   <text font-size="13" font-weight="600" text-anchor="middle" class="fill-slate-700 dark:fill-slate-200" x="845" y="489">Use CSCS Inference</text>
                   <text font-size="13" text-anchor="middle" class="fill-slate-600 dark:fill-slate-300" x="845" y="509">per-token billing with</text>
@@ -293,9 +293,9 @@ const slug = (q: string) =>
                   <text font-size="13" font-weight="600" text-anchor="end" class="fill-slate-500 dark:fill-slate-400" x="921" y="486">↓</text>
                 </a>
                 <a href="#how-do-i-contact-you" class="hover:opacity-75">
-                  <title>Email and Slack — see FAQ below.</title>
+                  <title>Email and Slack - see FAQ below.</title>
                   <rect class="fill-slate-100 dark:fill-slate-700 stroke-slate-300 dark:stroke-slate-500" x="951" y="470" width="168" height="76" rx="8" />
-                  <text font-size="13" font-weight="600" text-anchor="middle" class="fill-slate-700 dark:fill-slate-200" x="1035" y="499">Contact us — tell us</text>
+                  <text font-size="13" font-weight="600" text-anchor="middle" class="fill-slate-700 dark:fill-slate-200" x="1035" y="499">Contact us - tell us</text>
                   <text font-size="13" text-anchor="middle" class="fill-slate-600 dark:fill-slate-300" x="1035" y="519">what you need</text>
                   <text font-size="13" font-weight="600" text-anchor="end" class="fill-slate-500 dark:fill-slate-400" x="1111" y="486">↓</text>
                 </a>
