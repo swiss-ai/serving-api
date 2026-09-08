@@ -58,6 +58,7 @@ def test_app_routes_registered(client):
         "/v1/tokenize",
         "/v1/detokenize",
         "/v1/profile/rotate",
+        "/v1/whoami",
     ]
     for path in expected:
         assert path in paths, f"Missing route: {path}"

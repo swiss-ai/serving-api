@@ -35,8 +35,22 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
+      # Without this, every cache in the app is exercised through its
+      # per-process fallback and the Redis branch prod actually runs is
+      # never tested (see backend/tests/test_redis_cache_shared.py, which
+      # skips when no server is reachable).
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     env:
       DATABASE_URL: postgresql://serving:serving@localhost:5432/serving
+      REDIS_HOST: localhost
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-python@v6

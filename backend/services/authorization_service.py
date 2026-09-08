@@ -1,0 +1,338 @@
+"""Per-user model authorization.
+
+Models launched via SML carry an OpenTela peer label ``authorization``:
+"public" (or missing/empty — every pre-feature launch keeps working) means
+anyone may use the model; a comma-separated email list restricts it to
+those users. SML normalizes emails (strip, lowercase) before launch, but
+we compare case-insensitively anyway as defense in depth.
+
+A label is only the model's STARTING policy, though: labels are stamped at
+peer start and immutable for the life of the job, so an owner who wants to
+change who may use a running model sets an override instead (see
+:mod:`backend.services.model_access_service`). An override is keyed by the
+launch's ``launch_id`` UUID label and, while it exists, replaces that
+launch's ``authorization`` label everywhere below — enforcement, listing,
+and conflict detection alike. Everything here therefore works on the
+*effective* policy, never on the raw label.
+
+Two consumers:
+- /v1/models* filters what each caller sees (grants_access per entry).
+- Every inference proxy route calls ensure_model_access before proxying.
+
+The DNT view (per-entry labels, plus a launch → owner index) is derived
+from the same DNT table the models router reads, cached in Redis with a short refresh interval so the
+check adds no upstream round-trip on the hot path. Redis rather than a
+module dict because prod runs several serving-api replicas: a per-process
+map would let one replica keep enforcing a policy the others have already
+refreshed past, and would give each replica its own cold start — its own
+fail-open window — on every deploy. Redis is already on the authed
+request path (verify_token), so this adds no new dependency, and when it
+is unreachable the client falls back to a per-process dict, which is the
+old behaviour rather than an outage.
+
+Failure policy: serve the stale cache when the DNT is briefly
+unreachable; only at true cold start (no cache at all) do we fail OPEN
+with a logged warning — an unreachable DNT must never 500 (or wrongly
+403) inference traffic.
+"""
+
+import asyncio
+import json
+import logging
+import pathlib
+
+import aiohttp
+from fastapi import HTTPException
+
+from backend.config import get_settings
+from backend.redis_cache import get_token_cache
+from backend.services.auth_service import get_email_for_token
+from backend.services.model_access_service import load_overrides
+from backend.services.passthrough_service import resolve_model
+
+logger = logging.getLogger("backend")
+
+# Short refresh interval: a permission change on relaunch should take
+# effect within seconds, while burst traffic for one model still coalesces
+# to a single DNT fetch.
+_CACHE_TTL_SECONDS = 10
+# How long a successfully fetched map stays servable as stale data. Much
+# longer than the refresh interval on purpose: while the DNT is down,
+# enforcing a stale map is strictly safer than the cold-start fail-open we
+# fall back to once it expires. An hour bounds how long a revoked policy
+# can outlive its relaunch if the DNT never comes back.
+_STALE_TTL_SECONDS = 3600
+# Timeout for the DNT fetch — keep tight so a wedged head node can't
+# stall inference requests on our side.
+_FETCH_TIMEOUT_SECONDS = 5.0
+
+# Still worth holding per-process even though the cache is shared: it
+# collapses a burst of concurrent requests on one replica into a single
+# refresh instead of a stampede of identical DNT fetches.
+_cache_lock = asyncio.Lock()
+
+
+def _reset_cache_for_tests() -> None:
+    """Test helper — clears the cache so tests can simulate cold start
+    without leaking state across cases."""
+    get_token_cache().clear_auth_map()
+
+
+def normalize_policy(auth_value: str) -> frozenset[str] | None:
+    """One entry's ``authorization`` label value as a canonical policy.
+
+    None means public (missing/empty label or "public" in any case);
+    otherwise the granted email set, lowercased and stripped. Two label
+    strings that differ only in order, case, or spacing normalize to the
+    SAME policy — which is what conflict detection compares, so a
+    relaunch that reorders its list is not a conflict.
+    """
+    value = (auth_value or "").strip()
+    if not value or value.lower() == "public":
+        return None
+    return frozenset(p.strip().lower() for p in value.split(",") if p.strip())
+
+
+def grants_access(auth_value: str, email: str | None) -> bool:
+    """Does one entry's ``authorization`` label value admit this caller?
+
+    Public policy → anyone (incl. anonymous). Otherwise only a listed
+    caller passes. Comparison is case-insensitive on both sides — SML
+    normalizes before launch, this is defense in depth.
+    """
+    policy = normalize_policy(auth_value)
+    if policy is None:
+        return True
+    if email is None:
+        return False
+    return email.strip().lower() in policy
+
+
+def _dnt_endpoint() -> str:
+    """When OTELA_FIXTURE_PATH is set, read DNT from disk instead of HTTP —
+    same fixture-mode dev path as backend/routers/models.py."""
+    settings = get_settings()
+    if settings.otela_fixture_path:
+        return settings.otela_fixture_path
+    return settings.otela_head_addr + "/v1/dnt/table"
+
+
+async def _fetch_dnt() -> dict | None:
+    """Fetch the DNT table (file in fixture mode, HTTP otherwise). Returns
+    None on any failure so the caller can decide between stale cache and
+    fail-open."""
+    endpoint = _dnt_endpoint()
+    try:
+        if endpoint and not endpoint.startswith(("http://", "https://")):
+            return json.loads(pathlib.Path(endpoint).read_text())
+        timeout = aiohttp.ClientTimeout(total=_FETCH_TIMEOUT_SECONDS)
+        async with aiohttp.ClientSession(timeout=timeout) as session:
+            async with session.get(endpoint) as resp:
+                if resp.status != 200:
+                    return None
+                # content_type=None: parse regardless of the Content-Type
+                # header, matching the leniency of the other consumers of
+                # this endpoint (model_service._load_dnt via requests). A
+                # strict parse here would silently pin enforcement in the
+                # cold-start fail-open branch while listing keeps working.
+                return await resp.json(content_type=None)
+    except Exception:
+        return None
+
+
+def _build_dnt_view(data: dict) -> dict:
+    """The DNT reduced to what authorization needs:
+
+    - ``entries``: model_id → one ``[authorization, launch_id]`` pair per
+      peer entry serving it.
+    - ``owners``: launch_id → the ``launched_by_email`` label of that
+      launch, which is who may change its access.
+
+    Per ENTRY rather than per model, because the whole point of the
+    conflict rule below is that entries under one name may disagree — and
+    now that an override attaches to a launch_id, two entries can differ in
+    effective policy even when their labels match.
+
+    Mirrors model_service.get_all_models id extraction: service
+    identity_group "model=..." entries, plus the labels.served_model_name
+    fallback for pending/follower peers. Peers of one launch carry the same
+    labels as their head, so they share a launch_id and normalize to one
+    policy; a peer that disagrees belongs to a DIFFERENT launch squatting
+    the same name, which is exactly the conflict ensure_model_access
+    refuses to route."""
+    entries: dict[str, list[list[str]]] = {}
+    owners: dict[str, str] = {}
+    for node_info in data.values():
+        labels = node_info.get("labels") or {}
+        auth_value = labels.get("authorization", "")
+        launch_id = labels.get("launch_id", "")
+        owner = labels.get("launched_by_email", "")
+        if launch_id and owner:
+            owners[launch_id] = owner
+        model_names = []
+        services = node_info.get("service") or []
+        if not services:
+            served = labels.get("served_model_name", "")
+            if served:
+                model_names.append(served)
+        for service in services:
+            if not service.get("identity_group"):
+                continue
+            model_names.extend(
+                identity[len("model=") :]
+                for identity in service["identity_group"]
+                if identity.startswith("model=")
+            )
+        for model_name in model_names:
+            entries.setdefault(model_name, []).append([auth_value, launch_id])
+    return {"entries": entries, "owners": owners}
+
+
+def effective_authorization(labels: dict | None, overrides: dict[str, str]) -> str:
+    """The policy actually in force for one peer entry: its override if the
+    launch has one, otherwise the ``authorization`` label it started with.
+
+    An empty launch_id never matches an override — a launch from before SML
+    stamped UUIDs has no identity to attach one to, and must not collide
+    with every other such launch under the "" key."""
+    labels = labels or {}
+    launch_id = labels.get("launch_id", "")
+    if launch_id and launch_id in overrides:
+        return overrides[launch_id]
+    return labels.get("authorization", "")
+
+
+async def _get_dnt_view() -> dict | None:
+    """The cached DNT view (see _build_dnt_view). Refreshes once the
+    freshness sentinel expires; on fetch failure keeps serving the stale
+    view. Returns None only at true cold start (never fetched successfully,
+    by any replica) — the caller fails open.
+
+    The sentinel records the last *attempt*, successful or not: retrying on
+    every request while the DNT is down would make each inference call pay
+    the fetch timeout. One retry per interval, across all replicas, is
+    enough."""
+    cache = get_token_cache()
+    if cache.auth_map_is_fresh():
+        return cache.get_auth_map()
+
+    async with _cache_lock:
+        # Another coroutine may have refreshed while we waited on the lock.
+        if cache.auth_map_is_fresh():
+            return cache.get_auth_map()
+
+        data = await _fetch_dnt()
+        if data is not None:
+            cache.set_auth_map(_build_dnt_view(data), ttl=_STALE_TTL_SECONDS)
+        # Set after the write, so a replica that reads between the two
+        # still sees "not fresh" and retries rather than racing onto a
+        # sentinel with no map behind it.
+        cache.mark_auth_map_fetched(ttl=_CACHE_TTL_SECONDS)
+        return cache.get_auth_map()
+
+
+async def _dnt_keys_for(model_id: str) -> list[str] | None:
+    """The DNT ids a requested model id may be advertised under, or None
+    when it belongs to a passthrough provider (always public).
+
+    The policy has to be looked up under the id OpenTela will actually be
+    asked for, or the check guards a different model than the one served.
+    Today that is always the requested id: user launches, bare names and —
+    since #122 — ``SwissAI-Research/<org>/<model>`` are all forwarded
+    verbatim, because the full prefixed id IS the k8s deployment's served
+    name.
+
+    The upstream id is still pooled in whenever the proxy rewrites it, so
+    this keeps working if id rewriting ever comes back. If the two forms
+    then carried *different* policies they would be independent launches
+    reachable under one routed name — exactly the collision the conflict
+    rule below refuses."""
+    resolved = await resolve_model(model_id)
+    if resolved is None:
+        return [model_id]
+    if resolved.provider is not None:
+        return None
+    if resolved.upstream_id != model_id:
+        return [model_id, resolved.upstream_id]
+    return [model_id]
+
+
+async def ensure_model_access(engine, token: str, model_id: str) -> None:
+    """Raise 403 unless the API key's owner may use ``model_id``.
+
+    Allowed when: the model routes to a passthrough provider (always
+    public), the id is unknown to the DNT (falls through to upstream which
+    404s — unchanged behavior), every peer entry agrees on one EFFECTIVE
+    policy — its override where it has one, else its label — and that
+    policy grants the caller, or the DNT has never been fetchable by any
+    replica (fail open, logged).
+
+    Entries that disagree (after normalization) are an authorization
+    CONFLICT and everyone is refused — even a caller granted by all of
+    the policies. OpenTela load-balances a model id across every peer
+    advertising it, so on a name collision the gateway cannot keep a
+    request off the colliding launcher's replica; the union rule would
+    let a same-named public launch widen access to a restricted model,
+    and any allow at all would route callers' prompts to a replica they
+    never chose to trust. Refusing loudly turns a collision into a
+    visible operational error instead of a silent leak."""
+    if not isinstance(model_id, str):
+        # Several routes pass the raw body value unvalidated; a non-string
+        # id can't be looked up (unhashable) — treat it like an unknown
+        # model and let the upstream reject it with its own 4xx.
+        return
+    keys = await _dnt_keys_for(model_id)
+    if keys is None:
+        return
+    view = await _get_dnt_view()
+    if view is None:
+        logger.warning(
+            "DNT unreachable with no cached authorization map — "
+            "allowing request for model '%s' (fail open)",
+            model_id,
+        )
+        return
+    entries = view.get("entries", {})
+    records = [record for key in keys for record in entries.get(key, [])]
+    if not records:
+        return
+    # Overrides are read per request rather than folded into the cached
+    # view: the view is refreshed on a ~10s timer, and an access change the
+    # owner just made in the UI should not have to wait for it. This read
+    # is itself Redis-cached and invalidated on write, so it costs no
+    # database round-trip.
+    #
+    # Note this is reached only once we HAVE a view. In the cold-start
+    # fail-open above, overrides are not consulted at all — they are keyed by
+    # launch_id, and without the DNT there is no way to learn which launches
+    # serve this id. So that window opens overridden models exactly as it
+    # opens label-restricted ones, which is the trade ADR-0001 already made
+    # and bounded to "no replica ever fetched the DNT".
+    overrides = load_overrides(engine)
+    policies = {
+        normalize_policy(
+            overrides[launch_id] if launch_id and launch_id in overrides else auth_value
+        )
+        for auth_value, launch_id in records
+    }
+    if len(policies) > 1:
+        raise HTTPException(
+            status_code=403,
+            detail=(
+                f"Access denied: model '{model_id}' is served by replicas with "
+                f"conflicting authorization policies; requests are refused until "
+                f"the conflict is resolved (relaunch under a unique "
+                f"--served-model-name, match their --authorization, or give them "
+                f"the same access setting)."
+            ),
+        )
+    (policy,) = policies
+    if policy is None:
+        return
+    email = get_email_for_token(engine, token)
+    if email is not None and email.strip().lower() in policy:
+        return
+    raise HTTPException(
+        status_code=403,
+        detail=f"Access denied: you are not authorized to use model '{model_id}'.",
+    )

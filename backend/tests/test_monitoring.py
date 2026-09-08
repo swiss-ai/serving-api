@@ -688,3 +688,100 @@ def test_langfuse_emission_only_for_rule_holders(engine):
 
     asyncio.run(run())
     _effective_level_cache.clear()
+
+
+# ---------- sml_version: surfaced now, enforced later ----------
+
+
+def test_peer_metadata_surfaces_sml_version():
+    """Pulled up next to launched_by so the admin table and frontends don't
+    have to reach into the raw label dict."""
+    from backend.services.model_service import _peer_metadata
+
+    meta = _peer_metadata({"id": "Qm1", "labels": {"sml_version": "26.5.0a1"}})
+    assert meta["sml_version"] == "26.5.0a1"
+
+
+def test_peer_metadata_sml_version_defaults_to_empty():
+    """Our own k8s launches aren't launched by SML, and older SMLs didn't emit
+    the label — both must read as empty, not KeyError."""
+    from backend.services.model_service import _peer_metadata
+
+    assert _peer_metadata({"id": "Qm1", "labels": {}})["sml_version"] == ""
+    assert _peer_metadata({"id": "Qm1"})["sml_version"] == ""
+
+
+def _sml_peer(model_id, sml_version, version="sai-v0.0.6"):
+    return {"id": model_id, "otela_version": version, "sml_version": sml_version}
+
+
+def test_sml_version_is_not_enforced_by_default(monkeypatch):
+    """The gate ships switched off: with no MIN_SML_VERSION nothing is
+    excluded for it, whatever the label says — including a missing one."""
+    from backend.config import get_settings
+    from backend.services.model_service import platform_namespaced
+
+    get_settings.cache_clear()
+    monkeypatch.setenv("ENFORCE_MODEL_NAMESPACE", "true")
+    monkeypatch.setenv("MIN_USER_OTELA_VERSION", "sai-v0.0.6")
+    monkeypatch.delenv("MIN_SML_VERSION", raising=False)
+    peers = [
+        _sml_peer("user1/o/m", "1.0.0"),
+        _sml_peer("user2/o/m", ""),
+        _sml_peer("user3/o/m", "unknown"),
+    ]
+    assert len(platform_namespaced(peers)) == 3
+    get_settings.cache_clear()
+
+
+def test_sml_version_gate_applies_once_configured(monkeypatch):
+    """Turning it on is a config change, not a code change."""
+    from backend.config import get_settings
+    from backend.services.model_service import listing_exclusion, platform_namespaced
+
+    get_settings.cache_clear()
+    monkeypatch.setenv("ENFORCE_MODEL_NAMESPACE", "true")
+    monkeypatch.setenv("MIN_USER_OTELA_VERSION", "sai-v0.0.6")
+    monkeypatch.setenv("MIN_SML_VERSION", "26.5.0")
+    kept = platform_namespaced(
+        [
+            _sml_peer("user1/o/m", "26.5.0"),
+            _sml_peer("user2/o/m", "26.6.1"),
+            _sml_peer("user3/o/m", "26.4.9"),
+            _sml_peer("user4/o/m", ""),
+            _sml_peer("user5/o/m", "unknown"),
+        ]
+    )
+    assert [m["id"] for m in kept] == ["user1/o/m", "user2/o/m"]
+    assert "sml_version 26.4.9 is below 26.5.0" in listing_exclusion(
+        _sml_peer("u/o/m", "26.4.9")
+    )
+    assert "(missing)" in listing_exclusion(_sml_peer("u/o/m", ""))
+    get_settings.cache_clear()
+
+
+def test_sml_version_gate_never_applies_to_platform_launches(monkeypatch):
+    """Our k8s launches carry no sml_version because SML didn't launch them;
+    a minimum must not silently unlist the platform's own models."""
+    from backend.config import get_settings
+    from backend.services.model_service import listing_exclusion
+
+    get_settings.cache_clear()
+    monkeypatch.setenv("ENFORCE_MODEL_NAMESPACE", "true")
+    monkeypatch.setenv("MIN_SML_VERSION", "99.0.0")
+    assert listing_exclusion(_sml_peer("SwissAI-Research/o/m", "")) is None
+    get_settings.cache_clear()
+
+
+def test_otela_reason_still_wins_when_both_would_fail(monkeypatch):
+    """One reason is reported, and the older-node one is the more actionable."""
+    from backend.config import get_settings
+    from backend.services.model_service import listing_exclusion
+
+    get_settings.cache_clear()
+    monkeypatch.setenv("ENFORCE_MODEL_NAMESPACE", "true")
+    monkeypatch.setenv("MIN_USER_OTELA_VERSION", "sai-v0.0.6")
+    monkeypatch.setenv("MIN_SML_VERSION", "26.5.0")
+    reason = listing_exclusion(_sml_peer("u/o/m", "1.0.0", version="sai-v0.0.1"))
+    assert "otela_version" in reason
+    get_settings.cache_clear()

@@ -12,6 +12,12 @@
     let loading = true;
     let error = null;
 
+    // Passed down so a card can offer "Manage access" to the model's owner
+    // (or an admin) and call the access endpoints on their behalf.
+    let viewerEmail = null;
+    let viewerIsAdmin = false;
+    let viewerApiKey = null;
+
     let search = "";
     // One mutually-exclusive facet: "all" | "24/7" | "slurm" | a provider
     // label. Providers are all 24/7, so a provider is a refinement of 24/7
@@ -36,9 +42,68 @@
     // clicking a tier pill resets the dropdown and vice versa.
     $: providerSelection = providers.includes(activeFilter) ? activeFilter : "";
 
+    // auth-astro mounts its endpoints under the default /api/auth prefix
+    // (auth.config.ts sets no override); /session returns the session JSON,
+    // or null for anonymous visitors.
+    const SESSION_ENDPOINT = "/api/auth/session";
+
+    // Resolve the bearer sent with /v1/models_detailed so the backend can
+    // include restricted models this viewer is authorized for: exchange the
+    // auth-astro session accessToken for the caller's key via /v1/profile,
+    // or null when nobody is logged in. Every failure degrades to anonymous —
+    // the public list must render for logged-out visitors.
+    //
+    // Deliberately NOT cached in localStorage (see api_key.astro): that store
+    // is per-browser, not per-account, so a cached key outlives an account
+    // switch and would let this page list another account's restricted models.
+    // One /v1/profile round-trip per page load is the cost of that being right.
+    async function resolveViewer(apiUrl) {
+        try {
+            const sessionRes = await fetch(SESSION_ENDPOINT);
+            if (!sessionRes.ok) return {};
+            const session = await sessionRes.json();
+            if (!session?.accessToken) return {};
+            const profileRes = await fetch(`${apiUrl}/v1/profile`, {
+                headers: { Authorization: `Bearer ${session.accessToken}` },
+            });
+            if (!profileRes.ok) return {};
+            const profile = await profileRes.json();
+            // The email and admin flag come along so a card can decide
+            // locally whether to offer its access menu, instead of every
+            // card asking the backend "may I edit this?" on page load.
+            // Presentation only — the endpoints re-check on every write.
+            return {
+                apiKey: profile.api_key || null,
+                email: profile.email || null,
+                isAdmin: !!profile.is_admin,
+            };
+        } catch {
+            return {};
+        }
+    }
+
+    function fetchModels(apiUrl, apiKey) {
+        return fetch(
+            `${apiUrl}/v1/models_detailed`,
+            apiKey ? { headers: { Authorization: `Bearer ${apiKey}` } } : undefined,
+        );
+    }
+
     onMount(async () => {
         try {
-            const response = await fetch(`${getApiUrl()}/v1/models_detailed`);
+            const apiUrl = getApiUrl();
+            const viewer = await resolveViewer(apiUrl);
+            const apiKey = viewer.apiKey ?? null;
+            viewerEmail = viewer.email ?? null;
+            viewerIsAdmin = !!viewer.isAdmin;
+            viewerApiKey = apiKey;
+            let response = await fetchModels(apiUrl, apiKey);
+            if (response.status === 401 && apiKey) {
+                // The key came straight from /v1/profile, so a 401 here means
+                // it was rotated mid-flight. Retry anonymously rather than
+                // failing the page — the public models must still render.
+                response = await fetchModels(apiUrl, null);
+            }
             const data = await response.json();
             const rawModels = data.data;
 
@@ -207,7 +272,7 @@
     {:else}
     <div class="model-list space-y-2">
         {#each filteredModels as model (model.data.title)}
-            <ModelCard entry={model} {chatAppUrl} />
+            <ModelCard entry={model} {chatAppUrl} {viewerEmail} {viewerIsAdmin} {viewerApiKey} />
         {/each}
         {#if filteredModels.length === 0}
             <div class="text-center text-slate-500 dark:text-slate-400 py-6">

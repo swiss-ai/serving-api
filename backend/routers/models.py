@@ -1,4 +1,13 @@
-from fastapi import APIRouter
+from typing import Annotated
+from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.security import HTTPAuthorizationCredentials
+from backend.middleware.auth import optional_security
+from backend.services.auth_service import get_email_for_token
+from backend.services.authorization_service import (
+    effective_authorization,
+    grants_access,
+)
+from backend.services.model_access_service import load_overrides
 from backend.services.model_service import get_all_models, platform_namespaced
 from backend.services.passthrough_service import get_synthetic_entries
 from backend.config import get_settings
@@ -31,21 +40,65 @@ async def _with_passthrough(models: list[dict], with_details: bool) -> list[dict
     return models
 
 
+def _caller_email(
+    request: Request, credentials: HTTPAuthorizationCredentials | None
+) -> str | None:
+    """The bearer token is OPTIONAL here: no header → anonymous caller
+    (sees public entries only). A header that IS present must resolve to a
+    known API key, though — a typo'd key should surface as 401, not as a
+    silently narrower model list."""
+    if credentials is None:
+        return None
+    email = get_email_for_token(request.app.state.engine, credentials.credentials)
+    if email is None:
+        raise HTTPException(status_code=401, detail="Invalid access token")
+    return email
+
+
+def _visible_to(models: list[dict], email: str | None, overrides: dict) -> list[dict]:
+    """Filter each entry by its OWN effective policy — the override its
+    launch carries if there is one, else the ``authorization`` label it
+    started with (pending and follower peers carry the same labels as their
+    head). Synthetic passthrough entries have neither, so they read as
+    public.
+
+    Listing has to honour overrides for the same reason enforcement does:
+    a model someone has just made private should stop appearing for
+    everyone else, not merely start refusing them."""
+    return [
+        m
+        for m in models
+        if grants_access(effective_authorization(m.get("labels"), overrides), email)
+    ]
+
+
 @router.get("/v1/models_detailed")
-async def list_models_detailed():
+async def list_models_detailed(
+    request: Request,
+    credentials: Annotated[
+        HTTPAuthorizationCredentials | None, Depends(optional_security)
+    ] = None,
+):
+    email = _caller_email(request, credentials)
     models = platform_namespaced(get_all_models(_dnt_endpoint(), with_details=True))
     models = await _with_passthrough(models, with_details=True)
     return dict(
         object="list",
-        data=models,
+        data=_visible_to(models, email, load_overrides(request.app.state.engine)),
     )
 
 
 @router.get("/v1/models")
-async def list_models():
+async def list_models(
+    request: Request,
+    credentials: Annotated[
+        HTTPAuthorizationCredentials | None, Depends(optional_security)
+    ] = None,
+):
+    email = _caller_email(request, credentials)
     models = platform_namespaced(get_all_models(_dnt_endpoint(), with_details=False))
     models = await _with_passthrough(models, with_details=False)
     return dict(
         object="list",
-        data=models,
+        data=_visible_to(models, email, load_overrides(request.app.state.engine)),
     )

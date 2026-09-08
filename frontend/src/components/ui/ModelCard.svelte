@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { getApiUrl } from '../../lib/config';
   import { getModelLogo } from '../../lib/modelLogos';
   import { getModelMetricsUrl, getTierFromLaunchedBy, isPassthroughLauncher } from '../../lib/modelMetrics';
 
@@ -8,6 +9,9 @@
     status?: string;
     device?: string;
     launched_by?: string;
+    launched_by_email?: string;
+    launch_id?: string;
+    authorization?: string;
     slurm_job_id?: string;
     started_at?: string;
     expires_at?: string;
@@ -41,6 +45,12 @@
   }
   export let entry: ModelCardProps["entry"];
   export let chatAppUrl: string;
+  // Who is looking, so the card can offer access management to the model's
+  // owner (or an admin) without every card asking the backend on page load.
+  // Presentation only: the endpoints re-check on every read and write.
+  export let viewerEmail: string | null = null;
+  export let viewerIsAdmin: boolean = false;
+  export let viewerApiKey: string | null = null;
 
   const logoUrl = getModelLogo(entry.data.title);
   // Tier follows the peer's launched_by label: "k8s" or "cscs_L1" → 24/7,
@@ -61,6 +71,176 @@
   // same launcher/framework, but we render them per-replica below anyway.
   $: firstHead = entry.data.replicas[0]?.head ?? {};
   $: framework = firstHead.framework || "";
+
+  // The backend mirrors the peer's `authorization` label as a top-level
+  // convenience field (like launched_by). Empty or "public" means anyone
+  // can use the model; anything else is an email allowlist — the entry
+  // only reached us because the backend authorized this viewer, so badge
+  // it to explain the model isn't generally visible.
+  // The card's badges follow the LABEL until the access panel has told us
+  // otherwise. An override replaces that label as the enforced policy, so a
+  // model someone just restricted would keep reading as public here — the
+  // listing only catches up on the next page load.
+  $: effectiveAuth =
+    accessState?.effective_authorization ?? firstHead.authorization ?? "";
+  $: isRestricted = !!effectiveAuth && effectiveAuth !== "public";
+
+  // ── post-launch access management ──────────────────────────────────────
+  //
+  // A model's `authorization` label is fixed for the life of its Slurm job,
+  // so changing who may use a running model means storing an override
+  // against the launch instead. `launch_id` is what that override attaches
+  // to; a model launched before SML stamped one cannot be managed here, and
+  // says so rather than offering a button that would 409.
+  $: ownerEmail = firstHead.launched_by_email || "";
+  $: isOwner =
+    !!viewerEmail && !!ownerEmail &&
+    viewerEmail.trim().toLowerCase() === ownerEmail.trim().toLowerCase();
+  $: canManageAccess = !!viewerApiKey && (isOwner || viewerIsAdmin);
+  $: hasLaunchId = entry.data.replicas
+    .flatMap(r => [r.head, ...(r.followers ?? [])])
+    .filter(Boolean)
+    .every(p => !!p.launch_id);
+
+  let accessOpen = false;
+  let accessLoading = false;
+  let accessSaving = false;
+  let accessError: string | null = null;
+  let accessState: any = null;
+  // The textarea's working copy. Kept separate from accessState so an
+  // in-progress edit survives a refresh of the server state.
+  let accessDraft = "";
+  let accessMode: "public" | "restricted" = "public";
+
+  // Every HTTPException the gateway raises is rewritten into the OpenAI
+  // error envelope by main.py's exception handler, so the useful text is at
+  // error.message — `detail` only survives when a route is mounted without
+  // that handler. Read both, and fall back to the status so a failure is
+  // never reported as a blank message.
+  async function errorMessage(res: Response, fallback: string): Promise<string> {
+    try {
+      const body = await res.json();
+      return body?.error?.message || body?.detail || `${fallback} (HTTP ${res.status})`;
+    } catch {
+      return `${fallback} (HTTP ${res.status})`;
+    }
+  }
+
+  function accessUrl(): string {
+    return `${getApiUrl()}/v1/model-access/${entry.data.title
+      .split("/")
+      .map(encodeURIComponent)
+      .join("/")}`;
+  }
+
+  function applyState(state: any) {
+    accessState = state;
+    const effective = state?.effective_authorization ?? "public";
+    accessMode = effective === "public" ? "public" : "restricted";
+    accessDraft = effective === "public" ? "" : effective.split(",").join("\n");
+  }
+
+  async function openAccess() {
+    accessOpen = !accessOpen;
+    // Refetch every time it opens rather than caching the first answer: an
+    // admin or a second tab may have changed the policy since, and showing a
+    // stale one here invites overwriting their change.
+    if (!accessOpen) return;
+    accessLoading = true;
+    accessError = null;
+    try {
+      const res = await fetch(accessUrl(), {
+        headers: { Authorization: `Bearer ${viewerApiKey}` },
+      });
+      if (!res.ok) throw new Error(await errorMessage(res, "Could not load access settings."));
+      applyState(await res.json());
+    } catch (e: any) {
+      accessError = e?.message || "Could not load access settings.";
+    } finally {
+      accessLoading = false;
+    }
+  }
+
+  // The API takes the same grammar as the launch flag: "public", or a
+  // comma-separated email list. The textarea accepts newlines because
+  // pasting a list of collaborators one-per-line is the common case.
+  function draftAsPolicy(): string {
+    if (accessMode === "public") return "public";
+    return accessDraft
+      .split(/[\n,]/)
+      .map(s => s.trim())
+      .filter(Boolean)
+      .join(",");
+  }
+
+  async function saveAccess() {
+    const policy = draftAsPolicy();
+    if (accessMode === "restricted" && !policy) {
+      accessError = "List at least one email, or choose Public.";
+      return;
+    }
+    accessSaving = true;
+    accessError = null;
+    try {
+      const res = await fetch(accessUrl(), {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${viewerApiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ authorization: policy }),
+      });
+      if (!res.ok) throw new Error(await errorMessage(res, "Could not save access settings."));
+      applyState(await res.json());
+    } catch (e: any) {
+      accessError = e?.message || "Could not save access settings.";
+    } finally {
+      accessSaving = false;
+    }
+  }
+
+  // Reset drops the override so the model's launch-time label decides
+  // again — which is why the label is never rewritten by a save.
+  async function resetAccess() {
+    accessSaving = true;
+    accessError = null;
+    try {
+      const res = await fetch(accessUrl(), {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${viewerApiKey}` },
+      });
+      if (!res.ok) throw new Error(await errorMessage(res, "Could not reset access settings."));
+      applyState(await res.json());
+    } catch (e: any) {
+      accessError = e?.message || "Could not reset access settings.";
+    } finally {
+      accessSaving = false;
+    }
+  }
+
+  // Same canonical form the backend's conflict check uses: "" / "public"
+  // (any case) → "public"; otherwise the email list sorted, lowercased.
+  function normalizedPolicy(auth: string | undefined): string {
+    const value = (auth || "").trim();
+    if (!value || value.toLowerCase() === "public") return "public";
+    // Dedupe like the backend's frozenset does, so a duplicated entry in
+    // one label can't show a conflict badge the backend doesn't act on.
+    const emails = value.split(",").map(p => p.trim().toLowerCase()).filter(Boolean);
+    return Array.from(new Set(emails)).sort().join(",");
+  }
+
+  // Peers of one launch always share one label, so disagreement means
+  // independent launches are squatting the same served name — the backend
+  // refuses to route those (403) until the collision is resolved. Badge
+  // it so the card explains why requests are failing.
+  $: hasAuthConflict =
+    accessState?.conflict ??
+    new Set(
+      entry.data.replicas
+        .flatMap(r => [r.head, ...(r.followers ?? [])])
+        .filter(Boolean)
+        .map(p => normalizedPolicy(p.authorization))
+    ).size > 1;
 
   // Aggregated status across all replicas:
   //   "ready"   — every replica's head is ready
@@ -198,6 +378,11 @@
         {:else if tier === "slurm"}
           <span class="slurm-badge" title="Model-launch Slurm job">Slurm</span>
         {/if}
+        {#if hasAuthConflict}
+          <span class="auth-conflict-badge" title="Independent launches are serving this model name with different authorization labels. The API refuses to route requests for it until the conflict is resolved (relaunch under a unique name or with matching authorization).">Auth conflict</span>
+        {:else if isRestricted}
+          <span class="restricted-badge" title="Restricted model: only users on its authorization list can see and use it">Restricted</span>
+        {/if}
         {#if entry.data.replicaCount > 1}
           <span class="instance-count" title="Replicas of this model (separately-launched instances)">
             x{entry.data.replicaCount}
@@ -255,7 +440,94 @@
             Metrics
           </a>
         {/if}
+        {#if canManageAccess}
+          <button
+            on:click={openAccess}
+            class="inline-flex items-center gap-2 px-4 py-2 rounded-md bg-slate-600 hover:bg-slate-700 text-white text-sm font-medium transition-colors"
+            aria-expanded={accessOpen}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+              <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+            </svg>
+            Manage access
+          </button>
+        {/if}
       </div>
+
+      {#if canManageAccess && accessOpen}
+        <div class="access-panel">
+          {#if !hasLaunchId}
+            <p class="access-note">
+              This model was launched by a version of SML that does not stamp a
+              launch id, so its access can only be changed by relaunching it
+              with <code>--authorization</code>.
+            </p>
+          {:else if accessLoading}
+            <p class="access-note">Loading access settings…</p>
+          {:else}
+            <div class="access-row">
+              <label>
+                <input type="radio" bind:group={accessMode} value="public" />
+                Public — anyone on the platform can list and use this model
+              </label>
+            </div>
+            <div class="access-row">
+              <label>
+                <input type="radio" bind:group={accessMode} value="restricted" />
+                Restricted — only the people listed below
+              </label>
+            </div>
+            {#if accessMode === "restricted"}
+              <textarea
+                bind:value={accessDraft}
+                rows="4"
+                spellcheck="false"
+                placeholder={"alice@epfl.ch\nbob@ethz.ch"}
+                class="access-emails"
+              ></textarea>
+              <p class="access-hint">One email per line (or comma-separated).</p>
+            {/if}
+
+            {#if accessState?.is_overridden}
+              <p class="access-hint">
+                Changed after launch.
+                {#if accessState.label_authorization}
+                  It was launched as
+                  <code>{accessState.label_authorization}</code> — Reset puts it
+                  back.
+                {:else}
+                  <!-- Null when this name's launches were started with
+                       different labels; naming one of them would be a lie. -->
+                  Reset returns each launch to the policy it started with.
+                {/if}
+              </p>
+            {/if}
+
+            <div class="access-actions">
+              <button
+                on:click={saveAccess}
+                disabled={accessSaving}
+                class="access-save"
+              >
+                {accessSaving ? "Saving…" : "Save"}
+              </button>
+              <button
+                on:click={resetAccess}
+                disabled={accessSaving || !accessState?.is_overridden}
+                class="access-reset"
+                title="Discard the change and go back to the model's launch-time authorization"
+              >
+                Reset
+              </button>
+            </div>
+
+            {#if accessError}
+              <p class="access-error">{accessError}</p>
+            {/if}
+          {/if}
+        </div>
+      {/if}
 
       <!-- Per-replica detail blocks -->
       {#each entry.data.replicas as replica, idx (replica.worker_group_id)}
@@ -383,6 +655,8 @@
   .tile-pending img,
   .tile-pending .uptime-badge,
   .tile-pending .slurm-badge,
+  .tile-pending .restricted-badge,
+  .tile-pending .auth-conflict-badge,
   .tile-pending .instance-count {
     filter: grayscale(1);
   }
@@ -400,6 +674,107 @@
 
   .slurm-badge {
     background-color: #9333ea;
+    color: white;
+    font-weight: bold;
+    font-size: 0.75em;
+    padding: 0 6px;
+    border-radius: 4px;
+    flex-shrink: 0;
+    cursor: help;
+  }
+
+  /* Access management panel. Colours come from currentColor and the two
+     neutral tokens below so the panel inherits the card's light/dark
+     treatment instead of pinning its own palette. */
+  .access-panel {
+    border: 1px solid rgb(148 163 184 / 0.4);
+    border-radius: 6px;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    font-size: 0.875rem;
+  }
+
+  .access-row label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+  }
+
+  .access-emails {
+    width: 100%;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.8125rem;
+    padding: 6px 8px;
+    border: 1px solid rgb(148 163 184 / 0.5);
+    border-radius: 4px;
+    background: transparent;
+    color: inherit;
+    resize: vertical;
+  }
+
+  .access-note,
+  .access-hint {
+    opacity: 0.75;
+    margin: 0;
+  }
+
+  .access-error {
+    color: #dc2626; /* red-600 */
+    margin: 0;
+  }
+
+  .access-actions {
+    display: flex;
+    gap: 8px;
+  }
+
+  .access-save,
+  .access-reset {
+    padding: 6px 14px;
+    border-radius: 6px;
+    font-weight: 500;
+    transition: background-color 0.15s;
+  }
+
+  .access-save {
+    background-color: #0f172a; /* slate-900 */
+    color: white;
+  }
+
+  .access-save:hover:not(:disabled) {
+    background-color: #1e293b; /* slate-800 */
+  }
+
+  .access-reset {
+    border: 1px solid rgb(148 163 184 / 0.6);
+  }
+
+  .access-reset:hover:not(:disabled) {
+    background-color: rgb(148 163 184 / 0.15);
+  }
+
+  .access-save:disabled,
+  .access-reset:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .restricted-badge {
+    background-color: #d97706; /* amber-600 */
+    color: white;
+    font-weight: bold;
+    font-size: 0.75em;
+    padding: 0 6px;
+    border-radius: 4px;
+    flex-shrink: 0;
+    cursor: help;
+  }
+
+  .auth-conflict-badge {
+    background-color: #dc2626; /* red-600 */
     color: white;
     font-weight: bold;
     font-size: 0.75em;

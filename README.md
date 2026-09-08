@@ -94,6 +94,71 @@ meta/            # example Dockerfiles, example k8s manifests, build scripts
 
 OpenTela (formerly OCF / "Open Compute Framework") is maintained upstream at [eth-easl/OpenTela](https://github.com/eth-easl/OpenTela). We maintain a fork at [swiss-ai/OpenTela](https://github.com/swiss-ai/opentela) to control deployments to dev+prod.
 
+## Model Authorization
+
+Models launched via [SML](https://github.com/swiss-ai/model-launch) carry an
+OpenTela peer label `authorization` that controls who can see and use them:
+
+- `public` — anyone may list and use the model.
+- a comma-separated email list (e.g. `user1@epfl.ch,user2@ethz.ch`) — only
+  those users. Emails are normalized (strip, lowercase) by SML before launch;
+  the backend also compares case-insensitively as defense in depth.
+- missing/empty label — treated as `public`, so every model launched before
+  this feature keeps working and stays visible.
+
+A launch is `public` unless it says otherwise — SML's `--authorization` defaults
+to it, and so does a missing label.
+
+SML's `--authorization private` never reaches OpenTela: SML resolves it to the
+launcher's own email before submission via `GET /v1/whoami` with the user's API
+key (`Authorization: Bearer sk-rc-...`), which returns `{"email":
+"<owner_email>"}` (401 on an unknown key).
+
+`/v1/models` and `/v1/models_detailed` accept an *optional* bearer API key:
+anonymous callers see only public entries (public/missing label, plus the
+synthetic passthrough-provider entries, which are always public); a valid key
+additionally reveals models whose email list contains the key's owner; a
+present-but-unknown key gets 401. Every inference route enforces the same
+rule before proxying — an unauthorized caller gets a 403 `permission_error`.
+
+**Served-name collisions.** Independent launches may advertise the same
+served model name with *different* authorization labels (label strings are
+compared as normalized policies, so reordered/re-cased email lists or
+`public` vs a missing label are not a conflict). Because OpenTela
+load-balances a model name across every peer advertising it, the gateway
+cannot keep a request off the colliding launch's replica — so on a real
+policy conflict it refuses to route the model for **everyone** (403 naming
+the conflict) until one side is relaunched under a unique name or with a
+matching label. See ADR-0001 for the reasoning.
+
+### Changing access after launch
+
+An OpenTela label is fixed for the life of the SLURM job, so the label above
+is only the policy a model **launched with**. To change who may use a model
+that is already running, the owner (or an admin) sets an *override*, which
+replaces the label until it is reset:
+
+```
+GET    /v1/model-access/{model_id}    # effective policy, launch-time label, can_edit
+PUT    /v1/model-access/{model_id}    # {"authorization": "public" | "a@epfl.ch,b@ethz.ch"}
+DELETE /v1/model-access/{model_id}    # reset: the launch-time label decides again
+```
+
+The bearer may be a serving API key or an IdP access token. The web UI exposes
+this as a **Manage access** menu on the model card, with a **Reset** button.
+
+Overrides are keyed by the launch's `launch_id` label rather than by model
+name, so one can never outlive its job and re-apply to a different launch that
+later takes the same name — and consequently an override does not survive a
+relaunch. Who may edit is decided by the `launched_by_email` label (the
+`launched_by` label next to it is a cluster shell account, which matches no
+platform identity); a model launched without one is admin-managed. Both labels
+need a current SML.
+
+Because the collision rule above compares *effective* policies, a change is
+applied to every launch serving the name at once, and is refused unless the
+caller may edit all of them. See ADR-0002.
+
 ## Dev Quick Start
 
 ```bash

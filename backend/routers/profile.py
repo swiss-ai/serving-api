@@ -3,6 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
 from backend.services.auth_service import (
+    get_email_for_token,
     get_profile_from_accesstoken,
     get_or_create_apikey,
     rotate_key_by_email,
@@ -26,6 +27,22 @@ def _email_from_credentials(credentials) -> str:
         return get_profile_from_accesstoken(credentials.credentials)["email"]
     except Exception:
         raise HTTPException(status_code=401, detail="Invalid access token")
+
+
+@router.get("/v1/whoami")
+async def whoami(
+    request: Request,
+    credentials: Annotated[HTTPAuthorizationCredentials, Depends(security)] = None,
+):
+    """Resolve an API key (sk-rc-...) to its owner's email.
+
+    SML calls this before launch to turn `--authorization private` into the
+    launcher's own email, so the literal "private" never reaches OpenTela.
+    """
+    email = get_email_for_token(request.app.state.engine, credentials.credentials)
+    if email is None:
+        raise HTTPException(status_code=401, detail="Invalid access token")
+    return {"email": email}
 
 
 @router.get("/v1/profile")

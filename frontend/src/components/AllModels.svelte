@@ -64,6 +64,7 @@
           <th class="py-2 pr-4 font-medium">Source</th>
           <th class="py-2 pr-4 font-medium">Launched by</th>
           <th class="py-2 pr-4 font-medium">OpenTela</th>
+          <th class="py-2 pr-4 font-medium">SML</th>
           <th class="py-2 pr-4 font-medium">Peers</th>
           <th class="py-2 font-medium">Publicly listed</th>
         </tr>
@@ -75,6 +76,7 @@
             <td class="py-2 pr-4 text-slate-600 dark:text-slate-300">{m.source}</td>
             <td class="py-2 pr-4 text-slate-600 dark:text-slate-300">{m.launched_by}</td>
             <td class="py-2 pr-4 text-slate-600 dark:text-slate-300">{m.otela_version || '—'}</td>
+            <td class="py-2 pr-4 text-slate-600 dark:text-slate-300">{m.sml_version || '—'}</td>
             <td class="py-2 pr-4 text-slate-600 dark:text-slate-300">{m.peers || '—'}</td>
             <td class="py-2">
               {#if m.hidden_reason}
