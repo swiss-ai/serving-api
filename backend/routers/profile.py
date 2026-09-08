@@ -54,7 +54,11 @@ async def get_profile(
         user_profile = get_profile_from_accesstoken(credentials.credentials)
         if user_profile:
             engine = request.app.state.engine
-            api_key = get_or_create_apikey(engine, user_profile["email"])
+            # The `name` claim comes along so the model catalogue can credit
+            # this user's launches by name instead of by email address.
+            api_key = get_or_create_apikey(
+                engine, user_profile["email"], user_profile.get("name", "")
+            )
         user_profile["api_key"] = api_key.key
         user_profile["budget"] = api_key.budget
         # Lets the UI decide whether to offer the admin menu. Endpoints

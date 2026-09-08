@@ -121,6 +121,24 @@ additionally reveals models whose email list contains the key's owner; a
 present-but-unknown key gets 401. Every inference route enforces the same
 rule before proxying — an unauthorized caller gets a 403 `permission_error`.
 
+**No email addresses are published here.** Both endpoints are anonymously
+readable, so an address in the payload is a harvestable one. Each entry
+instead carries:
+
+- `launched_by_name` — the launcher as a person (`apikey.owner_name`, taken
+  from the IdP's `name` claim on profile load; derived from the address' local
+  part when we have never seen that user, so the domain is dropped either way).
+- `authorization` — the model's *effective* policy (override if it has one,
+  else the launch label), rendered as `public` or a list of those same display
+  names.
+- `can_manage_access` — whether **this** caller may change the model's access,
+  so the UI needs no identity to compare against a launcher's.
+
+`launched_by_email` and the raw `authorization` label are stripped from the
+entry and from its `labels` dict. Raw addresses stay on the endpoints that
+need them and already gate on identity: `/v1/model-access/{model_id}` (owner
+or admin) and `/v1/profile` (your own). See ADR-0001.
+
 **Served-name collisions.** Independent launches may advertise the same
 served model name with *different* authorization labels (label strings are
 compared as normalized policies, so reordered/re-cased email lists or
@@ -153,7 +171,8 @@ later takes the same name — and consequently an override does not survive a
 relaunch. Who may edit is decided by the `launched_by_email` label (the
 `launched_by` label next to it is a cluster shell account, which matches no
 platform identity); a model launched without one is admin-managed. Both labels
-need a current SML.
+need a current SML. The listing reports the *outcome* of that check per entry
+(`can_manage_access`) rather than the label it was made from.
 
 Because the collision rule above compares *effective* policies, a change is
 applied to every launch serving the name at once, and is refused unless the

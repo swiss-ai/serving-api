@@ -15,6 +15,13 @@ ALICE = "alice@epfl.ch"
 BOB = "bob@ethz.ch"
 CAROL = "carol@unibas.ch"
 
+# Names as the IdP reports them, recorded on profile load. Carol has none —
+# she has only ever used the API — so she reads as a name derived from her
+# address instead.
+ALICE_NAME = "Alice Example"
+BOB_NAME = "Bob Bühler"
+CAROL_DERIVED_NAME = "Carol"
+
 ALICE_KEY = "sk-rc-alice-authz-test"
 BOB_KEY = "sk-rc-bob-authz-test"
 CAROL_KEY = "sk-rc-carol-authz-test"
@@ -48,8 +55,12 @@ def client(postgres):
     SQLModel.metadata.create_all(engine)
 
     with Session(engine) as session:
-        session.add(APIKey(key=ALICE_KEY, owner_email=ALICE, budget=1000))
-        session.add(APIKey(key=BOB_KEY, owner_email=BOB, budget=1000))
+        session.add(
+            APIKey(key=ALICE_KEY, owner_email=ALICE, owner_name=ALICE_NAME, budget=1000)
+        )
+        session.add(
+            APIKey(key=BOB_KEY, owner_email=BOB, owner_name=BOB_NAME, budget=1000)
+        )
         session.add(APIKey(key=CAROL_KEY, owner_email=CAROL, budget=1000))
         session.commit()
 
@@ -92,16 +103,21 @@ def test_whoami_unknown_key_401(client):
 # ── /v1/models* filtering ───────────────────────────────────────────────────
 
 
-def _peer_entry(model_id: str, auth_value: str | None) -> dict:
+def _peer_entry(model_id: str, auth_value: str | None, owner: str = ALICE) -> dict:
     """A get_all_models-shaped entry; the filter reads labels.authorization.
 
     Ids are username-namespaced and the peer version is current, because
     /v1/models* runs model_service.platform_namespaced first — an
     un-namespaced id or an old peer is dropped before authorization is
-    even consulted, which would make these cases vacuous."""
+    even consulted, which would make these cases vacuous.
+
+    Carries ``launched_by_email`` like a real SML launch does, so the tests
+    below can hold the route to never publishing it."""
     labels = {"worker_group_id": "wg-" + model_id}
     if auth_value is not None:
         labels["authorization"] = auth_value
+    if owner:
+        labels["launched_by_email"] = owner
     return {
         "id": model_id,
         "object": "model",
@@ -112,6 +128,7 @@ def _peer_entry(model_id: str, auth_value: str | None) -> dict:
         "otela_version": "sai-v0.0.6",
         "labels": labels,
         "authorization": auth_value or "",
+        "launched_by_email": owner,
     }
 
 
@@ -214,6 +231,79 @@ def test_models_detailed_filters_the_same_way(client, monkeypatch):
     response = client.get("/v1/models_detailed")
     assert response.status_code == 200
     assert {e["id"] for e in response.json()["data"]} == {"alice/org/public-model"}
+
+
+# ── what the catalogue is willing to say about people ───────────────────────
+
+
+def _entry(response, model_id: str) -> dict:
+    return next(e for e in response.json()["data"] if e["id"] == model_id)
+
+
+def test_models_never_publish_an_email_address(client, monkeypatch):
+    """The listing is anonymously readable, so an address anywhere in it is a
+    harvestable one — which is why the translation happens server-side and
+    not in the card that renders it.
+
+    Asserted over the whole payload rather than field by field: a future
+    label that carries an address has to fail this test too, since ``labels``
+    is echoed to the frontend as an opaque dict."""
+    response = _list_models(client, monkeypatch)
+    assert response.status_code == 200
+    assert "@" not in response.text
+
+    entry = _entry(response, "alice/org/public-model")
+    assert entry["launched_by_name"] == ALICE_NAME
+    assert "launched_by_email" not in entry
+    assert "launched_by_email" not in entry["labels"]
+
+
+def test_models_credit_a_launcher_the_idp_never_named(client, monkeypatch):
+    """No recorded name → derived from the local part. Still a guess at a
+    name, but never a routable address: the domain is gone."""
+    from backend.routers import models as models_router
+
+    entries = [_peer_entry("carol/org/public-model", "public", owner=CAROL)]
+    monkeypatch.setattr(
+        models_router, "get_all_models", lambda endpoint, with_details=False: entries
+    )
+    response = client.get("/v1/models")
+    assert response.status_code == 200
+    assert _entry(response, "carol/org/public-model")["launched_by_name"] == (
+        CAROL_DERIVED_NAME
+    )
+
+
+def test_models_render_the_allowlist_as_names(client, monkeypatch):
+    """A restricted model's collaborators are only ever named, never
+    addressed — to the people on the list included. Raw addresses live on
+    /v1/model-access, which is gated to the owner and admins."""
+    response = _list_models(client, monkeypatch, headers=_bearer(ALICE_KEY))
+    assert response.status_code == 200
+    entry = _entry(response, "alice/org/secret-model")
+    assert entry["authorization"] == f"{ALICE_NAME}, {BOB_NAME}"
+
+
+def test_models_report_public_uniformly(client, monkeypatch):
+    """A missing label and an explicit "public" one are the same policy, and
+    the badge logic reads this one field — so both report "public" rather
+    than one of them reporting ""."""
+    response = _list_models(client, monkeypatch)
+    assert _entry(response, "alice/org/public-model")["authorization"] == "public"
+    assert _entry(response, "alice/org/legacy-model")["authorization"] == "public"
+
+
+def test_models_say_whether_the_viewer_may_manage_access(client, monkeypatch):
+    """The card used to compare the viewer's address with the launcher's,
+    which meant shipping both. The backend answers instead."""
+    owner_view = _list_models(client, monkeypatch, headers=_bearer(ALICE_KEY))
+    assert _entry(owner_view, "alice/org/public-model")["can_manage_access"] is True
+
+    other_view = _list_models(client, monkeypatch, headers=_bearer(CAROL_KEY))
+    assert _entry(other_view, "alice/org/public-model")["can_manage_access"] is False
+
+    anonymous = _list_models(client, monkeypatch)
+    assert _entry(anonymous, "alice/org/public-model")["can_manage_access"] is False
 
 
 # ── enforcement end to end ──────────────────────────────────────────────────
@@ -457,6 +547,34 @@ def test_reset_restores_the_launch_label_across_the_stack(client, monkeypatch):
         assert MANAGED in [m["id"] for m in listed]
     finally:
         clear_override(client.app.state.engine, "LAUNCH-B")
+
+
+def test_listing_reports_the_override_translated_to_names(client, monkeypatch):
+    """The listing reports the EFFECTIVE policy, so the card's "Restricted"
+    badge is right about a model restricted after launch — and reports it as
+    names, so the collaborator list an owner just typed in does not become a
+    public one."""
+    from backend.services import authorization_service
+    from backend.services.model_access_service import clear_override
+
+    entries = [_owned_peer(MANAGED, "public", "LAUNCH-D", ALICE)]
+    _patch_dnt(monkeypatch, entries)
+
+    try:
+        res = client.put(
+            f"/v1/model-access/{MANAGED}",
+            headers=_bearer(ALICE_KEY),
+            json={"authorization": f"{ALICE},{CAROL}"},
+        )
+        assert res.status_code == 200
+
+        authorization_service._reset_cache_for_tests()
+        listed = client.get("/v1/models", headers=_bearer(ALICE_KEY))
+        entry = _entry(listed, MANAGED)
+        assert entry["authorization"] == f"{ALICE_NAME}, {CAROL_DERIVED_NAME}"
+        assert "@" not in listed.text
+    finally:
+        clear_override(client.app.state.engine, "LAUNCH-D")
 
 
 def test_an_override_outlives_the_cache_not_the_database(client, monkeypatch):

@@ -12,10 +12,9 @@
     let loading = true;
     let error = null;
 
-    // Passed down so a card can offer "Manage access" to the model's owner
-    // (or an admin) and call the access endpoints on their behalf.
-    let viewerEmail = null;
-    let viewerIsAdmin = false;
+    // Passed down so a card can call the access endpoints on this viewer's
+    // behalf. Whether it offers "Manage access" at all is the entry's own
+    // `can_manage_access`, answered by the backend.
     let viewerApiKey = null;
 
     let search = "";
@@ -68,15 +67,12 @@
             });
             if (!profileRes.ok) return {};
             const profile = await profileRes.json();
-            // The email and admin flag come along so a card can decide
-            // locally whether to offer its access menu, instead of every
-            // card asking the backend "may I edit this?" on page load.
-            // Presentation only — the endpoints re-check on every write.
-            return {
-                apiKey: profile.api_key || null,
-                email: profile.email || null,
-                isAdmin: !!profile.is_admin,
-            };
+            // The key is all we take: every model entry already says whether
+            // this viewer may manage it (`can_manage_access`), decided by the
+            // backend, so the page never has to hold an identity to compare
+            // against a launcher's — which is why launcher addresses no longer
+            // travel with the listing at all.
+            return { apiKey: profile.api_key || null };
         } catch {
             return {};
         }
@@ -94,8 +90,6 @@
             const apiUrl = getApiUrl();
             const viewer = await resolveViewer(apiUrl);
             const apiKey = viewer.apiKey ?? null;
-            viewerEmail = viewer.email ?? null;
-            viewerIsAdmin = !!viewer.isAdmin;
             viewerApiKey = apiKey;
             let response = await fetchModels(apiUrl, apiKey);
             if (response.status === 401 && apiKey) {
@@ -272,7 +266,7 @@
     {:else}
     <div class="model-list space-y-2">
         {#each filteredModels as model (model.data.title)}
-            <ModelCard entry={model} {chatAppUrl} {viewerEmail} {viewerIsAdmin} {viewerApiKey} />
+            <ModelCard entry={model} {chatAppUrl} {viewerApiKey} />
         {/each}
         {#if filteredModels.length === 0}
             <div class="text-center text-slate-500 dark:text-slate-400 py-6">

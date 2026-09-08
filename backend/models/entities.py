@@ -10,6 +10,13 @@ class APIKey(SQLModel, table=True):
     created_at: datetime = Field(default=datetime.now())
     updated_at: datetime = Field(default=datetime.now())
     owner_email: str = Field(default="")
+    # The user's real name, as the IdP reports it (`name` claim), recorded
+    # whenever they load their profile. The public model catalogue credits
+    # launchers by name instead of publishing their address, and this is
+    # where that name comes from when we have it — see
+    # :mod:`backend.services.identity_service`. Empty for a key whose owner
+    # has only ever used the API.
+    owner_name: str = Field(default="")
     # Grants /v1/admin/* access. Set via SQL (or a future admin UI); when the
     # IdP (Authentik) exposes a group claim, require_admin can additionally
     # honour an admin group membership — this flag stays the durable base.

@@ -9,9 +9,16 @@
     status?: string;
     device?: string;
     launched_by?: string;
-    launched_by_email?: string;
+    // The launcher as a person, resolved backend-side. The catalogue never
+    // ships their email address — see identity_service.py for why the
+    // translation cannot happen here.
+    launched_by_name?: string;
     launch_id?: string;
+    // The effective policy, as names: "public", or who may use the model.
     authorization?: string;
+    // Whether THIS viewer may change the model's access (owner or admin),
+    // decided by the backend so the card needs neither address to compare.
+    can_manage_access?: boolean;
     slurm_job_id?: string;
     started_at?: string;
     expires_at?: string;
@@ -45,11 +52,9 @@
   }
   export let entry: ModelCardProps["entry"];
   export let chatAppUrl: string;
-  // Who is looking, so the card can offer access management to the model's
-  // owner (or an admin) without every card asking the backend on page load.
-  // Presentation only: the endpoints re-check on every read and write.
-  export let viewerEmail: string | null = null;
-  export let viewerIsAdmin: boolean = false;
+  // The viewer's API key, used to call the access endpoints. Whether they
+  // may manage a given model comes from that model's own entry
+  // (`can_manage_access`), so no identity has to be passed down here.
   export let viewerApiKey: string | null = null;
 
   const logoUrl = getModelLogo(entry.data.title);
@@ -72,15 +77,13 @@
   $: firstHead = entry.data.replicas[0]?.head ?? {};
   $: framework = firstHead.framework || "";
 
-  // The backend mirrors the peer's `authorization` label as a top-level
-  // convenience field (like launched_by). Empty or "public" means anyone
-  // can use the model; anything else is an email allowlist — the entry
-  // only reached us because the backend authorized this viewer, so badge
-  // it to explain the model isn't generally visible.
-  // The card's badges follow the LABEL until the access panel has told us
-  // otherwise. An override replaces that label as the enforced policy, so a
-  // model someone just restricted would keep reading as public here — the
-  // listing only catches up on the next page load.
+  // The listing reports each entry's EFFECTIVE policy (its override where
+  // it has one, else its launch label) as a top-level field, translated to
+  // display names. "public" means anyone can use the model; a name list is
+  // an allowlist — the entry only reached us because the backend authorized
+  // this viewer, so badge it to explain the model isn't generally visible.
+  // The panel's own answer still wins while it is open, since it is fetched
+  // live and this one is as old as the page load.
   $: effectiveAuth =
     accessState?.effective_authorization ?? firstHead.authorization ?? "";
   $: isRestricted = !!effectiveAuth && effectiveAuth !== "public";
@@ -92,11 +95,11 @@
   // against the launch instead. `launch_id` is what that override attaches
   // to; a model launched before SML stamped one cannot be managed here, and
   // says so rather than offering a button that would 409.
-  $: ownerEmail = firstHead.launched_by_email || "";
-  $: isOwner =
-    !!viewerEmail && !!ownerEmail &&
-    viewerEmail.trim().toLowerCase() === ownerEmail.trim().toLowerCase();
-  $: canManageAccess = !!viewerApiKey && (isOwner || viewerIsAdmin);
+  // Owner-or-admin is decided by the backend, per entry: the comparison it
+  // replaces needed the launcher's email address on the wire, which is
+  // exactly what the catalogue no longer publishes. Presentation only —
+  // /v1/model-access re-checks on every read and write.
+  $: canManageAccess = !!viewerApiKey && !!firstHead.can_manage_access;
   $: hasLaunchId = entry.data.replicas
     .flatMap(r => [r.head, ...(r.followers ?? [])])
     .filter(Boolean)
@@ -219,7 +222,11 @@
   }
 
   // Same canonical form the backend's conflict check uses: "" / "public"
-  // (any case) → "public"; otherwise the email list sorted, lowercased.
+  // (any case) → "public"; otherwise the list sorted, lowercased. The
+  // listing's lists are display names rather than addresses, which is fine
+  // for spotting that two launches DISAGREE — and `accessState.conflict`,
+  // computed from the real policies, overrules this the moment the panel is
+  // open.
   function normalizedPolicy(auth: string | undefined): string {
     const value = (auth || "").trim();
     if (!value || value.toLowerCase() === "public") return "public";
@@ -547,11 +554,13 @@
           ? [
               ["model", entry.data.title],
               ["launched_by", head.launched_by],
+              ["owner", head.launched_by_name],
               ["framework", head.framework],
             ]
           : [
               ["model", entry.data.title],
               ["launched_by", head.launched_by],
+              ["owner", head.launched_by_name],
               ["slurm_job_id", head.slurm_job_id],
               ["started_at", withRelative(head.started_at)],
               ["expires_at", withRelative(head.expires_at)],
@@ -591,8 +600,12 @@
                Skipped for L1 — the upstream service doesn't surface any
                extra labels worth showing. -->
           {#if !isL1 && head.labels && Object.keys(head.labels).length > 0}
+            <!-- launched_by_email / authorization are stripped from labels by
+                 the backend (identity_service.py) so they can't be scraped off
+                 a public page; excluded here too, because a frontend deploy
+                 can run against an older gateway that still sends them. -->
             {@const extra = Object.entries(head.labels).filter(([k]) =>
-              !["launched_by","slurm_job_id","worker_group_id","framework","started_at","expires_at","slurm_partition","served_model_name"].includes(k)
+              !["launched_by","launched_by_email","authorization","slurm_job_id","worker_group_id","framework","started_at","expires_at","slurm_partition","served_model_name"].includes(k)
             )}
             {#if extra.length > 0}
               {@const pad = Math.max(...extra.map(([k]) => k.length)) + 1}

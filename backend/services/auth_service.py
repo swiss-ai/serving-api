@@ -18,7 +18,18 @@ with open(_SWISS_DOMAINS_FILE) as f:
     SWISS_DOMAINS = json.load(f)
 
 
-def get_or_create_apikey(engine, owner_email: str) -> APIKey:
+def get_or_create_apikey(engine, owner_email: str, owner_name: str = "") -> APIKey:
+    """The caller's key, created on first sign-in.
+
+    ``owner_name`` is the IdP's ``name`` claim, refreshed on every profile
+    load: it is how the public model catalogue can credit a launcher without
+    publishing their address (see
+    :mod:`backend.services.identity_service`), so it has to keep up with a
+    name the user changes at the IdP. Passed empty by callers that have no
+    claim to offer, which then leaves a recorded name alone rather than
+    blanking it.
+    """
+    name = (owner_name or "").strip()
     with Session(engine) as session:
         api_key = session.exec(
             select(APIKey).where(APIKey.owner_email == owner_email)
@@ -29,7 +40,15 @@ def get_or_create_apikey(engine, owner_email: str) -> APIKey:
                 budget = 1000
             else:
                 budget = -1
-            api_key = APIKey(key=key, owner_email=owner_email, budget=budget)
+            api_key = APIKey(
+                key=key, owner_email=owner_email, owner_name=name, budget=budget
+            )
+            session.add(api_key)
+            session.commit()
+            session.refresh(api_key)
+            return api_key
+        if name and name != api_key.owner_name:
+            api_key.owner_name = name
             session.add(api_key)
             session.commit()
             session.refresh(api_key)

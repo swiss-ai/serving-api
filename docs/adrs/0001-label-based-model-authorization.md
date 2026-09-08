@@ -46,6 +46,16 @@ Deny-all on conflict is deliberate. OpenTela load-balances a model name across e
 - `/v1/models` and `/v1/models_detailed` take an **optional** bearer: absent → public entries only; valid API key → public + entries listing the caller; present-but-unknown key → 401 (fail loud, not a silently narrower list).
 - Passthrough providers (CSCS L1, RCP) are always public — they are upstream-hosted and carry no labels.
 
+### The listing names people; it never publishes their addresses
+
+Both listing endpoints are anonymously readable — the public model list has to render for a logged-out visitor — and every peer now carries its launcher's address (`launched_by_email`) and, on a restricted model, its collaborators'. Echoing the labels straight out therefore turned the catalogue into a mailing list that a scraper collects with one unauthenticated GET, and the model card's "extra labels" block printed the same values onto a public web page.
+
+So the gateway translates before it answers: entries carry `launched_by_name` (from `apikey.owner_name`, recorded from the IdP's `name` claim on profile load, else derived from the address' local part) and an `authorization` rendered as those display names, `launched_by_email` and the raw label are removed from the entry *and* from its `labels` dict, and `can_manage_access` reports the owner-or-admin check the frontend used to make for itself out of two addresses. A derived name is a guess at a name but never a routable address, because the domain is dropped unconditionally.
+
+Translating in the frontend was the obvious cheaper option and is not a fix at all: rendering a name from a payload that still contains the address leaves it in the network tab, in `curl`, and in every crawler — for the same reason filtering the listing client-side was rejected below. Raw addresses remain on the endpoints that need them and already gate on identity: `/v1/model-access/<model>` (owner or admin, for the list they are editing) and `/v1/profile` (your own).
+
+Since the listing has to name the *effective* policy to be honest about a model restricted after launch, it reports the override where there is one — which incidentally fixes a "Restricted" badge that used to follow the stale launch label until the access panel was opened.
+
 ### Failure policy: availability over strictness
 
 The authorization map is cached in **Redis**, alongside the token-validity and identity caches, under two keys with deliberately different lifetimes: a `~10s` freshness sentinel recording that a refresh was *attempted*, and the fetched map itself, servable as stale data for up to an hour. The sentinel is what bounds cost — one fetch retry per interval across all replicas, so a down DNT cannot add its fetch timeout to every request — while the long data TTL is what bounds risk: enforcing a stale map is strictly safer than the fail-open below, so it should outlive the sentinel by a wide margin.
@@ -61,7 +71,8 @@ Shared rather than per-process for the same reason identity resolution is (see C
 - A conflicted name recovers by attrition: peers expire with their SLURM jobs, and the moment the surviving entries agree the model routes again — no gateway state to reset.
 - ~~A permission change requires a relaunch (labels are set at peer start). Acceptable for SLURM-scheduled models whose lifetime is hours.~~ **Amended by [ADR-0002](0002-post-launch-access-overrides.md):** the label is now only the *initial* policy; an owner can change a running model's audience through a launch-scoped override table, and reset it back to the label.
 - Identity is the API key's `owner_email`. Identity resolution (`get_email_for_token`) is cached ~5 min in **Redis**, alongside the existing token-validity cache, and key rotation evicts the rotated key so `/v1/whoami` and `/v1/models` stop honoring it immediately — on every replica, not just the one that served the rotation. A per-process cache was the first cut and was wrong for prod, which runs several serving-api replicas: the two that did not handle a rotation would keep resolving the old key to its owner for the rest of the TTL, and those two endpoints authenticate on identity alone (no `require_auth`), so the stale entry was the whole check. Redis is already consulted on every authed request by `verify_token`, so this adds no dependency or extra hop; when it is unreachable the client falls back to a per-process dict, which is the old behaviour rather than an outage.
-- The label — including the collaborator email list — is visible to whoever can see the model, which is exactly the set of people on the list (or everyone, for public models).
+- The *policy* — who may use a model — is visible to whoever can see the model, which is exactly the set of people on the list (or everyone, for public models). Their **addresses** are not: the listing renders the policy as display names (see above), so what a public model discloses is that a person launched it, not how to mail them.
+- Display names are only as good as the IdP claim behind them. A user who has never loaded the web UI has no `owner_name` row, and their launches read as a name derived from the local part ("john.doe2@ethz.ch" → "John Doe", "s1234567@student.ethz.ch" → "S1234567"). Two people whose names collide also make the frontend's *cosmetic* conflict badge unreliable — the gateway's own conflict check compares real policies and is unaffected.
 - An explicit email list does **not** auto-include the launcher. Spec-literal: `--authorization a@x.ch` means exactly that user, so a launcher can hand a model to someone else — or lock themselves out. SML could auto-append the launcher later without a gateway change.
 - 403 (not 404) for unauthorized access deliberately trades a small information leak — the model id exists — for a debuggable error. Restricted ids contain a random launch salt, so the leak is minimal.
 
@@ -75,7 +86,9 @@ Shared rather than per-process for the same reason identity resolution is (see C
 
 4. **Filter `/v1/models` client-side in the frontend.** Rejected: hiding is not access control, and anonymous visitors would receive restricted entries in the payload. The backend filters; the frontend only chooses which credential to send.
 
-5. **Union / intersection / first-launch-wins on a name collision.** All rejected in favor of deny-all — see "Multi-entry semantics" above. Union widens access under attacker control; intersection and priority rules still route prompts to replicas the caller never trusted, because routing (OpenTela's) and policy (the gateway's) are decided in different places.
+5. **Publish the addresses and let the frontend show names.** Rejected: the disclosure happens in the payload, not in the DOM. Same reasoning as (4) — see "The listing names people" above. A variant that publishes addresses only to the caller who already knows them (the owner, an admin) was also dropped: it keeps a second, conditional shape of the response for no gain, since the owner's own address is on `/v1/profile` and the list they may edit is on `/v1/model-access`.
+
+6. **Union / intersection / first-launch-wins on a name collision.** All rejected in favor of deny-all — see "Multi-entry semantics" above. Union widens access under attacker control; intersection and priority rules still route prompts to replicas the caller never trusted, because routing (OpenTela's) and policy (the gateway's) are decided in different places.
 
 ## Related
 
