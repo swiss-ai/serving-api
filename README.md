@@ -133,6 +133,10 @@ instead carries:
   names.
 - `can_manage_access` — whether **this** caller may change the model's access,
   so the UI needs no identity to compare against a launcher's.
+- `authorization_conflict` — the gateway is refusing to route this model for
+  everyone (see below). Computed over every launch serving the name, before
+  the listing filters run, so it is still reported when the colliding launch
+  is one this caller cannot see.
 
 `launched_by_email` and the raw `authorization` label are stripped from the
 entry and from its `labels` dict. Raw addresses stay on the endpoints that
@@ -147,7 +151,10 @@ load-balances a model name across every peer advertising it, the gateway
 cannot keep a request off the colliding launch's replica — so on a real
 policy conflict it refuses to route the model for **everyone** (403 naming
 the conflict) until one side is relaunched under a unique name or with a
-matching label. See ADR-0001 for the reasoning.
+matching label. Such a model is listed with `authorization_conflict: true`,
+and the web UI marks its card **Out of service** — red status dot, disabled
+Chat button, and a line saying why — rather than advertising a model whose
+every request fails. See ADR-0001 for the reasoning.
 
 ### Changing access after launch
 

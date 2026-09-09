@@ -306,6 +306,87 @@ def test_models_say_whether_the_viewer_may_manage_access(client, monkeypatch):
     assert _entry(anonymous, "alice/org/public-model")["can_manage_access"] is False
 
 
+# ── a name two launches disagree about is out of service ────────────────────
+
+
+def _list_entries(client, monkeypatch, entries, headers=None, path="/v1/models"):
+    """GET the listing against an explicit set of peer entries."""
+    from backend.routers import models as models_router
+
+    monkeypatch.setattr(
+        models_router, "get_all_models", lambda endpoint, with_details=False: entries
+    )
+    return client.get(path, headers=headers or {})
+
+
+CONTESTED = "alice/org/contested-model"
+
+
+def test_models_flag_a_name_whose_launches_disagree(client, monkeypatch):
+    """OpenTela balances the name across both launches, so the gateway
+    refuses it for everyone (ADR-0001). The listing has to say so, or the
+    card advertises a model whose every request 403s."""
+    entries = [
+        _peer_entry(CONTESTED, "public"),
+        _peer_entry(CONTESTED, CAROL, owner=CAROL),
+    ]
+    response = _list_entries(client, monkeypatch, entries)
+    assert response.status_code == 200
+    assert all(e["authorization_conflict"] for e in response.json()["data"])
+
+
+def test_agreeing_launches_are_not_a_conflict(client, monkeypatch):
+    """Two launches of one name are normal — replicas, or a relaunch that
+    reordered its list. Only a disagreement about the POLICY is a conflict,
+    which is why it is compared normalized."""
+    entries = [
+        _peer_entry(CONTESTED, f"{ALICE},{BOB}"),
+        _peer_entry(CONTESTED, f"Bob@ETHZ.ch, {ALICE}"),
+        _peer_entry("alice/org/public-model", "public"),
+        _peer_entry("alice/org/legacy-model", None),
+    ]
+    response = _list_entries(client, monkeypatch, entries, headers=_bearer(ALICE_KEY))
+    assert response.status_code == 200
+    assert not any(e["authorization_conflict"] for e in response.json()["data"])
+
+
+def test_conflict_is_flagged_even_when_the_other_launch_is_hidden(client, monkeypatch):
+    """The disagreeing launch is usually the restricted one, so the caller
+    who most needs to know the model is down is exactly the one whose payload
+    does not contain the evidence. Computing this in the frontend could
+    therefore never be right."""
+    entries = [
+        _peer_entry(CONTESTED, "public"),
+        _peer_entry(CONTESTED, CAROL, owner=CAROL),
+    ]
+    response = _list_entries(client, monkeypatch, entries)
+    listed = response.json()["data"]
+
+    # Anonymous sees one of the two entries...
+    assert len(listed) == 1
+    # ...and is still told the model is out of service.
+    assert listed[0]["authorization_conflict"] is True
+
+
+def test_conflict_counts_launches_the_listing_excludes(client, monkeypatch):
+    """platform_namespaced hides entries for advertising reasons (an old
+    OpenTela here) that have nothing to do with routing: the hidden launch
+    still serves the name, so it still collides."""
+    stale = _peer_entry(CONTESTED, CAROL, owner=CAROL)
+    stale["otela_version"] = "sai-v0.0.5"
+    entries = [_peer_entry(CONTESTED, "public"), stale]
+
+    response = _list_entries(client, monkeypatch, entries)
+    listed = response.json()["data"]
+    assert [e["id"] for e in listed] == [CONTESTED]
+    assert listed[0]["authorization_conflict"] is True
+
+
+def test_an_uncontested_model_is_not_flagged(client, monkeypatch):
+    response = _list_models(client, monkeypatch, headers=_bearer(ALICE_KEY))
+    assert not any(e["authorization_conflict"] for e in response.json()["data"])
+
+
 # ── enforcement end to end ──────────────────────────────────────────────────
 
 

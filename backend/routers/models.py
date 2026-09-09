@@ -90,6 +90,41 @@ def _visible_to(models: list[dict], email: str | None, overrides: dict) -> list[
     ]
 
 
+def _conflicted_ids(models: list[dict], overrides: dict) -> set[str]:
+    """Model ids the gateway currently refuses to route for ANYONE.
+
+    OpenTela load-balances a served name across every peer advertising it,
+    so when independent launches under one name disagree about who may use
+    it, the gateway cannot keep a request off the wrong replica and denies
+    the name outright (ADR-0001). A model in that state is out of service,
+    and the listing has to say so — a card that looks healthy while every
+    request 403s is the worst of both.
+
+    Computed over the RAW entries, before the listing filters touch them,
+    because both filters hide entries that are still routable:
+
+    - ``platform_namespaced`` drops entries for advertising reasons (an old
+      OpenTela, a below-minimum SML) that have nothing to do with routing,
+      and the launch it hides is exactly the kind that collides;
+    - per-caller filtering hides the *other* launch's entry from anyone its
+      policy excludes — which is most people, since a policy disagreement
+      usually means one side is restricted.
+
+    Mirroring ``ensure_model_access``: peers of one launch share their
+    head's labels, so they agree by construction, and two policies under one
+    name mean two launches.
+    """
+    policies: dict[str, set[frozenset[str] | None]] = {}
+    for entry in models:
+        model_id = entry.get("id")
+        if not model_id:
+            continue
+        policies.setdefault(model_id, set()).add(
+            normalize_policy(effective_authorization(entry.get("labels"), overrides))
+        )
+    return {model_id for model_id, seen in policies.items() if len(seen) > 1}
+
+
 # Labels that name a person by email address. The DNT is echoed to
 # /v1/models* almost verbatim (``labels`` is a passthrough dict, and the
 # frontend prints the unrecognised ones), so these have to be taken out of
@@ -98,7 +133,11 @@ _IDENTIFYING_LABELS = ("launched_by_email", "authorization")
 
 
 def _presented(
-    models: list[dict], caller: _Caller, overrides: dict, engine
+    models: list[dict],
+    caller: _Caller,
+    overrides: dict,
+    engine,
+    conflicted: set[str],
 ) -> list[dict]:
     """Rewrite the entries the caller may see into what we are willing to
     publish: people named by ``launched_by_name`` rather than by address.
@@ -120,6 +159,10 @@ def _presented(
     Raw addresses remain available where they are needed and already
     access-controlled: /v1/model-access/<model> gives a launch's owner (or
     an admin) the real allowlist to edit, /v1/profile gives you your own.
+
+    ``authorization_conflict`` marks the entries of a model the gateway is
+    refusing to route (see :func:`_conflicted_ids`), so the card can show it
+    as out of service instead of advertising a model that 403s.
     """
     effective = [
         (entry, effective_authorization(entry.get("labels"), overrides))
@@ -164,6 +207,7 @@ def _presented(
                 # address AND the viewer's happens here instead. Presentation
                 # only: /v1/model-access re-checks on every read and write.
                 "can_manage_access": may_edit(caller.email, owner_email, caller.admin),
+                "authorization_conflict": entry.get("id") in conflicted,
             }
         )
     return presented
@@ -179,10 +223,14 @@ async def list_models_detailed(
     caller = _caller(request, credentials)
     engine = request.app.state.engine
     overrides = load_overrides(engine)
-    models = platform_namespaced(get_all_models(_dnt_endpoint(), with_details=True))
-    models = await _with_passthrough(models, with_details=True)
+    served = get_all_models(_dnt_endpoint(), with_details=True)
+    conflicted = _conflicted_ids(served, overrides)
+    models = await _with_passthrough(platform_namespaced(served), with_details=True)
     visible = _visible_to(models, caller.email, overrides)
-    return dict(object="list", data=_presented(visible, caller, overrides, engine))
+    return dict(
+        object="list",
+        data=_presented(visible, caller, overrides, engine, conflicted),
+    )
 
 
 @router.get("/v1/models")
@@ -195,7 +243,11 @@ async def list_models(
     caller = _caller(request, credentials)
     engine = request.app.state.engine
     overrides = load_overrides(engine)
-    models = platform_namespaced(get_all_models(_dnt_endpoint(), with_details=False))
-    models = await _with_passthrough(models, with_details=False)
+    served = get_all_models(_dnt_endpoint(), with_details=False)
+    conflicted = _conflicted_ids(served, overrides)
+    models = await _with_passthrough(platform_namespaced(served), with_details=False)
     visible = _visible_to(models, caller.email, overrides)
-    return dict(object="list", data=_presented(visible, caller, overrides, engine))
+    return dict(
+        object="list",
+        data=_presented(visible, caller, overrides, engine, conflicted),
+    )

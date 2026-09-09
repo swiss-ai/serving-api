@@ -19,6 +19,9 @@
     // Whether THIS viewer may change the model's access (owner or admin),
     // decided by the backend so the card needs neither address to compare.
     can_manage_access?: boolean;
+    // The gateway is refusing to route this model for everyone: launches
+    // under one name disagree about who may use it.
+    authorization_conflict?: boolean;
     slurm_job_id?: string;
     started_at?: string;
     expires_at?: string;
@@ -221,41 +224,31 @@
     }
   }
 
-  // Same canonical form the backend's conflict check uses: "" / "public"
-  // (any case) → "public"; otherwise the list sorted, lowercased. The
-  // listing's lists are display names rather than addresses, which is fine
-  // for spotting that two launches DISAGREE — and `accessState.conflict`,
-  // computed from the real policies, overrules this the moment the panel is
-  // open.
-  function normalizedPolicy(auth: string | undefined): string {
-    const value = (auth || "").trim();
-    if (!value || value.toLowerCase() === "public") return "public";
-    // Dedupe like the backend's frozenset does, so a duplicated entry in
-    // one label can't show a conflict badge the backend doesn't act on.
-    const emails = value.split(",").map(p => p.trim().toLowerCase()).filter(Boolean);
-    return Array.from(new Set(emails)).sort().join(",");
-  }
-
-  // Peers of one launch always share one label, so disagreement means
-  // independent launches are squatting the same served name — the backend
-  // refuses to route those (403) until the collision is resolved. Badge
-  // it so the card explains why requests are failing.
+  // Independent launches squatting one served name with different policies:
+  // OpenTela load-balances the name across all of them, so the gateway
+  // refuses to route it for EVERYONE (403) until the collision is resolved.
+  // The model is effectively down, and the card says so below.
+  //
+  // Taken from the backend rather than compared here: it decides this over
+  // every launch serving the name, including the ones this listing does not
+  // contain — the colliding launch is usually restricted, so its entry is
+  // filtered out of the very payload a client-side comparison would read.
   $: hasAuthConflict =
-    accessState?.conflict ??
-    new Set(
-      entry.data.replicas
-        .flatMap(r => [r.head, ...(r.followers ?? [])])
-        .filter(Boolean)
-        .map(p => normalizedPolicy(p.authorization))
-    ).size > 1;
+    accessState?.conflict ?? firstHead.authorization_conflict === true;
 
   // Aggregated status across all replicas:
+  //   "blocked" — the gateway refuses to route the model (auth conflict)
   //   "ready"   — every replica's head is ready
   //   "pending" — at least one replica is still booting
   //   "unknown" — no status info at all (legacy binary)
   // Used by both the traffic-light dot and the greyed-tile styling so
   // we can compare which signal reads better at a glance.
+  //
+  // "blocked" outranks the replica states on purpose: healthy replicas are
+  // exactly what makes this case dangerous to report as ready, since every
+  // request to them is refused before it gets that far.
   $: aggregateStatus = (() => {
+    if (hasAuthConflict) return "blocked";
     const statuses = entry.data.replicas.map(r => r.head?.status).filter(Boolean);
     if (statuses.length === 0) return "unknown";
     if (statuses.some(s => s === "pending")) return "pending";
@@ -339,6 +332,7 @@
   on:click={toggleExpand}
   on:keydown={onKeyDown}
   class:tile-pending={isPending}
+  class:tile-blocked={hasAuthConflict}
   class="relative group flex flex-col py-3 px-4 rounded-lg border border-black/15 dark:border-white/20 hover:bg-black/5 dark:hover:bg-white/5 hover:text-black dark:hover:text-white transition-colors duration-300 ease-in-out cursor-pointer"
 >
   <div class="flex items-center gap-3 min-w-0">
@@ -349,7 +343,8 @@
              Visible whether the tile is expanded or not. -->
         <span
           class="status-dot status-dot-{aggregateStatus}"
-          title={aggregateStatus === "ready" ? "All replicas ready"
+          title={aggregateStatus === "blocked" ? "Out of service: the gateway refuses every request for this model"
+               : aggregateStatus === "ready" ? "All replicas ready"
                : aggregateStatus === "pending" ? "At least one replica is still starting up"
                : "Status unknown"}
           aria-label="status: {aggregateStatus}"
@@ -386,7 +381,7 @@
           <span class="slurm-badge" title="Model-launch Slurm job">Slurm</span>
         {/if}
         {#if hasAuthConflict}
-          <span class="auth-conflict-badge" title="Independent launches are serving this model name with different authorization labels. The API refuses to route requests for it until the conflict is resolved (relaunch under a unique name or with matching authorization).">Auth conflict</span>
+          <span class="auth-conflict-badge" title="Independent launches are serving this model name with different authorization settings. The API refuses to route requests for it until the conflict is resolved (relaunch under a unique name or with matching authorization).">Out of service</span>
         {:else if isRestricted}
           <span class="restricted-badge" title="Restricted model: only users on its authorization list can see and use it">Restricted</span>
         {/if}
@@ -397,6 +392,17 @@
         {/if}
       </div>
       <div class="text-sm">on {topologySummary(entry.data.replicas)}</div>
+      <!-- Stated in the collapsed header, not behind the chevron: the model
+           looks alive (its replicas are up and its tier badge is normal) and
+           every request to it fails, so "why" has to be on the tile. -->
+      {#if hasAuthConflict}
+        <div class="text-sm out-of-service-note">
+          Unavailable — this name is served by separate launches that disagree
+          about who may use it, so the API refuses every request for it until
+          one of them is relaunched under a different name or with matching
+          access.
+        </div>
+      {/if}
     </div>
 
     <!-- Chevron indicating expand state -->
@@ -418,8 +424,25 @@
       on:keydown|stopPropagation
       role="region"
     >
-      <!-- Action buttons: Chat (primary) + Metrics, left-aligned. -->
+      <!-- Action buttons: Chat (primary) + Metrics, left-aligned.
+           Chat is inert while the model is refused: following it would open
+           the chat app on a model whose every completion 403s. Metrics and
+           Manage access stay live — the first still has data, and the second
+           is how the owner FIXES this. -->
       <div class="flex flex-wrap gap-2">
+        {#if hasAuthConflict}
+          <span
+            class="inline-flex items-center gap-2 px-4 py-2 rounded-md bg-neutral-400 dark:bg-neutral-600 text-white text-sm font-medium cursor-not-allowed"
+            title="This model is out of service: the API refuses every request for it while its launches disagree about who may use it."
+            aria-disabled="true"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line>
+            </svg>
+            Chat unavailable
+          </span>
+        {:else}
         <a
           href={chatUrl}
           target="_blank"
@@ -433,6 +456,7 @@
           </svg>
           Chat
         </a>
+        {/if}
         {#if metricsUrl}
           <a
             href={metricsUrl}
@@ -647,6 +671,12 @@
   .status-dot-unknown {
     background-color: #9ca3af; /* gray-400 */
   }
+  /* Red rather than amber, and pulsing like pending does: this is not a
+     model that is coming up, it is one nobody can call. */
+  .status-dot-blocked {
+    background-color: #dc2626; /* red-600 */
+    animation: status-pulse 1.5s ease-in-out infinite;
+  }
   @keyframes status-pulse {
     0%, 100% { opacity: 1; }
     50% { opacity: 0.35; }
@@ -669,9 +699,48 @@
   .tile-pending .uptime-badge,
   .tile-pending .slurm-badge,
   .tile-pending .restricted-badge,
-  .tile-pending .auth-conflict-badge,
   .tile-pending .instance-count {
     filter: grayscale(1);
+  }
+
+  /* Out-of-service treatment: the same muting as a pending tile — the model
+     is not usable, so it should not read as one of the live ones — over a
+     red ground and edge stripe, because unlike pending this does not resolve
+     on its own. The conflict badge and status dot keep their colour in both
+     states (they are the signal), and the logo is greyed here too so the
+     tile cannot be mistaken for a healthy card at a glance.
+
+     The stripe is an inset shadow rather than a border colour: the tile's
+     border comes from a Tailwind utility on the same element, and which of
+     the two wins would depend on stylesheet order. */
+  .tile-blocked {
+    background-color: rgba(220, 38, 38, 0.06);
+    box-shadow: inset 3px 0 0 #dc2626; /* red-600 */
+    color: #6b7280; /* gray-500 */
+  }
+  :global(.dark) .tile-blocked {
+    background-color: rgba(220, 38, 38, 0.12);
+    box-shadow: inset 3px 0 0 #f87171; /* red-400 */
+    color: #9ca3af; /* gray-400 */
+  }
+  .tile-blocked img,
+  .tile-blocked .uptime-badge,
+  .tile-blocked .slurm-badge,
+  .tile-blocked .restricted-badge,
+  .tile-blocked .instance-count {
+    filter: grayscale(1);
+  }
+
+  /* The one line on the collapsed tile that says what is wrong. Kept at
+     text weight rather than a full alert box: it sits inside a list of
+     cards, and a banner per card would shout down the list itself. */
+  .out-of-service-note {
+    color: #b91c1c; /* red-700 */
+    font-weight: 500;
+    margin-top: 0.125rem;
+  }
+  :global(.dark) .out-of-service-note {
+    color: #fca5a5; /* red-300 */
   }
 
   .uptime-badge {
