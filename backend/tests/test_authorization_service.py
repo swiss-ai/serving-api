@@ -459,6 +459,59 @@ def test_expired_stale_map_falls_back_to_fail_open(caplog):
     assert any("fail open" in r.message for r in caplog.records)
 
 
+class _BrokenRedis:
+    """A Redis client that connected at startup and is failing now — the
+    normal way Redis breaks, and the case RedisTokenCache's in-memory
+    fallback does NOT cover (that one only triggers when the connection was
+    never established)."""
+
+    def __getattr__(self, name):
+        def _raise(*args, **kwargs):
+            raise ConnectionError("redis is down")
+
+        return _raise
+
+
+def _with_broken_redis():
+    cache = get_token_cache()
+    return patch.object(cache, "redis_client", _BrokenRedis())
+
+
+def test_redis_failing_after_connect_still_enforces():
+    """Redis breaking must not open restricted models up.
+
+    Every cache method swallows its error and reports "nothing cached", so
+    a read-back of the map we just wrote would look like a cold start and
+    fail open — while the DNT was reachable and had just told us the policy.
+    """
+    with (
+        _with_broken_redis(),
+        _patch_no_passthrough(),
+        _patch_fetch_dnt({"/p": _dnt_peer("m", "a@epfl.ch")}),
+        _patch_email("intruder@ethz.ch"),
+    ):
+        with pytest.raises(HTTPException) as exc_info:
+            _run(ensure_model_access(None, "sk-rc-x", "m"))
+    assert exc_info.value.status_code == 403
+
+
+def test_redis_failing_after_connect_still_backs_off():
+    """...and degrades to per-process caching rather than re-fetching the
+    DNT on every request. With the shared sentinel unreadable there is
+    nothing else to rate-limit the refresh, and _cache_lock would serialize
+    every inference request behind a fetch timeout."""
+    fake = AsyncMock(return_value={"/p": _dnt_peer("m", "a@epfl.ch")})
+    with (
+        _with_broken_redis(),
+        _patch_no_passthrough(),
+        patch.object(authorization_service, "_fetch_dnt", new=fake),
+        _patch_email("a@epfl.ch"),
+    ):
+        _run(ensure_model_access(None, "sk-rc-x", "m"))
+        _run(ensure_model_access(None, "sk-rc-x", "m"))
+    assert fake.await_count == 1
+
+
 # ── overrides layered over the labels ───────────────────────────────────────
 
 

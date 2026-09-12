@@ -30,16 +30,24 @@ request path (verify_token), so this adds no new dependency, and when it
 is unreachable the client falls back to a per-process dict, which is the
 old behaviour rather than an outage.
 
+That fallback only covers a Redis that was never reachable, though: one
+that breaks *after* connecting reports every read as "nothing cached",
+which up here is indistinguishable from a cold start. So this module
+keeps its own copy of the last view it built (_local_view) as a floor
+under the shared one.
+
 Failure policy: serve the stale cache when the DNT is briefly
-unreachable; only at true cold start (no cache at all) do we fail OPEN
-with a logged warning — an unreachable DNT must never 500 (or wrongly
-403) inference traffic.
+unreachable; only at true cold start — no shared map, no local one, and
+a fetch that failed — do we fail OPEN with a logged warning. An
+unreachable DNT must never 500 (or wrongly 403) inference traffic, and
+an unreachable *Redis* must never stop it being enforced.
 """
 
 import asyncio
 import json
 import logging
 import pathlib
+import time
 
 import aiohttp
 from fastapi import HTTPException
@@ -71,10 +79,40 @@ _FETCH_TIMEOUT_SECONDS = 5.0
 # refresh instead of a stampede of identical DNT fetches.
 _cache_lock = asyncio.Lock()
 
+# Process-local mirror of the shared view, as a floor under it.
+#
+# Every RedisTokenCache method swallows its own errors and reports "nothing
+# cached", so a Redis that breaks AFTER connecting is indistinguishable up
+# here from a cold start — and a cold start fails OPEN. Without this, losing
+# Redis mid-flight would drop enforcement for every restricted model while
+# the DNT itself was perfectly reachable, which is the one failure this
+# module must not have. Keeping the last view we built ourselves means that
+# outage degrades to per-process caching — what this did before the view
+# moved into Redis — rather than to no enforcement at all.
+#
+# _local_fetch_until is the backoff half of the same problem: the freshness
+# sentinel lives in Redis too, so with Redis down there would be nothing to
+# stop every request re-fetching the DNT, serialized behind _cache_lock.
+_local_view: dict | None = None
+_local_view_until = 0.0
+_local_fetch_until = 0.0
+
+
+def _local_cached() -> dict | None:
+    """This process's own copy of the view, while it is still servable —
+    bounded by the same stale horizon as the shared copy."""
+    if _local_view is not None and time.monotonic() < _local_view_until:
+        return _local_view
+    return None
+
 
 def _reset_cache_for_tests() -> None:
     """Test helper — clears the cache so tests can simulate cold start
     without leaking state across cases."""
+    global _local_view, _local_view_until, _local_fetch_until
+    _local_view = None
+    _local_view_until = 0.0
+    _local_fetch_until = 0.0
     get_token_cache().clear_auth_map()
 
 
@@ -211,24 +249,53 @@ async def _get_dnt_view() -> dict | None:
     The sentinel records the last *attempt*, successful or not: retrying on
     every request while the DNT is down would make each inference call pay
     the fetch timeout. One retry per interval, across all replicas, is
-    enough."""
+    enough.
+
+    Never re-reads the map it just wrote. The cache reports a failed write
+    as "nothing cached", so reading back would turn a Redis outage into a
+    fail-open for a policy we are holding in hand — see _local_view."""
+    global _local_view, _local_view_until, _local_fetch_until
+
     cache = get_token_cache()
     if cache.auth_map_is_fresh():
-        return cache.get_auth_map()
+        shared = cache.get_auth_map()
+        if shared is not None:
+            return shared
 
     async with _cache_lock:
         # Another coroutine may have refreshed while we waited on the lock.
         if cache.auth_map_is_fresh():
-            return cache.get_auth_map()
+            # A refresh was attempted recently enough by someone, so serve
+            # whatever there is to serve — including nothing, which is the
+            # cold-start fail-open.
+            shared = cache.get_auth_map()
+            return shared if shared is not None else _local_cached()
+
+        if cache.get_auth_map() is None and time.monotonic() < _local_fetch_until:
+            # Neither the sentinel nor the map came back, yet we attempted a
+            # refresh moments ago: that is Redis not answering, not a cold
+            # start. Back off on our own clock and enforce from our own copy,
+            # rather than re-fetching the DNT on every single request.
+            return _local_cached()
 
         data = await _fetch_dnt()
-        if data is not None:
-            cache.set_auth_map(_build_dnt_view(data), ttl=_STALE_TTL_SECONDS)
+        view = _build_dnt_view(data) if data is not None else None
+        if view is not None:
+            cache.set_auth_map(view, ttl=_STALE_TTL_SECONDS)
+            _local_view = view
+            _local_view_until = time.monotonic() + _STALE_TTL_SECONDS
         # Set after the write, so a replica that reads between the two
         # still sees "not fresh" and retries rather than racing onto a
         # sentinel with no map behind it.
         cache.mark_auth_map_fetched(ttl=_CACHE_TTL_SECONDS)
-        return cache.get_auth_map()
+        _local_fetch_until = time.monotonic() + _CACHE_TTL_SECONDS
+
+        if view is not None:
+            return view
+        # The fetch failed. Prefer the shared stale map (it may be another
+        # replica's, and newer than ours); fall back to our own.
+        shared = cache.get_auth_map()
+        return shared if shared is not None else _local_cached()
 
 
 async def _dnt_keys_for(model_id: str) -> list[str] | None:
