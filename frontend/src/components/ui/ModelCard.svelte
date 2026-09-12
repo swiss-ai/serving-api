@@ -116,7 +116,9 @@
   // The textarea's working copy. Kept separate from accessState so an
   // in-progress edit survives a refresh of the server state.
   let accessDraft = "";
-  let accessMode: "public" | "restricted" = "public";
+  // null = nothing chosen yet, which only happens on a conflicted model
+  // (see applyState): there is no current policy to pre-select.
+  let accessMode: "public" | "restricted" | null = "public";
 
   // Every HTTPException the gateway raises is rewritten into the OpenAI
   // error envelope by main.py's exception handler, so the useful text is at
@@ -141,6 +143,18 @@
 
   function applyState(state: any) {
     accessState = state;
+    // `effective_authorization` is null EXACTLY when this name's launches
+    // disagree (model_access.py:_state) — a disagreement, not a policy. It
+    // must not be read as one: `?? "public"` would pre-select Public on a
+    // conflicted model, and since opening the panel and hitting Save is the
+    // obvious way to clear a conflict, that would publish a restricted
+    // model without the owner ever choosing to. Leave both radios unset and
+    // make them choose.
+    if (state?.conflict) {
+      accessMode = null;
+      accessDraft = "";
+      return;
+    }
     const effective = state?.effective_authorization ?? "public";
     accessMode = effective === "public" ? "public" : "restricted";
     accessDraft = effective === "public" ? "" : effective.split(",").join("\n");
@@ -180,6 +194,10 @@
   }
 
   async function saveAccess() {
+    if (!accessMode) {
+      accessError = "Choose Public or Restricted first.";
+      return;
+    }
     const policy = draftAsPolicy();
     if (accessMode === "restricted" && !policy) {
       accessError = "List at least one email, or choose Public.";
@@ -497,6 +515,14 @@
           {:else if accessLoading}
             <p class="access-note">Loading access settings…</p>
           {:else}
+            {#if accessState?.conflict}
+              <p class="access-note access-conflict-note">
+                Separate launches are serving this name with different access
+                settings, so the API refuses every request for it. There is no
+                single current setting to show — choosing one below applies it
+                to <em>all</em> of them, which also clears the conflict.
+              </p>
+            {/if}
             <div class="access-row">
               <label>
                 <input type="radio" bind:group={accessMode} value="public" />
@@ -538,7 +564,7 @@
             <div class="access-actions">
               <button
                 on:click={saveAccess}
-                disabled={accessSaving}
+                disabled={accessSaving || !accessMode}
                 class="access-save"
               >
                 {accessSaving ? "Saving…" : "Save"}
@@ -801,6 +827,16 @@
   .access-hint {
     opacity: 0.75;
     margin: 0;
+  }
+
+  /* Full opacity, unlike the other notes: this one is the reason the panel
+     looks unfamiliar, not an aside. */
+  .access-conflict-note {
+    opacity: 1;
+    color: #b91c1c; /* red-700 */
+  }
+  :global(.dark) .access-conflict-note {
+    color: #fca5a5; /* red-300 */
   }
 
   .access-error {

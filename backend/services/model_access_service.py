@@ -26,6 +26,7 @@ is no one to attribute it to.
 
 import logging
 import re
+import time
 from datetime import datetime
 
 from sqlmodel import Session, select
@@ -47,6 +48,17 @@ _EMAIL_RE = re.compile(r"^[^@\s,]+@[^@\s,]+\.[^@\s,]+$")
 # bounds the damage of an invalidation that never landed (a Redis blip
 # mid-write), not the normal propagation delay.
 _CACHE_TTL_SECONDS = 30
+
+# How long a launch must be CONTINUOUSLY absent from the mesh before its
+# override row is pruned. Generous on purpose: the only thing a short
+# window buys is reclaiming a handful of rows sooner, while the cost of
+# firing early is a model reverting to its launch-time policy. A day is far
+# longer than any gossip gap or peer restart, and SLURM jobs are hours.
+_PRUNE_GRACE_SECONDS = 24 * 60 * 60
+# The grace clock's own lifetime, which has to comfortably exceed the window
+# above — if it expired first, the clock would reset before it could ever
+# elapse and nothing would be pruned at all.
+_MISSING_TTL_SECONDS = 7 * 24 * 60 * 60
 
 
 class InvalidPolicyError(ValueError):
@@ -250,32 +262,61 @@ def clear_override(engine, launch_id: str) -> bool:
 
 
 def prune_dead_overrides(engine, live_launch_ids: set[str]) -> int:
-    """Drop override rows whose launch is no longer on the mesh, returning
-    how many went.
+    """Drop override rows whose launch has been gone from the mesh for the
+    whole grace window, returning how many went.
 
     Not required for correctness — a dead row is inert, because nothing can
     ever present its launch_id again — but the table would otherwise grow
-    one row per model whose access was ever changed, forever.
+    one row per model whose access was ever changed, forever. Because the
+    benefit is only housekeeping and the cost of a wrong delete is an
+    access policy silently reverting to its launch label, this errs heavily
+    towards keeping rows.
 
-    An EMPTY live set is treated as "we couldn't see the mesh", never as
-    "nothing is running": `get_all_models` returns [] when the DNT read
-    fails, and pruning on that would delete every override in the table
-    during an outage, silently reverting every model to its launch label.
-    The guard belongs here rather than in each caller, since getting it
-    wrong is quiet and destructive.
+    A single DNT read is not evidence that a launch is gone. An EMPTY one
+    means we couldn't see the mesh at all (`get_all_models` returns [] when
+    the read fails), and a PARTIAL one — a heartbeat gap, a mesh that has
+    not converged, peers mid-restart — omits launches that are very much
+    alive. Deleting on either would revert those models to their
+    launch-time label, which for the common "launched public, then
+    restricted it" case means a private model quietly goes public again.
+
+    So absence has to persist: a launch missing for the first time is only
+    marked, and only a launch absent continuously for _PRUNE_GRACE_SECONDS
+    is deleted. Reappearing at any point clears the mark. The clock lives
+    in the shared cache, so losing it merely restarts the window — it can
+    only ever delay a delete, never cause one.
     """
     if engine is None or not live_launch_ids:
         return 0
+
+    cache = get_token_cache()
+    first_missed = cache.get_missing_launches() or {}
+    now = time.time()
+
+    still_missing: dict[str, float] = {}
     with Session(engine) as session:
         rows = session.exec(select(ModelAccessOverride)).all()
-        dead = [row for row in rows if row.launch_id not in live_launch_ids]
+        dead = []
+        for row in rows:
+            if row.launch_id in live_launch_ids:
+                # Back on the mesh (or never left): forget any mark.
+                continue
+            since = first_missed.get(row.launch_id, now)
+            if now - since >= _PRUNE_GRACE_SECONDS:
+                dead.append(row)
+            else:
+                still_missing[row.launch_id] = since
         for row in dead:
             session.delete(row)
         if dead:
             session.commit()
 
+    # Rebuilt from the rows that are still both present and missing, so the
+    # bookkeeping cannot outgrow the table it is bookkeeping for.
+    cache.set_missing_launches(still_missing, ttl=_MISSING_TTL_SECONDS)
+
     if dead:
-        get_token_cache().clear_access_overrides()
+        cache.clear_access_overrides()
     return len(dead)
 
 

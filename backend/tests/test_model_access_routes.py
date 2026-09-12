@@ -6,6 +6,7 @@ container-free means the part of this feature that decides who may change a
 model's audience is covered even where Docker isn't available.
 """
 
+import json
 from unittest.mock import patch
 
 import pytest
@@ -495,3 +496,69 @@ def test_conflicting_labels_report_no_single_launch_label(app):
         body = _put(client, BOB).json()
     assert body["label_authorization"] is None
     assert body["is_overridden"] is True
+
+
+# ── addresses are for the people who edit the list, not everyone who can
+#    read it ──────────────────────────────────────────────────────────────
+
+
+def test_a_public_models_launcher_is_never_addressed_to_a_stranger(app):
+    """`_require_visible` admits anyone the model is visible to, which for a
+    PUBLIC model is every authenticated caller. One GET per id off
+    /v1/models would otherwise reassemble exactly the launcher-address
+    harvest that stripping the labels was added to stop."""
+    client = TestClient(app)
+    with _with_dnt([_peer(MODEL, "public", "L1", ALICE)]):
+        res = _get(client, key=BOB_KEY)
+
+    assert res.status_code == 200
+    body = res.json()
+    assert ALICE not in json.dumps(body)
+    assert "owner_email" not in body
+    assert body["owner_name"] == "Alice"
+
+
+def test_a_listed_collaborator_sees_names_not_the_allowlist(app):
+    """Being on a restricted model's allowlist is not a reason to be handed
+    everyone else's address."""
+    client = TestClient(app)
+    with _with_dnt([_peer(MODEL, f"{ALICE},{BOB}", "L1", ALICE)]):
+        res = _get(client, key=BOB_KEY)
+
+    body = res.json()
+    assert res.status_code == 200
+    assert ALICE not in json.dumps(body)
+    assert BOB not in json.dumps(body)
+    assert body["effective_authorization"] == "Alice, Bob"
+
+
+def test_the_owner_still_gets_the_real_allowlist(app):
+    """The addresses have to survive for the people who edit them — there is
+    no way to hand back a list to change without them."""
+    client = TestClient(app)
+    with _with_dnt([_peer(MODEL, f"{ALICE},{BOB}", "L1", ALICE)]):
+        res = _get(client, key=ALICE_KEY)
+
+    body = res.json()
+    assert body["owner_email"] == ALICE
+    assert body["effective_authorization"] == f"{ALICE},{BOB}"
+    assert body["launches"][0]["owner_email"] == ALICE
+
+
+def test_an_admin_gets_the_real_allowlist_too(app):
+    client = TestClient(app)
+    with _with_dnt([_peer(MODEL, f"{ALICE},{BOB}", "L1", ALICE)]):
+        body = _get(client, key=ADMIN_KEY).json()
+    assert body["effective_authorization"] == f"{ALICE},{BOB}"
+
+
+def test_a_write_still_answers_with_addresses(app):
+    """PUT/DELETE echo the new state back, and only an editor can reach
+    them — the presentation must not strip the list they just set."""
+    with (
+        TestClient(app) as client,
+        _with_dnt([_peer(MODEL, "public", "L1", ALICE)]),
+    ):
+        body = _put(client, BOB).json()
+    assert body["effective_authorization"] == BOB
+    assert body["owner_email"] == ALICE

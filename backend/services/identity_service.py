@@ -27,11 +27,14 @@ access-controlled: /v1/model-access/<model> hands a launch's owner (or an
 admin) the real allowlist to edit, and /v1/profile hands you your own.
 """
 
+import logging
 import re
 
 from sqlmodel import Session, func, select
 
 from backend.models.entities import APIKey
+
+logger = logging.getLogger("backend")
 
 # Local-part word boundaries. Hyphens are deliberately NOT here: they
 # belong inside a name ("jean-pierre"), so they are title-cased in place.
@@ -95,18 +98,37 @@ def display_names(engine, emails) -> dict[str, str]:
     Uncached on purpose — it is a single indexed-scan on a small table, and
     a user who has just corrected their name in the IdP should see it on the
     next page load rather than after a TTL.
+
+    Never raises on a database failure: this runs on the anonymous listing
+    path, so it degrades to derived names rather than taking the public
+    catalogue down with it.
     """
     wanted = {email: email.strip().lower() for email in emails if email}
     if not wanted:
         return {}
 
     recorded: dict[str, str] = {}
-    with Session(engine) as session:
-        rows = session.exec(
-            select(APIKey.owner_email, APIKey.owner_name).where(
-                func.lower(APIKey.owner_email).in_(set(wanted.values()))
-            )
-        ).all()
+    try:
+        with Session(engine) as session:
+            rows = session.exec(
+                select(APIKey.owner_email, APIKey.owner_name).where(
+                    func.lower(APIKey.owner_email).in_(set(wanted.values()))
+                )
+            ).all()
+    except Exception:
+        # Resolving names is what first put the database on the path of an
+        # ANONYMOUS request: /v1/models* rendered the public catalogue
+        # without touching it at all before this. A database blip must
+        # therefore cost the recorded names, not the page — every address
+        # still gets a derived name below, which is a worse name but never
+        # an address, so the disclosure this module exists to prevent holds
+        # either way. Also covers engine=None (no database wired at all),
+        # matching model_access_service.load_overrides.
+        logger.warning(
+            "Could not read recorded display names; deriving them from addresses",
+            exc_info=True,
+        )
+        rows = []
     for owner_email, owner_name in rows:
         if owner_name and owner_name.strip():
             recorded[(owner_email or "").strip().lower()] = owner_name.strip()

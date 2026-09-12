@@ -5,6 +5,10 @@ The overlay only earns its place if it is safe in the two ways labels are
 not: a change must reach every replica promptly, and a change must never
 outlive the job it was made for."""
 
+import time
+from types import SimpleNamespace
+from unittest.mock import patch
+
 import pytest
 from sqlmodel import SQLModel, create_engine
 
@@ -12,6 +16,7 @@ from sqlmodel import SQLModel, create_engine
 # which is what create_all below builds from.
 from backend.models.entities import ModelAccessOverride  # noqa: F401
 from backend.redis_cache import get_token_cache
+from backend.services import model_access_service
 from backend.services.model_access_service import (
     InvalidPolicyError,
     clear_override,
@@ -35,9 +40,27 @@ def engine():
 
 @pytest.fixture(autouse=True)
 def _clear_cache():
-    get_token_cache().clear_access_overrides()
+    cache = get_token_cache()
+    cache.clear_access_overrides()
+    # The pruning grace clock is cache state too: a mark left behind would
+    # let the next test delete a row on what should be its first sighting.
+    cache.clear_missing_launches()
     yield
-    get_token_cache().clear_access_overrides()
+    cache.clear_access_overrides()
+    cache.clear_missing_launches()
+
+
+def _after(seconds):
+    """Run the body as if ``seconds`` had passed, by moving the service's
+    clock rather than sleeping through a day-long grace window."""
+    return patch.object(
+        model_access_service,
+        "time",
+        SimpleNamespace(time=lambda: time.time() + seconds),
+    )
+
+
+_PAST_GRACE = model_access_service._PRUNE_GRACE_SECONDS + 1
 
 
 # ── policy grammar ──────────────────────────────────────────────────────────
@@ -118,11 +141,74 @@ def test_a_relaunch_under_the_same_name_starts_clean(engine):
     assert "fresh-launch" not in overrides
 
 
-def test_prune_drops_only_dead_launches(engine):
+def _two_overrides(engine):
     set_override(engine, "live", "swiss-ai/M", "a@epfl.ch", "public", "a@epfl.ch")
-    set_override(engine, "dead", "swiss-ai/N", "a@epfl.ch", "public", "a@epfl.ch")
-    assert prune_dead_overrides(engine, {"live"}) == 1
+    set_override(engine, "gone", "swiss-ai/N", "a@epfl.ch", "a@epfl.ch", "a@epfl.ch")
+
+
+def test_one_absence_only_marks_it(engine):
+    """A single DNT read is never enough. It may be partial — a heartbeat
+    gap, a peer mid-restart — and deleting on it would revert a restricted
+    model to its launch label, i.e. quietly republish it."""
+    _two_overrides(engine)
+    assert prune_dead_overrides(engine, {"live"}) == 0
+    assert load_overrides(engine) == {"live": "public", "gone": "a@epfl.ch"}
+
+
+def test_prune_drops_a_launch_absent_for_the_whole_window(engine):
+    """Still housekeeping, just patient: once the launch has been gone for
+    the whole grace window the row is reclaimed."""
+    _two_overrides(engine)
+    assert prune_dead_overrides(engine, {"live"}) == 0
+    with _after(_PAST_GRACE):
+        assert prune_dead_overrides(engine, {"live"}) == 1
     assert load_overrides(engine) == {"live": "public"}
+
+
+def test_reappearing_restarts_the_clock(engine):
+    """The case the window exists for: a launch missing from one read and
+    back on the next must survive, however long the run of reads is."""
+    _two_overrides(engine)
+    assert prune_dead_overrides(engine, {"live"}) == 0
+    assert prune_dead_overrides(engine, {"live", "gone"}) == 0
+    with _after(_PAST_GRACE):
+        assert prune_dead_overrides(engine, {"live"}) == 0
+    assert load_overrides(engine) == {"live": "public", "gone": "a@epfl.ch"}
+
+
+def test_an_unreadable_grace_clock_never_prunes(engine):
+    """Losing the clock (a flush, an expiry, a Redis blip) restarts the
+    window rather than deleting against a map we could not read — it can
+    only ever delay a delete."""
+    _two_overrides(engine)
+    assert prune_dead_overrides(engine, {"live"}) == 0
+    get_token_cache().clear_missing_launches()
+    with _after(_PAST_GRACE):
+        assert prune_dead_overrides(engine, {"live"}) == 0
+    assert "gone" in load_overrides(engine)
+
+
+def test_an_empty_mesh_read_still_prunes_nothing(engine):
+    """`get_all_models` returns [] when the DNT read fails, so an empty live
+    set means "we couldn't see the mesh", never "nothing is running"."""
+    _two_overrides(engine)
+    with _after(_PAST_GRACE):
+        assert prune_dead_overrides(engine, set()) == 0
+    assert load_overrides(engine) == {"live": "public", "gone": "a@epfl.ch"}
+
+
+def test_the_grace_clock_does_not_outgrow_the_table(engine):
+    """The mark map is rebuilt from rows that are still both present and
+    missing, so bookkeeping meant to bound table growth cannot itself grow
+    without bound."""
+    _two_overrides(engine)
+    prune_dead_overrides(engine, {"live"})
+    assert set(get_token_cache().get_missing_launches()) == {"gone"}
+
+    # Once the row is gone, so is its mark.
+    with _after(_PAST_GRACE):
+        prune_dead_overrides(engine, {"live"})
+    assert get_token_cache().get_missing_launches() == {}
 
 
 # ── cache coherence ─────────────────────────────────────────────────────────

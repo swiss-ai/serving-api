@@ -96,6 +96,11 @@
                 // The key came straight from /v1/profile, so a 401 here means
                 // it was rotated mid-flight. Retry anonymously rather than
                 // failing the page — the public models must still render.
+                //
+                // Drop it for the cards too: it is known dead, and handing it
+                // down would leave every "Manage access" click 401ing with no
+                // hint that the fix is a reload.
+                viewerApiKey = null;
                 response = await fetchModels(apiUrl, null);
             }
             const data = await response.json();

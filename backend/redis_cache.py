@@ -54,6 +54,8 @@ class RedisTokenCache:
             self._fallback_auth_map_fresh_until = 0.0
             self._fallback_overrides = None
             self._fallback_overrides_expires_at = 0.0
+            self._fallback_missing = None
+            self._fallback_missing_expires_at = 0.0
 
     def add_token(self, token: str, ttl: int = 3600) -> bool:
         """
@@ -426,6 +428,88 @@ class RedisTokenCache:
             logger.error(f"Error clearing cached access overrides: {e}")
             return False
 
+    # ── grace clock for override pruning ─────────────────────────────────
+    #
+    # launch_id → the unix time we FIRST failed to find that launch on the
+    # mesh. prune_dead_overrides deletes a row only once its launch has been
+    # missing continuously for the grace window, because a single DNT read
+    # can be partial (a heartbeat gap, a mesh that has not converged) and
+    # deleting on one is how a private model silently goes back to public.
+    #
+    # Shared so the window means the same thing on every replica, and only
+    # ever consulted from the admin housekeeping path — never from
+    # enforcement. Losing it (a flush, an expiry) restarts the clock, which
+    # can only ever DELAY a delete: the safe direction for bookkeeping whose
+    # whole job is not deleting too eagerly.
+    #
+    # Absolute unix timestamps rather than monotonic ones, since they are
+    # compared across processes and across restarts.
+
+    def set_missing_launches(self, missing: dict, ttl: int = 604800) -> bool:
+        """
+        Record launch_id → first-seen-missing time.
+
+        The TTL must comfortably exceed the grace window, or the clock would
+        reset before it could ever elapse and nothing would be pruned.
+
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            if ttl <= 0:
+                return self.clear_missing_launches()
+            if self.redis_client:
+                return bool(
+                    self.redis_client.setex("access:missing", ttl, json.dumps(missing))
+                )
+            else:
+                self._fallback_missing = missing
+                self._fallback_missing_expires_at = time.time() + ttl
+                return True
+        except Exception as e:
+            logger.error(f"Error caching missing launches: {e}")
+            return False
+
+    def get_missing_launches(self) -> dict | None:
+        """
+        Look up the launch_id → first-seen-missing map.
+
+        Returns:
+            The map, or None when nothing is cached (also on any Redis or
+            decode error, which restarts the grace clock rather than
+            pruning against a map we could not read).
+        """
+        try:
+            if self.redis_client:
+                raw = self.redis_client.get("access:missing")
+                return json.loads(raw) if raw else None
+            else:
+                if time.time() >= self._fallback_missing_expires_at:
+                    self._fallback_missing = None
+                return self._fallback_missing
+        except Exception as e:
+            logger.error(f"Error reading cached missing launches: {e}")
+            return None
+
+    def clear_missing_launches(self) -> bool:
+        """
+        Forget the grace clock, so every override starts its window afresh.
+
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            if self.redis_client:
+                self.redis_client.delete("access:missing")
+                return True
+            else:
+                self._fallback_missing = None
+                self._fallback_missing_expires_at = 0.0
+                return True
+        except Exception as e:
+            logger.error(f"Error clearing cached missing launches: {e}")
+            return False
+
     def clear_cache(self) -> bool:
         """
         Clear all cached tokens, their resolved identities, and the
@@ -451,6 +535,7 @@ class RedisTokenCache:
                 self._fallback_emails.clear()
                 self.clear_auth_map()
                 self.clear_access_overrides()
+                self.clear_missing_launches()
                 return True
         except Exception as e:
             logger.error(f"Error clearing cache: {e}")

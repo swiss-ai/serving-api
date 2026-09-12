@@ -29,6 +29,7 @@ from backend.services.model_access_service import (
     set_overrides,
 )
 from backend.services.authorization_service import grants_access, normalize_policy
+from backend.services.identity_service import display_names
 from backend.services.model_service import get_all_models
 from backend.services.monitoring_service import is_admin, resolve_owner_email
 
@@ -166,6 +167,64 @@ def _state(request: Request, model_id: str, caller: Caller) -> dict:
     }
 
 
+def _presented(state: dict, engine) -> dict:
+    """The access state as we are willing to return it to this caller.
+
+    Someone who may EDIT gets the raw addresses: they are the allowlist
+    being edited, and there is no way to hand back a list to change without
+    them.
+
+    Everyone else gets what the public catalogue gets — people named, never
+    addressed. Without this, `_require_visible` admits anyone the model is
+    visible to, which for a PUBLIC model is every authenticated caller; a
+    `GET` per id off /v1/models would then reassemble the launcher-address
+    harvest that stripping the labels was meant to stop (see
+    :mod:`backend.services.identity_service`), and on a restricted model
+    would hand a listed collaborator everyone else's address too.
+    """
+    if state["can_edit"]:
+        return state
+
+    launches = state["launches"]
+    wanted = {state["owner_email"], *(le["owner_email"] for le in launches)}
+    for policy_value in (
+        state["effective_authorization"],
+        state["label_authorization"],
+        *(le["label_authorization"] for le in launches),
+        *(le["effective_authorization"] for le in launches),
+        *(le["override_policy"] for le in launches),
+    ):
+        wanted.update(normalize_policy(policy_value or "") or ())
+    names = display_names(engine, {email for email in wanted if email})
+
+    def as_names(policy_value: str | None) -> str | None:
+        """One policy rendered as people. None stays None — it is how
+        ``_state`` reports a disagreement, not a policy."""
+        if policy_value is None:
+            return None
+        policy = normalize_policy(policy_value)
+        if policy is None:
+            return PUBLIC
+        return ", ".join(sorted(names.get(member, member) for member in policy))
+
+    return {
+        **{key: value for key, value in state.items() if key != "owner_email"},
+        "owner_name": names.get(state["owner_email"], ""),
+        "effective_authorization": as_names(state["effective_authorization"]),
+        "label_authorization": as_names(state["label_authorization"]),
+        "launches": [
+            {
+                **{k: v for k, v in le.items() if k != "owner_email"},
+                "owner_name": names.get(le["owner_email"], ""),
+                "label_authorization": as_names(le["label_authorization"]),
+                "effective_authorization": as_names(le["effective_authorization"]),
+                "override_policy": as_names(le["override_policy"]),
+            }
+            for le in launches
+        ],
+    }
+
+
 def _require_visible(state: dict, caller: Caller) -> None:
     """A model's access settings name the people who may use it, so they are
     only shown to someone already on that list (or an admin). Otherwise
@@ -226,7 +285,7 @@ async def get_model_access(
     caller may change it."""
     state = _state(request, model_id, caller)
     _require_visible(state, caller)
-    return state
+    return _presented(state, request.app.state.engine)
 
 
 @router.put("/v1/model-access/{model_id:path}")
@@ -258,7 +317,7 @@ async def set_model_access(
         policy,
         caller.email or "",
     )
-    return _state(request, model_id, caller)
+    return _presented(_state(request, model_id, caller), request.app.state.engine)
 
 
 @router.delete("/v1/model-access/{model_id:path}")
@@ -277,4 +336,4 @@ async def reset_model_access(
         request.app.state.engine,
         [launch["launch_id"] for launch in state["launches"]],
     )
-    return _state(request, model_id, caller)
+    return _presented(_state(request, model_id, caller), request.app.state.engine)
