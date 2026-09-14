@@ -1,5 +1,5 @@
 ---
-title: "Servekit: Fast LLM weights loading from Lustre datastores"
+title: "servekit: Fast LLM weights loading from Lustre datastores"
 description: "Cold starts on the SwissAI serving platform spend most of their time loading LLM weights from a Lustre datastore. We break down where the time goes, show why mmap is the culprit, and cut weight loading from ~827s to ~16s on GLM-4.7 by staging presharded weights into /dev/shm with parallel reads - packaged as servekit."
 date: "Sep 14 2026"
 authors: [{ name: "Youssef Boughizane", url: "https://youssef62.github.io/" }]
