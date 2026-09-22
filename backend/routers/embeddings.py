@@ -3,10 +3,9 @@ from backend.middleware.auth import require_auth
 from backend.middleware.body import json_body
 from backend.middleware.model_id import require_namespaced_model
 from backend.services.llm_service import llm_proxy_embeddings
-from backend.config import get_settings
+from backend.services.route_service import resolve_route
 
 router = APIRouter()
-settings = get_settings()
 
 
 @router.post("/v1/embeddings")
@@ -15,7 +14,12 @@ async def embeddings(
     token: str = Depends(require_auth),
     data: dict = Depends(json_body),
 ):
-    require_namespaced_model(data.get("model"))
+    public_model = require_namespaced_model(data.get("model"))
+    # Prefixed passthrough ids (RCP-AIaaS/..., CSCS-Inference/...) go to
+    # the provider; everything else stays on OpenTela. Only the forwarded
+    # request carries the upstream's own id.
+    route = await resolve_route(public_model, token)
+    data["model"] = route.upstream_model(public_model)
     data["user_id"] = token
 
     opt_out = request.headers.get("X-OPTOUT-TRACKING", "").lower() in (
@@ -29,8 +33,11 @@ async def embeddings(
     data["app_title"] = app_title
 
     response = await llm_proxy_embeddings(
-        endpoint=settings.otela_head_addr + "/v1/service/llm/v1/",
-        api_key=token,
+        endpoint=route.endpoint,
+        api_key=route.api_key,
+        provider_label=route.provider_label,
         **data,
     )
+    if route.resolved is not None:
+        response.model = route.resolved.public_id
     return response

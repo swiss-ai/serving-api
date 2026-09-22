@@ -42,8 +42,9 @@ class Settings(BaseSettings):
         validation_alias=AliasChoices("otela_fixture_path", "ocf_fixture_path"),
     )
     # OpenAI-compatible passthrough providers — when a provider's pair is
-    # set, chat/completion requests for model ids that provider exposes are
-    # forwarded to its endpoint instead of the OpenTela network. Lets us
+    # set, inference requests (chat, completions, responses, embeddings and
+    # the pooling family) for model ids that provider exposes are forwarded
+    # to its endpoint instead of the OpenTela network. Lets us
     # surface upstream-hosted models without launching our own k8s pods.
     # Each pair must be provided via env in k8s secrets; registration +
     # discovery live in backend/services/passthrough_service.py.

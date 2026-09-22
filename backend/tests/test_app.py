@@ -133,7 +133,7 @@ def test_classify_forwards_to_pod_root(client, monkeypatch):
 
     captured = {}
 
-    async def fake_classify(*, endpoint, api_key, payload, model):
+    async def fake_classify(*, endpoint, api_key, payload, model, provider_label):
         captured["endpoint"] = endpoint
         return types.SimpleNamespace(data={"ok": True})
 
@@ -223,7 +223,7 @@ def test_pooling_endpoints_forward_to_pod_root(
     module = importlib.import_module(module_path)
     captured = {}
 
-    async def fake_proxy(*, endpoint, api_key, payload, model):
+    async def fake_proxy(*, endpoint, api_key, payload, model, provider_label):
         captured["endpoint"] = endpoint
         return types.SimpleNamespace(data={"ok": True})
 
