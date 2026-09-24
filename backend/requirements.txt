@@ -9,7 +9,7 @@ async-lru
 backoff
 langfuse
 openai
-sqlmodel
+sqlmodel==0.0.46
 psycopg2-binary
 pyjwt[crypto]
 pydantic-settings
