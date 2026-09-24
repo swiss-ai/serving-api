@@ -145,6 +145,16 @@ def endpoint(provider: Provider) -> str:
     return provider.base_url.rstrip("/")
 
 
+def root_endpoint(provider: Provider) -> str:
+    """Server-root base URL for the provider — the OpenAI base with its
+    trailing ``/v1`` removed. vLLM serves the pooling family (/rerank,
+    /score, /classify, /tokenize, /detokenize) at the server root, not
+    under /v1, so those callers append their path here instead — the
+    same split ``backend/routers/rerank.py`` makes for OpenTela."""
+    base = endpoint(provider)
+    return base[: -len("/v1")] if base.endswith("/v1") else base
+
+
 async def _fetch_model_ids(provider: Provider) -> set[str] | None:
     """GET {base}/models from the provider. Returns None on any failure
     (network, non-200, malformed JSON) so the caller can decide whether

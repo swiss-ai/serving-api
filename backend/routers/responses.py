@@ -1,18 +1,12 @@
 from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
 from backend.middleware.auth import require_auth
-from backend.middleware.ratelimit import enforce_rate_limit
 from backend.middleware.body import json_body
 from backend.middleware.model_id import require_namespaced_model
 from backend.services.llm_service import llm_proxy_responses, response_generator_raw
-from backend.services.passthrough_service import (
-    resolve_model,
-    endpoint as passthrough_endpoint,
-)
-from backend.config import get_settings
+from backend.services.route_service import resolve_route
 
 router = APIRouter()
-settings = get_settings()
 
 
 @router.post("/v1/responses")
@@ -21,28 +15,18 @@ async def create_response(
     data: dict = Depends(json_body),
 ):
     stream = data.get("stream", False)
-    model = require_namespaced_model(data.get("model", "unknown"))
+    public_model = require_namespaced_model(data.get("model", "unknown"))
 
-    resolved = await resolve_model(model)
-    if resolved is not None:
-        # The serving side only knows the un-prefixed id.
-        model = resolved.upstream_id
-        data["model"] = resolved.upstream_id
-    if resolved is not None and resolved.provider is not None:
-        # Only passthrough (externally-hosted) traffic is rate limited —
-        # see _resolve_route in routers/completions.py.
-        enforce_rate_limit(token)
-        endpoint, api_key = (
-            passthrough_endpoint(resolved.provider),
-            resolved.provider.api_key,
-        )
-    else:
-        # Bare ids and SwissAI-Research/ (our own namespace) → OpenTela.
-        endpoint, api_key = settings.otela_head_addr + "/v1/service/llm/v1/", token
+    # Passthrough ids go to the provider (rate limited there); bare ids and
+    # SwissAI-Research/ (our own namespace) stay on OpenTela. The serving
+    # side only knows the un-prefixed id.
+    route = await resolve_route(public_model, token)
+    model = route.upstream_model(public_model)
+    data["model"] = model
 
     response = await llm_proxy_responses(
-        endpoint=endpoint,
-        api_key=api_key,
+        endpoint=route.endpoint,
+        api_key=route.api_key,
         payload=data,
         stream=stream,
         model=model,
@@ -57,7 +41,4 @@ async def create_response(
             media_type="text/event-stream",
             headers=response.headers,
         )
-    if resolved is not None and isinstance(response.data, dict):
-        if "model" in response.data:
-            response.data["model"] = resolved.public_id
-    return response.data
+    return route.restore_public_id(response.data)

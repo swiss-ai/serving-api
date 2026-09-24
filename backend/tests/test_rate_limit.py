@@ -268,7 +268,7 @@ def test_passthrough_routing_enforces_limit(fake_redis):
     budget and 429 once it's spent."""
     from fastapi import HTTPException
 
-    from backend.routers import completions
+    from backend.services import route_service
     from backend.services.passthrough_service import Provider, ResolvedModel
 
     provider = Provider(
@@ -285,36 +285,38 @@ def test_passthrough_routing_enforces_limit(fake_redis):
     )
     with (
         patch.object(
-            completions, "resolve_model", new=AsyncMock(return_value=resolved)
+            route_service, "resolve_model", new=AsyncMock(return_value=resolved)
         ),
         _settings_rpm(1),
     ):
-        endpoint, api_key, label, res = asyncio.run(
-            completions._resolve_route("CSCS-Inference/swiss-ai/x", "tok")
+        route = asyncio.run(
+            route_service.resolve_route("CSCS-Inference/swiss-ai/x", "tok")
         )
-        assert (endpoint, api_key, label) == ("https://l1/v1", "pk", "CSCS L1")
-        assert res is resolved
+        assert (route.endpoint, route.api_key, route.provider_label) == (
+            "https://l1/v1",
+            "pk",
+            "CSCS L1",
+        )
+        assert route.resolved is resolved
         with pytest.raises(HTTPException) as exc:
-            asyncio.run(completions._resolve_route("CSCS-Inference/swiss-ai/x", "tok"))
+            asyncio.run(route_service.resolve_route("CSCS-Inference/swiss-ai/x", "tok"))
     assert exc.value.status_code == 429
 
 
 def test_opentela_routing_is_never_limited(fake_redis):
     """Locally-served models run on the user's own GPU allocation: no
     budget is consumed and no 429 is possible, however many requests."""
-    from backend.routers import completions
+    from backend.services import route_service
 
     with (
-        patch.object(completions, "resolve_model", new=AsyncMock(return_value=None)),
+        patch.object(route_service, "resolve_model", new=AsyncMock(return_value=None)),
         _settings_rpm(1),
     ):
         for _ in range(5):
-            endpoint, api_key, label, res = asyncio.run(
-                completions._resolve_route("some/local-model", "tok")
-            )
-    assert label is None
-    assert res is None
-    assert api_key == "tok"
+            route = asyncio.run(route_service.resolve_route("some/local-model", "tok"))
+    assert route.provider_label is None
+    assert route.resolved is None
+    assert route.api_key == "tok"
     # No counter was ever touched for this caller.
     ident = rate_limit_service._identity("tok")
     assert not any(k.startswith(f"rl:req:{ident}") for k in fake_redis.store)
@@ -324,7 +326,7 @@ def test_platform_namespace_is_never_limited(fake_redis):
     """SwissAI-Research/... resolves to our own OpenTela network — same
     no-limit treatment as bare ids, but the resolution is returned so the
     routes still rewrite ids."""
-    from backend.routers import completions
+    from backend.services import route_service
     from backend.services.passthrough_service import ResolvedModel
 
     resolved = ResolvedModel(
@@ -334,16 +336,16 @@ def test_platform_namespace_is_never_limited(fake_redis):
     )
     with (
         patch.object(
-            completions, "resolve_model", new=AsyncMock(return_value=resolved)
+            route_service, "resolve_model", new=AsyncMock(return_value=resolved)
         ),
         _settings_rpm(1),
     ):
         for _ in range(5):
-            endpoint, api_key, label, res = asyncio.run(
-                completions._resolve_route("SwissAI-Research/some/local-model", "tok")
+            route = asyncio.run(
+                route_service.resolve_route("SwissAI-Research/some/local-model", "tok")
             )
-    assert label is None
-    assert res is resolved
-    assert api_key == "tok"
+    assert route.provider_label is None
+    assert route.resolved is resolved
+    assert route.api_key == "tok"
     ident = rate_limit_service._identity("tok")
     assert not any(k.startswith(f"rl:req:{ident}") for k in fake_redis.store)

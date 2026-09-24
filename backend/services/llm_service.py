@@ -354,7 +354,9 @@ async def llm_proxy_completions(
     )
 
 
-async def llm_proxy_embeddings(endpoint, api_key, **kwargs) -> ModelResponse:
+async def llm_proxy_embeddings(
+    endpoint, api_key, provider_label: str = None, **kwargs
+) -> ModelResponse:
     embedding_params = {
         "model": kwargs.get("model"),
         "input": kwargs.get("input", []),
@@ -373,6 +375,7 @@ async def llm_proxy_embeddings(endpoint, api_key, **kwargs) -> ModelResponse:
         stream=False,
         full_url=endpoint.rstrip("/") + "/embeddings",
         model=kwargs.get("model"),
+        provider_label=provider_label,
     )
 
 
@@ -391,7 +394,9 @@ async def llm_proxy_responses(
     )
 
 
-async def llm_proxy_rerank(endpoint, api_key, payload: dict, model: str):
+async def llm_proxy_rerank(
+    endpoint, api_key, payload: dict, model: str, provider_label: str = None
+):
     return await _shared_proxy_handler(
         endpoint=endpoint,
         api_key=api_key,
@@ -401,10 +406,13 @@ async def llm_proxy_rerank(endpoint, api_key, payload: dict, model: str):
         full_url=endpoint.rstrip("/") + "/rerank",
         model=model,
         raw_response=True,
+        provider_label=provider_label,
     )
 
 
-async def llm_proxy_score(endpoint, api_key, payload: dict, model: str):
+async def llm_proxy_score(
+    endpoint, api_key, payload: dict, model: str, provider_label: str = None
+):
     return await _shared_proxy_handler(
         endpoint=endpoint,
         api_key=api_key,
@@ -414,10 +422,13 @@ async def llm_proxy_score(endpoint, api_key, payload: dict, model: str):
         full_url=endpoint.rstrip("/") + "/score",
         model=model,
         raw_response=True,
+        provider_label=provider_label,
     )
 
 
-async def llm_proxy_classify(endpoint, api_key, payload: dict, model: str):
+async def llm_proxy_classify(
+    endpoint, api_key, payload: dict, model: str, provider_label: str = None
+):
     return await _shared_proxy_handler(
         endpoint=endpoint,
         api_key=api_key,
@@ -427,10 +438,13 @@ async def llm_proxy_classify(endpoint, api_key, payload: dict, model: str):
         full_url=endpoint.rstrip("/") + "/classify",
         model=model,
         raw_response=True,
+        provider_label=provider_label,
     )
 
 
-async def llm_proxy_tokenize(endpoint, api_key, payload: dict, model: str):
+async def llm_proxy_tokenize(
+    endpoint, api_key, payload: dict, model: str, provider_label: str = None
+):
     return await _shared_proxy_handler(
         endpoint=endpoint,
         api_key=api_key,
@@ -440,10 +454,13 @@ async def llm_proxy_tokenize(endpoint, api_key, payload: dict, model: str):
         full_url=endpoint.rstrip("/") + "/tokenize",
         model=model,
         raw_response=True,
+        provider_label=provider_label,
     )
 
 
-async def llm_proxy_detokenize(endpoint, api_key, payload: dict, model: str):
+async def llm_proxy_detokenize(
+    endpoint, api_key, payload: dict, model: str, provider_label: str = None
+):
     return await _shared_proxy_handler(
         endpoint=endpoint,
         api_key=api_key,
@@ -453,4 +470,5 @@ async def llm_proxy_detokenize(endpoint, api_key, payload: dict, model: str):
         full_url=endpoint.rstrip("/") + "/detokenize",
         model=model,
         raw_response=True,
+        provider_label=provider_label,
     )
