@@ -9,7 +9,12 @@ async-lru
 backoff
 langfuse
 openai
-sqlmodel
+# <0.0.45: from 0.0.45 sqlmodel maps `datetime` fields to a tz-aware UTC
+# column type and rejects naive parameters at insert time. Our schema and
+# services use naive local datetimes throughout (TIMESTAMP WITHOUT TIME
+# ZONE + datetime.now()), so the unpinned resolve broke every API-key
+# write. Lift the pin together with a tz-aware migration of the models.
+sqlmodel<0.0.45
 psycopg2-binary
 pyjwt[crypto]
 pydantic-settings
