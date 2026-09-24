@@ -3,7 +3,6 @@ import time
 from fastapi import APIRouter, Request, Depends
 from fastapi.responses import StreamingResponse
 from backend.middleware.auth import require_auth
-from backend.middleware.ratelimit import enforce_rate_limit
 from backend.middleware.body import json_body
 from backend.middleware.model_id import require_namespaced_model
 from backend.services.langfuse_service import (
@@ -17,45 +16,10 @@ from backend.services.llm_service import (
     llm_proxy_completions,
     response_generator,
 )
-from backend.services.passthrough_service import (
-    ResolvedModel,
-    resolve_model,
-    endpoint as passthrough_endpoint,
-)
+from backend.services.route_service import resolve_route
 from backend.models.protocols import LLMRequest, LLMCompletionsRequest
-from backend.config import get_settings
 
 router = APIRouter()
-settings = get_settings()
-
-
-async def _resolve_route(
-    model: str, user_token: str
-) -> tuple[str, str, str | None, ResolvedModel | None]:
-    """Prefixed passthrough ids (CSCS-Inference/..., RCP-AIaaS/...) go to
-    that provider's upstream endpoint with its shared key; SwissAI-Research/
-    ids (this platform's own namespace) and bare ids stay on the OpenTela
-    proxy with the user's bearer token forwarded as-is. The third element
-    is the provider's display label (None for OpenTela) — recorded as the
-    perf "served on" dimension; the fourth is the resolution itself —
-    callers forward ``resolved.upstream_id`` and surface
-    ``resolved.public_id`` in responses.
-
-    Rate limiting happens here, only on the passthrough arm: external
-    providers are a shared, platform-accountable resource (shared API
-    key, external quota), while OpenTela models (bare or under
-    SwissAI-Research/) run on the user's own GPU allocation and stay
-    unlimited."""
-    resolved = await resolve_model(model)
-    if resolved is not None and resolved.provider is not None:
-        enforce_rate_limit(user_token)
-        return (
-            passthrough_endpoint(resolved.provider),
-            resolved.provider.api_key,
-            resolved.provider.device,
-            resolved,
-        )
-    return settings.otela_head_addr + "/v1/service/llm/v1/", user_token, None, resolved
 
 
 def _record_usage(engine, token, public_model, response) -> None:
@@ -151,14 +115,14 @@ async def chat_completion(
     )
 
     require_namespaced_model(llm_request.model)
-    endpoint, api_key, provider_label, resolved = await _resolve_route(
-        llm_request.model, token
-    )
-    # Traces/monitoring keep the public (prefixed) id the client asked
-    # for; only the forwarded request carries the upstream's own id.
+    # Passthrough ids go to the provider, everything else to OpenTela —
+    # see backend/services/route_service.py. Traces/monitoring keep the
+    # public (prefixed) id the client asked for; only the forwarded
+    # request carries the upstream's own id.
+    route = await resolve_route(llm_request.model, token)
+    resolved = route.resolved
     public_model = llm_request.model
-    if resolved is not None:
-        llm_request.model = resolved.upstream_id
+    llm_request.model = route.upstream_model(public_model)
     trace_ctx = None
     if data["stream"]:
         # Streamed: the complete trace (output/usage/TTFT included) is
@@ -172,10 +136,10 @@ async def chat_completion(
         )
     proxy_started = time.monotonic()
     response = await llm_proxy(
-        endpoint=endpoint,
-        api_key=api_key,
+        endpoint=route.endpoint,
+        api_key=route.api_key,
         request=llm_request,
-        provider_label=provider_label,
+        provider_label=route.provider_label,
     )
     if not data["stream"]:
         record_if_monitored(
@@ -243,14 +207,14 @@ async def completion(
     )
 
     require_namespaced_model(llm_request.model)
-    endpoint, api_key, provider_label, resolved = await _resolve_route(
-        llm_request.model, token
-    )
-    # Traces/monitoring keep the public (prefixed) id the client asked
-    # for; only the forwarded request carries the upstream's own id.
+    # Passthrough ids go to the provider, everything else to OpenTela —
+    # see backend/services/route_service.py. Traces/monitoring keep the
+    # public (prefixed) id the client asked for; only the forwarded
+    # request carries the upstream's own id.
+    route = await resolve_route(llm_request.model, token)
+    resolved = route.resolved
     public_model = llm_request.model
-    if resolved is not None:
-        llm_request.model = resolved.upstream_id
+    llm_request.model = route.upstream_model(public_model)
     trace_ctx = None
     if data["stream"]:
         # Streamed: the complete trace (output/usage/TTFT included) is
@@ -264,10 +228,10 @@ async def completion(
         )
     proxy_started = time.monotonic()
     response = await llm_proxy_completions(
-        endpoint=endpoint,
-        api_key=api_key,
+        endpoint=route.endpoint,
+        api_key=route.api_key,
         request=llm_request,
-        provider_label=provider_label,
+        provider_label=route.provider_label,
     )
     if not data["stream"]:
         record_if_monitored(

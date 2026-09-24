@@ -9,6 +9,10 @@ async-lru
 backoff
 langfuse
 openai
+# ==0.0.46 matches prod. From 0.0.45 a plain `datetime` field is UTCDateTime
+# and rejects naive values at insert. Timestamp columns use pydantic
+# NaiveDatetime (DateTime(timezone=False)), so this pin keeps that check in
+# CI and the image. sqlmodel<0.0.45 hides the bug; do not restore it.
 sqlmodel==0.0.46
 psycopg2-binary
 pyjwt[crypto]
