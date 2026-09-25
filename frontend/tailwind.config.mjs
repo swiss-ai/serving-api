@@ -1,4 +1,29 @@
-import defaultTheme from "tailwindcss/defaultTheme";
+import colors from "tailwindcss/colors";
+
+// Semantic colours read the CSS variables in src/styles/commons.css, so
+// Tailwind utilities and the commons classes switch theme together. Opacity
+// modifiers (bg-primary/10) go through color-mix because the variables hold
+// plain hex values shared with the sibling apps.
+const token = (name) => ({ opacityValue }) =>
+  opacityValue === undefined || opacityValue === "1"
+    ? `var(${name})`
+    : `color-mix(in srgb, var(${name}) calc(${opacityValue} * 100%), transparent)`;
+
+// Primary scale of the sibling apps (--primary #1a56db is 700,
+// --primary-dark #1e429f is 800).
+const primaryScale = {
+  50: "#ebf5ff",
+  100: "#e1effe",
+  200: "#c3ddfd",
+  300: "#a4cafe",
+  400: "#76a9fa",
+  500: "#3f83f8",
+  600: "#1c64f2",
+  700: "#1a56db",
+  800: "#1e429f",
+  900: "#233876",
+  950: "#172554",
+};
 
 /** @type {import('tailwindcss').Config} */
 export default {
@@ -9,52 +34,46 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        sans: ["Inter", ...defaultTheme.fontFamily.sans],
-        serif: ["Lora", ...defaultTheme.fontFamily.serif],
+        sans: ["var(--font-sans)"],
+        mono: ["var(--font-mono)"],
       },
       colors: {
-        // Modern Zinc Palette for Neutrals
-        slate: {
-          50: '#fafafa',
-          100: '#f4f4f5',
-          200: '#e4e4e7',
-          300: '#d4d4d8',
-          400: '#a1a1aa',
-          500: '#71717a',
-          600: '#52525b',
-          700: '#3f3f46',
-          800: '#27272a',
-          900: '#18181b',
-          950: '#09090b',
+        // Legacy class names are pointed at the commons palette so existing
+        // markup follows the reskin. New code should use the semantic names.
+        slate: colors.slate,
+        gray: colors.slate,
+        indigo: primaryScale,
+        brand: primaryScale,
+
+        bg: token("--bg"),
+        card: token("--card"),
+        ink: token("--text"),
+        muted: token("--muted"),
+        line: token("--border"),
+        "line-strong": token("--border-strong"),
+        subtle: token("--subtle"),
+        primary: {
+          DEFAULT: token("--primary"),
+          dark: token("--primary-dark"),
+          ink: token("--primary-ink"),
+          soft: token("--primary-soft"),
         },
-        // Modern Indigo Palette for Primary
-        indigo: {
-          50: '#eef2ff',
-          100: '#e0e7ff',
-          200: '#c7d2fe',
-          300: '#a5b4fc',
-          400: '#818cf8',
-          500: '#6366f1',
-          600: '#4f46e5',
-          700: '#4338ca',
-          800: '#3730a3',
-          900: '#312e81',
-          950: '#1e1b4b',
+        accent: {
+          DEFAULT: token("--accent"),
+          dark: token("--accent-dark"),
         },
       },
-      animation: {
-        'fade-in': 'fadeIn 0.5s ease-out forwards',
-        'slide-up': 'slideUp 0.5s ease-out forwards',
+      borderRadius: {
+        card: "var(--radius-card)",
+        input: "var(--radius-input)",
+        btn: "var(--radius-btn)",
       },
-      keyframes: {
-        fadeIn: {
-          '0%': { opacity: '0' },
-          '100%': { opacity: '1' },
-        },
-        slideUp: {
-          '0%': { opacity: '0', transform: 'translateY(10px)' },
-          '100%': { opacity: '1', transform: 'translateY(0)' },
-        },
+      boxShadow: {
+        menu: "var(--shadow-menu)",
+      },
+      maxWidth: {
+        content: "var(--content-max)",
+        reading: "var(--reading-max)",
       },
     },
   },
