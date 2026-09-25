@@ -220,6 +220,34 @@ a.card:hover,
   color: var(--on-primary);
 }
 
+/* Header nav link: plain text, the current page in primary with an
+   underline. Mark it with .active, aria-current or aria-expanded (menus). */
+.nav-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.25rem 0;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 500;
+  text-decoration: none;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 6px;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+.nav-link:hover { color: var(--text); }
+.nav-link:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; border-radius: 2px; }
+.nav-link.active,
+.nav-link[aria-current="page"] {
+  color: var(--primary-ink);
+  text-decoration-line: underline;
+}
+
 /* Status badge. Pick a tone: .badge-pending, -running, -gating, -ok,
    -fail, -broken, -muted. Plain .badge is the neutral tone. */
 .badge {

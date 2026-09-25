@@ -21,7 +21,7 @@
   // header put Get Help between the two on desktop while the profile menu
   // keeps the rightmost slot.
   export let section = 'both';
-  // Current URL path, so the About pill lights up on Docs / Research / FAQ.
+  // Current URL path, so About is marked on Docs / Research / FAQ.
   export let currentPath = '';
 
   const ABOUT = [
@@ -115,7 +115,7 @@
     <div class="relative">
       <button
         type="button"
-        class="pill"
+        class="nav-link"
         class:active={aboutActive}
         aria-haspopup="true"
         aria-expanded={openMenu === 'about'}

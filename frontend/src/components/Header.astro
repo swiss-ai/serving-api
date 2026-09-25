@@ -37,7 +37,7 @@ const signedIn = !!session;
 const userEmail = session?.user?.email || '';
 const endSession = await endSessionConfig(session);
 
-// Pill nav marks the section you are in, like the evals-svc header.
+// The nav marks the section you are in (.nav-link[aria-current]).
 const path = Astro.url.pathname;
 const isCurrent = (href: string) => path === href || path.startsWith(`${href}/`);
 const primaryLinks = [
@@ -54,15 +54,15 @@ const HELP_URL = "https://swissai-initiative.slack.com/archives/C07DHJFRE2X";
     </a>
 
     <!-- Desktop navigation -->
-    <nav class="hidden items-center gap-3 md:flex" aria-label="Main">
-      <div class="pill-bar">
+    <nav class="hidden items-center gap-6 md:flex" aria-label="Main">
+      <div class="flex items-center gap-6">
         {primaryLinks.map((link) => (
-          <a href={link.href} aria-current={isCurrent(link.href) ? "page" : undefined}>
+          <a href={link.href} class="nav-link" aria-current={isCurrent(link.href) ? "page" : undefined}>
             {link.label}
           </a>
         ))}
         <NavMenus client:load signedIn={signedIn} isAdmin={isAdmin} email={userEmail} currentPath={path} section="about" />
-        <a href={HELP_URL} target="_blank" rel="noopener noreferrer">
+        <a href={HELP_URL} target="_blank" rel="noopener noreferrer" class="nav-link">
           <SlackIcon class="size-3.5" />
           Get Help
         </a>
