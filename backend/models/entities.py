@@ -1,14 +1,15 @@
 from datetime import date, datetime
 from typing import Optional
 
+from pydantic import NaiveDatetime
 from sqlmodel import SQLModel, Field, UniqueConstraint
 
 
 class APIKey(SQLModel, table=True):
     key: str = Field(primary_key=True)
     budget: int = Field(default=1000)
-    created_at: datetime = Field(default=datetime.now())
-    updated_at: datetime = Field(default=datetime.now())
+    created_at: NaiveDatetime = Field(default_factory=datetime.now)
+    updated_at: NaiveDatetime = Field(default_factory=datetime.now)
     owner_email: str = Field(default="")
     # Grants /v1/admin/* access. Set via SQL (or a future admin UI); when the
     # IdP (Authentik) exposes a group claim, require_admin can additionally
@@ -39,7 +40,7 @@ class PerfBenchmark(SQLModel, table=True):
     avg_ttft: float = Field(default=0.0)
     avg_latency: float = Field(default=0.0)
     avg_throughput: float = Field(default=0.0)
-    last_updated: datetime = Field(default_factory=datetime.now)
+    last_updated: NaiveDatetime = Field(default_factory=datetime.now)
 
 
 class UserMonitoringRule(SQLModel, table=True):
@@ -60,10 +61,10 @@ class UserMonitoringRule(SQLModel, table=True):
     owner_email: str = Field(index=True)
     level: str  # 'metadata' | 'full'
     source: str  # 'admin' | 'self'
-    expires_at: datetime
+    expires_at: NaiveDatetime
     created_by: str
     note: str = Field(default="")
-    created_at: datetime = Field(default_factory=datetime.now)
+    created_at: NaiveDatetime = Field(default_factory=datetime.now)
 
 
 class UsageDaily(SQLModel, table=True):
@@ -84,4 +85,4 @@ class UsageDaily(SQLModel, table=True):
     requests: int = Field(default=0)
     prompt_tokens: int = Field(default=0)
     completion_tokens: int = Field(default=0)
-    updated_at: datetime = Field(default_factory=datetime.now)
+    updated_at: NaiveDatetime = Field(default_factory=datetime.now)

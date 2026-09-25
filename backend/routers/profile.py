@@ -1,3 +1,4 @@
+import logging
 from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
@@ -19,6 +20,7 @@ from backend.services.monitoring_service import (
 
 router = APIRouter()
 security = HTTPBearer()
+logger = logging.getLogger(__name__)
 
 
 def _email_from_credentials(credentials) -> str:
@@ -47,6 +49,7 @@ async def get_profile(
         user_profile["is_superadmin"] = bool(api_key.is_superadmin)
         return user_profile
     except Exception:
+        logger.exception("GET /v1/profile failed")
         raise HTTPException(
             status_code=401,
             detail="Invalid access token",
