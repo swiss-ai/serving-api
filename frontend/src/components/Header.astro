@@ -1,6 +1,5 @@
 ---
-import Container from "@components/Container.astro";
-import Link from "@components/Link.astro";
+import SlackIcon from "@components/SlackIcon.astro";
 import { SITE } from "@consts";
 import NavMenus from "@components/NavMenus.svelte";
 import { getActiveSession } from '@lib/activeSession';
@@ -37,140 +36,76 @@ if (session?.accessToken) {
 const signedIn = !!session;
 const userEmail = session?.user?.email || '';
 const endSession = await endSessionConfig(session);
+
+// Pill nav marks the section you are in, like the evals-svc header.
+const path = Astro.url.pathname;
+const isCurrent = (href: string) => path === href || path.startsWith(`${href}/`);
+const primaryLinks = [
+  { href: "/leaderboard", label: "Leaderboard" },
+  { href: "/performance", label: "Performance" },
+];
+const HELP_URL = "https://swissai-initiative.slack.com/archives/C07DHJFRE2X";
 ---
 
-<header>
-  <Container>
-    <div class="flex items-center justify-between">
-      <Link href="/" underline={false}>
-        <div class="font-bold text-lg tracking-tight flex items-center gap-2">
-          <span class="text-indigo-600 dark:text-indigo-400">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="24"
-              height="24"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              class="lucide lucide-cpu"
-              ><rect width="16" height="16" x="4" y="4" rx="2"></rect><rect
-                width="6"
-                height="6"
-                x="9"
-                y="9"
-                rx="1"></rect><path d="M15 2v2"></path><path d="M15 20v2"
-              ></path><path d="M2 15h2"></path><path d="M2 9h2"></path><path
-                d="M20 15h2"></path><path d="M20 9h2"></path><path d="M9 2v2"
-              ></path><path d="M9 20v2"></path></svg
-            >
-          </span>
-          {SITE.NAME}
-        </div>
-      </Link>
-      
-      <!-- Desktop Navigation -->
-      <nav class="hidden md:flex items-center gap-6">
-        <Link
-          href="/leaderboard"
-          class="text-sm font-medium text-slate-600 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-400 transition-colors"
-        >
-          Leaderboard
-        </Link>
-        <Link
-          href="/performance"
-          class="text-sm font-medium text-slate-600 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-400 transition-colors"
-        >
-          Performance
-        </Link>
-        <NavMenus client:load signedIn={signedIn} isAdmin={isAdmin} email={userEmail} section="about" />
-        <a
-          href="https://swissai-initiative.slack.com/archives/C07DHJFRE2X"
-          target="_blank"
-          rel="noopener noreferrer"
-          class="inline-flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-lg bg-indigo-50 text-indigo-600 hover:bg-indigo-100 dark:bg-indigo-900/30 dark:text-indigo-400 dark:hover:bg-indigo-900/50 transition-colors"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M5.042 15.165a2.528 2.528 0 0 1-2.52 2.523A2.528 2.528 0 0 1 0 15.165a2.527 2.527 0 0 1 2.522-2.52h2.52v2.52zm1.271 0a2.527 2.527 0 0 1 2.521-2.52 2.527 2.527 0 0 1 2.521 2.52v6.313A2.528 2.528 0 0 1 8.834 24a2.528 2.528 0 0 1-2.521-2.522v-6.313zM8.834 5.042a2.528 2.528 0 0 1-2.521-2.52A2.528 2.528 0 0 1 8.834 0a2.528 2.528 0 0 1 2.521 2.522v2.52H8.834zm0 1.271a2.528 2.528 0 0 1 2.521 2.521 2.528 2.528 0 0 1-2.521 2.521H2.522A2.528 2.528 0 0 1 0 8.834a2.528 2.528 0 0 1 2.522-2.521h6.312zM18.956 8.834a2.528 2.528 0 0 1 2.522-2.521A2.528 2.528 0 0 1 24 8.834a2.528 2.528 0 0 1-2.522 2.521h-2.522V8.834zm-1.27 0a2.528 2.528 0 0 1-2.523 2.521 2.527 2.527 0 0 1-2.52-2.521V2.522A2.527 2.527 0 0 1 15.163 0a2.528 2.528 0 0 1 2.523 2.522v6.312zM15.163 18.956a2.528 2.528 0 0 1 2.523 2.522A2.528 2.528 0 0 1 15.163 24a2.527 2.527 0 0 1-2.52-2.522v-2.522h2.52zm0-1.27a2.527 2.527 0 0 1-2.52-2.523 2.527 2.527 0 0 1 2.52-2.52h6.315A2.528 2.528 0 0 1 24 15.163a2.528 2.528 0 0 1-2.522 2.523h-6.315z"/>
-          </svg>
+<header class="site-header">
+  <div class="mx-auto flex max-w-content items-center justify-between gap-4 px-4 py-3 md:px-8">
+    <a href="/" class="text-lg font-bold tracking-tight text-primary-ink no-underline md:text-[1.4rem]">
+      {SITE.NAME}
+    </a>
+
+    <!-- Desktop navigation -->
+    <nav class="hidden items-center gap-3 md:flex" aria-label="Main">
+      <div class="pill-bar">
+        {primaryLinks.map((link) => (
+          <a href={link.href} aria-current={isCurrent(link.href) ? "page" : undefined}>
+            {link.label}
+          </a>
+        ))}
+        <NavMenus client:load signedIn={signedIn} isAdmin={isAdmin} email={userEmail} currentPath={path} section="about" />
+        <a href={HELP_URL} target="_blank" rel="noopener noreferrer">
+          <SlackIcon class="size-3.5" />
           Get Help
         </a>
-        <NavMenus client:load signedIn={signedIn} isAdmin={isAdmin} email={userEmail} endSession={endSession} section="profile" />
-      </nav>
-
-      <!-- Mobile Menu Button -->
-      <button
-        id="mobile-menu-button"
-        class="md:hidden p-2 text-slate-600 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-400 transition-colors"
-        aria-label="Toggle menu"
-      >
-        <svg
-          id="hamburger-icon"
-          xmlns="http://www.w3.org/2000/svg"
-          width="24"
-          height="24"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        >
-          <line x1="3" y1="6" x2="21" y2="6"></line>
-          <line x1="3" y1="12" x2="21" y2="12"></line>
-          <line x1="3" y1="18" x2="21" y2="18"></line>
-        </svg>
-        <svg
-          id="close-icon"
-          class="hidden"
-          xmlns="http://www.w3.org/2000/svg"
-          width="24"
-          height="24"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        >
-          <line x1="18" y1="6" x2="6" y2="18"></line>
-          <line x1="6" y1="6" x2="18" y2="18"></line>
-        </svg>
-      </button>
-    </div>
-
-    <nav
-      id="mobile-menu"
-      class="hidden md:hidden flex-col gap-4 pt-4 pb-2 border-t border-slate-200 dark:border-slate-800 mt-4"
-    >
-      <Link
-        href="/leaderboard"
-        class="text-sm font-medium text-slate-600 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-400 transition-colors py-2"
-      >
-        Leaderboard
-      </Link>
-      <Link
-        href="/performance"
-        class="text-sm font-medium text-slate-600 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-400 transition-colors py-2"
-      >
-        Performance
-      </Link>
-      <NavMenus client:load signedIn={signedIn} isAdmin={isAdmin} email={userEmail} endSession={endSession} mobile={true} />
-      <a
-        href="https://swissai-initiative.slack.com/archives/C07DHJFRE2X"
-        target="_blank"
-        rel="noopener noreferrer"
-        class="inline-flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-lg bg-indigo-50 text-indigo-600 hover:bg-indigo-100 dark:bg-indigo-900/30 dark:text-indigo-400 dark:hover:bg-indigo-900/50 transition-colors w-fit"
-      >
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M5.042 15.165a2.528 2.528 0 0 1-2.52 2.523A2.528 2.528 0 0 1 0 15.165a2.527 2.527 0 0 1 2.522-2.52h2.52v2.52zm1.271 0a2.527 2.527 0 0 1 2.521-2.52 2.527 2.527 0 0 1 2.521 2.52v6.313A2.528 2.528 0 0 1 8.834 24a2.528 2.528 0 0 1-2.521-2.522v-6.313zM8.834 5.042a2.528 2.528 0 0 1-2.521-2.52A2.528 2.528 0 0 1 8.834 0a2.528 2.528 0 0 1 2.521 2.522v2.52H8.834zm0 1.271a2.528 2.528 0 0 1 2.521 2.521 2.528 2.528 0 0 1-2.521 2.521H2.522A2.528 2.528 0 0 1 0 8.834a2.528 2.528 0 0 1 2.522-2.521h6.312zM18.956 8.834a2.528 2.528 0 0 1 2.522-2.521A2.528 2.528 0 0 1 24 8.834a2.528 2.528 0 0 1-2.522 2.521h-2.522V8.834zm-1.27 0a2.528 2.528 0 0 1-2.523 2.521 2.527 2.527 0 0 1-2.52-2.521V2.522A2.527 2.527 0 0 1 15.163 0a2.528 2.528 0 0 1 2.523 2.522v6.312zM15.163 18.956a2.528 2.528 0 0 1 2.523 2.522A2.528 2.528 0 0 1 15.163 24a2.527 2.527 0 0 1-2.52-2.522v-2.522h2.52zm0-1.27a2.527 2.527 0 0 1-2.52-2.523 2.527 2.527 0 0 1 2.52-2.52h6.315A2.528 2.528 0 0 1 24 15.163a2.528 2.528 0 0 1-2.522 2.523h-6.315z"/>
-        </svg>
-        Get Help
-      </a>
+      </div>
+      <NavMenus client:load signedIn={signedIn} isAdmin={isAdmin} email={userEmail} endSession={endSession} currentPath={path} section="profile" />
     </nav>
-  </Container>
+
+    <!-- Mobile menu button -->
+    <button
+      id="mobile-menu-button"
+      class="btn btn-ghost px-2 md:hidden"
+      aria-label="Toggle menu"
+      aria-expanded="false"
+      aria-controls="mobile-menu"
+    >
+      <svg id="hamburger-icon" xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <line x1="3" y1="6" x2="21" y2="6"></line>
+        <line x1="3" y1="12" x2="21" y2="12"></line>
+        <line x1="3" y1="18" x2="21" y2="18"></line>
+      </svg>
+      <svg id="close-icon" class="hidden" xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <line x1="18" y1="6" x2="6" y2="18"></line>
+        <line x1="6" y1="6" x2="18" y2="18"></line>
+      </svg>
+    </button>
+  </div>
+
+  <nav id="mobile-menu" class="hidden flex-col gap-1 border-t border-line px-4 pb-4 pt-3 md:hidden" aria-label="Main">
+    {primaryLinks.map((link) => (
+      <a
+        href={link.href}
+        aria-current={isCurrent(link.href) ? "page" : undefined}
+        class="py-1.5 text-sm font-medium text-ink hover:text-primary-ink aria-[current=page]:text-primary-ink"
+      >
+        {link.label}
+      </a>
+    ))}
+    <NavMenus client:load signedIn={signedIn} isAdmin={isAdmin} email={userEmail} endSession={endSession} currentPath={path} mobile={true} />
+    <a href={HELP_URL} target="_blank" rel="noopener noreferrer" class="btn btn-outline mt-2 w-fit">
+      <SlackIcon class="size-3.5" />
+      Get Help
+    </a>
+  </nav>
 </header>
 
 <script>
@@ -181,19 +116,12 @@ const endSession = await endSessionConfig(session);
 
   if (mobileMenuButton && mobileMenu && hamburgerIcon && closeIcon) {
     mobileMenuButton.addEventListener('click', () => {
-      const isHidden = mobileMenu.classList.contains('hidden');
-      
-      if (isHidden) {
-        mobileMenu.classList.remove('hidden');
-        mobileMenu.classList.add('flex');
-        hamburgerIcon.classList.add('hidden');
-        closeIcon.classList.remove('hidden');
-      } else {
-        mobileMenu.classList.add('hidden');
-        mobileMenu.classList.remove('flex');
-        hamburgerIcon.classList.remove('hidden');
-        closeIcon.classList.add('hidden');
-      }
+      const opening = mobileMenu.classList.contains('hidden');
+      mobileMenu.classList.toggle('hidden', !opening);
+      mobileMenu.classList.toggle('flex', opening);
+      hamburgerIcon.classList.toggle('hidden', opening);
+      closeIcon.classList.toggle('hidden', !opening);
+      mobileMenuButton.setAttribute('aria-expanded', String(opening));
     });
   }
 </script>

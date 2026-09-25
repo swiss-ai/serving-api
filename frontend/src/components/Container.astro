@@ -3,11 +3,14 @@ import { cn } from "@lib/utils";
 
 type Props = {
   class?: string;
+  // "reading" for prose and marketing pages, "wide" for data pages (tables,
+  // dashboards) — the same 1400px column the sibling apps use.
+  size?: "reading" | "wide";
 };
 
-const { class: className } = Astro.props;
+const { class: className, size = "reading" } = Astro.props;
 ---
 
-<div class={cn("mx-auto max-w-screen-lg px-6", className)}>
+<div class={cn("mx-auto px-4 md:px-8", size === "wide" ? "max-w-content" : "max-w-reading", className)}>
   <slot />
 </div>

@@ -25,7 +25,7 @@ const apiUrl = process.env.VITE_API_URL || import.meta.env.VITE_API_URL || 'http
     <div class="space-y-12 py-8">
       <!-- Header Section -->
       <div class="animate text-center">
-        <h1 class="text-4xl md:text-5xl font-bold gradient-text mb-4">
+        <h1 class="text-4xl md:text-5xl font-bold text-ink mb-4">
           Your API Key
         </h1>
         <p class="text-lg text-slate-600 dark:text-slate-400 max-w-2xl mx-auto">
@@ -85,7 +85,7 @@ const apiUrl = process.env.VITE_API_URL || import.meta.env.VITE_API_URL || 'http
               href={`${apiUrl}/docs`}
               target="_blank"
               rel="noopener noreferrer"
-              class="inline-flex items-center gap-2 btn-primary px-6 py-3 rounded-xl text-sm font-semibold"
+              class="btn btn-primary btn-lg"
             >
               <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                 <path d="M11 3a1 1 0 100 2h2.586l-6.293 6.293a1 1 0 101.414 1.414L15 6.414V9a1 1 0 102 0V4a1 1 0 00-1-1h-5z"/>
@@ -128,7 +128,7 @@ const apiUrl = process.env.VITE_API_URL || import.meta.env.VITE_API_URL || 'http
             />
             <button
               id="copyButton"
-              class="px-6 py-4 btn-primary"
+              class="btn btn-primary btn-lg"
             >
               <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
                 <path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z"/>
@@ -151,7 +151,7 @@ const apiUrl = process.env.VITE_API_URL || import.meta.env.VITE_API_URL || 'http
           </div>
           <div id="errorMessage" class="hidden absolute -bottom-8 left-0 text-red-600 dark:text-red-400 text-sm">
             Error loading API key. Please login again.
-            <SignIn provider="auth0" class="btn-primary ml-2">
+            <SignIn provider="auth0" class="btn btn-primary ml-2">
             Login
           </SignIn>
           </div>

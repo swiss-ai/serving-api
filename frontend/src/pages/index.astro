@@ -108,7 +108,7 @@ const sponsors = [
       <!-- Hero Section -->
       <section class="animate text-center py-16">
         <div class="max-w-5xl mx-auto">
-          <h1 class="text-5xl md:text-7xl font-bold gradient-text mb-8 leading-tight">
+          <h1 class="text-5xl md:text-7xl font-bold text-ink mb-8 leading-tight">
             Swiss AI Research Platform
           </h1>
           <p class="text-xl md:text-2xl text-slate-600 dark:text-slate-300 mb-12 leading-relaxed max-w-3xl mx-auto">
@@ -125,13 +125,13 @@ const sponsors = [
                     <p class="text-xl font-semibold text-slate-900 dark:text-white">{session.user?.name || 'User'}</p>
                   </div>
                   <div class="flex gap-3">
-                    <a href="/api_key" class="btn-primary">
+                    <a href="/api_key" class="btn btn-primary">
                       <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
                         <path fill-rule="evenodd" d="M18 8a6 6 0 01-7.743 5.743L10 14l-1 1-1 1H6v2H2v-4l4.257-4.257A6 6 0 1118 8zm-6-4a1 1 0 100 2 2 2 0 012 2 1 1 0 102 0 4 4 0 00-4-4z" clip-rule="evenodd"/>
                       </svg>
                       View API Key
                     </a>
-                    <button id="logout-btn" class="btn-secondary">
+                    <button id="logout-btn" class="btn">
                       Logout
                     </button>
                   </div>
@@ -146,7 +146,7 @@ const sponsors = [
                       Sign in to get your API key and access our LLM services
                     </p>
                   </div>
-                  <SignIn provider="auth0" class="btn-primary">
+                  <SignIn provider="auth0" class="btn btn-primary">
                     <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
                       <path fill-rule="evenodd" d="M3 3a1 1 0 011 1v12a1 1 0 11-2 0V4a1 1 0 011-1zm7.707 3.293a1 1 0 010 1.414L9.414 9H17a1 1 0 110 2H9.414l1.293 1.293a1 1 0 01-1.414 1.414l-3-3a1 1 0 010-1.414l3-3a1 1 0 011.414 0z" clip-rule="evenodd"/>
                     </svg>
