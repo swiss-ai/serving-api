@@ -2,6 +2,7 @@ from datetime import date, datetime
 from typing import Optional
 
 from pydantic import NaiveDatetime
+from sqlalchemy import BigInteger, Index
 from sqlmodel import SQLModel, Field, UniqueConstraint
 
 
@@ -78,11 +79,16 @@ class UsageDaily(SQLModel, table=True):
     """
 
     __tablename__ = "usage_daily"
+    # Mirrors migration a1b2c3d4e5f6; test_schema_drift keeps them in sync.
+    __table_args__ = (
+        Index("ix_usage_daily_day", "day"),
+        Index("ix_usage_daily_owner_day", "owner_email", "day"),
+    )
 
     day: date = Field(primary_key=True)
     owner_email: str = Field(primary_key=True)
     model: str = Field(primary_key=True)  # public (namespaced) id
-    requests: int = Field(default=0)
-    prompt_tokens: int = Field(default=0)
-    completion_tokens: int = Field(default=0)
+    requests: int = Field(default=0, sa_type=BigInteger)
+    prompt_tokens: int = Field(default=0, sa_type=BigInteger)
+    completion_tokens: int = Field(default=0, sa_type=BigInteger)
     updated_at: NaiveDatetime = Field(default_factory=datetime.now)
