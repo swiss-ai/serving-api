@@ -7,6 +7,10 @@ on:
 permissions:
   contents: read
 
+# Python must match backend/Dockerfile and `make lock` (--python-version).
+env:
+  PYTHON_VERSION: "3.13"
+
 jobs:
   lint:
     runs-on: ubuntu-latest
@@ -14,34 +18,48 @@ jobs:
       - uses: actions/checkout@v5
       - uses: actions/setup-python@v6
         with:
-          python-version: "3.12"
+          python-version: ${{ env.PYTHON_VERSION }}
       - uses: astral-sh/setup-uv@v6
       - run: make install-dev UV_EXTRA="--system"
       - run: make check
+      # A requirements*.in change must come with a regenerated lockfile.
+      - run: make lock-check
 
+  # Unit + integration tests. Postgres comes from testcontainers (conftest.py),
+  # migrated with alembic like prod.
   test:
     runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:17-alpine
-        env:
-          POSTGRES_USER: serving
-          POSTGRES_PASSWORD: serving
-          POSTGRES_DB: serving
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-    env:
-      DATABASE_URL: postgresql://serving:serving@localhost:5432/serving
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-python@v6
         with:
-          python-version: "3.12"
+          python-version: ${{ env.PYTHON_VERSION }}
       - uses: astral-sh/setup-uv@v6
       - run: make install-dev UV_EXTRA="--system"
       - run: make test
+
+  # Builds the backend image exactly as deploy does, then runs a real sign-up
+  # against it: Authentik token -> /v1/profile -> API key -> require_auth.
+  # This is the check that would have caught the sqlmodel 0.0.46 outage.
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: backend/Dockerfile
+          load: true
+          push: false
+          platforms: linux/amd64
+          tags: serving-backend:ci
+          cache-from: type=gha
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - uses: astral-sh/setup-uv@v6
+      - run: make install-dev UV_EXTRA="--system"
+      - run: make test-e2e
+        env:
+          E2E_BACKEND_IMAGE: serving-backend:ci

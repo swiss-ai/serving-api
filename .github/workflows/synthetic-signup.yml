@@ -1,0 +1,54 @@
+name: Synthetic sign-up (prod)
+
+# Every 15 minutes, a dedicated test account signs in to prod, gets its API
+# key and uses it (scripts/synthetic_signup.py). Catches a broken sign-up
+# within minutes whatever the cause: a bad release, the IdP, the database,
+# ingress. Posts to Slack on failure.
+#
+# Setup (skipped until configured):
+#   secrets: SYNTHETIC_CLIENT_ID, SYNTHETIC_CLIENT_SECRET,
+#            SYNTHETIC_USERNAME, SYNTHETIC_APP_PASSWORD
+#   vars:    SYNTHETIC_TOKEN_URL, SYNTHETIC_API_URL, SYNTHETIC_MODEL (optional)
+# The prod Authentik needs a provider that allows the client_credentials
+# grant and a test user with an email and an app password; see
+# backend/tests/fixtures/authentik-e2e-blueprint.yaml for the shape.
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  signup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      SYNTHETIC_API_URL: ${{ vars.SYNTHETIC_API_URL }}
+      SYNTHETIC_TOKEN_URL: ${{ vars.SYNTHETIC_TOKEN_URL }}
+      SYNTHETIC_MODEL: ${{ vars.SYNTHETIC_MODEL }}
+      SYNTHETIC_CLIENT_ID: ${{ secrets.SYNTHETIC_CLIENT_ID }}
+      SYNTHETIC_CLIENT_SECRET: ${{ secrets.SYNTHETIC_CLIENT_SECRET }}
+      SYNTHETIC_USERNAME: ${{ secrets.SYNTHETIC_USERNAME }}
+      SYNTHETIC_APP_PASSWORD: ${{ secrets.SYNTHETIC_APP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v5
+        if: env.SYNTHETIC_APP_PASSWORD != ''
+      - name: Run synthetic sign-up
+        if: env.SYNTHETIC_APP_PASSWORD != ''
+        run: python3 scripts/synthetic_signup.py
+      - name: Not configured
+        if: env.SYNTHETIC_APP_PASSWORD == ''
+        run: echo "::notice::Synthetic sign-up secrets not set; skipping."
+      - name: Notify Slack
+        if: failure()
+        uses: slackapi/slack-github-action@v2
+        with:
+          webhook-type: incoming-webhook
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          payload: |
+            {
+              "text": ":rotating_light: Prod sign-up check FAILED — new users may not be able to get an API key.\n<${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View run>"
+            }

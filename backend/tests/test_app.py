@@ -1,35 +1,5 @@
+# `client` comes from conftest.py (shared, alembic-migrated Postgres).
 import pytest
-from fastapi.testclient import TestClient
-from testcontainers.postgres import PostgresContainer
-from sqlmodel import SQLModel, create_engine
-
-
-@pytest.fixture(scope="module")
-def postgres():
-    with PostgresContainer("postgres:17-alpine") as pg:
-        yield pg
-
-
-@pytest.fixture(scope="module")
-def client(postgres):
-    import os
-
-    os.environ["DATABASE_URL"] = postgres.get_connection_url()
-
-    # Reset cached settings so it picks up the new DATABASE_URL
-    from backend.config import get_settings
-
-    get_settings.cache_clear()
-
-    from backend.main import app
-
-    # Create tables
-    settings = get_settings()
-    engine = create_engine(settings.database_url)
-    SQLModel.metadata.create_all(engine)
-
-    with TestClient(app) as c:
-        yield c
 
 
 def test_app_starts(client):
