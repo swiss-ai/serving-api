@@ -23,6 +23,11 @@ redeploy needed to adjust:
 A resolved limit of 0 (or less) means unlimited at that tier's scope, so
 the feature ships dark until an env value or Redis override turns it on.
 
+Keys flagged ``apikey.rate_limit_exempt`` skip all of the above — the
+durable exemption for the shared keys behind our chat UIs (Redis is an
+LRU cache on an emptyDir in prod, so a Redis override there does not
+survive a restart). Exempt requests touch no counters.
+
 Availability beats strictness: Redis being unreachable logs a warning and
 allows the request. Rejected requests still count toward the window, so a
 client hammering through 429s stays limited instead of resetting its own
@@ -35,8 +40,13 @@ import math
 import time
 from dataclasses import dataclass
 
+from sqlmodel import Session, select
+
 from backend.config import get_settings
+from backend.models.entities import APIKey
 from backend.redis_cache import get_token_cache
+from backend.services.metrics_service import get_ttl_hash
+from backend.services.usage_service import _get_engine
 
 logger = logging.getLogger(__name__)
 
@@ -53,11 +63,41 @@ class RateLimitDecision:
 
 _UNLIMITED = RateLimitDecision(allowed=True)
 
+_exempt_cache: dict = {}
+
 
 def _identity(token: str) -> str:
     """Stable per-caller key component. Hashed so raw API keys (secrets)
     never appear as Redis key names."""
     return hashlib.sha256(token.encode()).hexdigest()[:16]
+
+
+def is_exempt(token: str, engine=None) -> bool:
+    """Whether this key carries apikey.rate_limit_exempt. Cached ~60s per
+    process, like resolve_owner_email, so the steady-state hot path costs
+    no DB query; flipping the flag takes effect within a minute. Without
+    an explicit engine it uses usage_service's shared lazy one, so routing
+    needs no request handle. No DB, or a failed lookup, means not exempt —
+    the normal limit still applies."""
+    if engine is None:
+        engine = _get_engine()
+    if engine is None:
+        return False
+    cache_key = (token, get_ttl_hash(60))
+    if cache_key in _exempt_cache:
+        return _exempt_cache[cache_key]
+    try:
+        with Session(engine) as session:
+            row = session.exec(select(APIKey).where(APIKey.key == token)).first()
+    except Exception:
+        logger.warning("Rate limit exemption lookup failed", exc_info=True)
+        return False
+    exempt = bool(row is not None and row.rate_limit_exempt)
+
+    if len(_exempt_cache) > 10000:
+        _exempt_cache.clear()
+    _exempt_cache[cache_key] = exempt
+    return exempt
 
 
 def _effective_limit(user_override, default_override) -> int:

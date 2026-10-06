@@ -8,6 +8,8 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+from sqlalchemy.pool import StaticPool
+from sqlmodel import Session, SQLModel, create_engine
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from backend.services import rate_limit_service
@@ -349,3 +351,110 @@ def test_platform_namespace_is_never_limited(fake_redis):
     assert route.api_key == "tok"
     ident = rate_limit_service._identity("tok")
     assert not any(k.startswith(f"rl:req:{ident}") for k in fake_redis.store)
+
+
+# ── per-key exemption (apikey.rate_limit_exempt) ────────────────────────────
+
+
+@pytest.fixture()
+def key_engine():
+    """In-memory DB holding one exempt key (the chat UI's shared key) and
+    one ordinary key, installed as the limiter's engine."""
+    from backend.models.entities import APIKey
+
+    engine = create_engine(
+        "sqlite://",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    SQLModel.metadata.create_all(engine, tables=[APIKey.__table__])
+    with Session(engine) as session:
+        session.add(APIKey(key="chat-key", rate_limit_exempt=True))
+        session.add(APIKey(key="user-key"))
+        session.commit()
+    rate_limit_service._exempt_cache.clear()
+    with patch.object(rate_limit_service, "_get_engine", return_value=engine):
+        yield engine
+    rate_limit_service._exempt_cache.clear()
+
+
+def test_exempt_key_is_never_limited_or_counted(fake_redis, key_engine):
+    from backend.middleware.ratelimit import enforce_rate_limit
+
+    with _settings_rpm(1):
+        for _ in range(20):
+            enforce_rate_limit("chat-key")
+    ident = rate_limit_service._identity("chat-key")
+    assert not any(k.startswith(f"rl:req:{ident}") for k in fake_redis.store)
+
+
+def test_ordinary_key_still_limited_alongside_exempt_one(fake_redis, key_engine):
+    from fastapi import HTTPException
+
+    from backend.middleware.ratelimit import enforce_rate_limit
+
+    with _settings_rpm(1):
+        enforce_rate_limit("user-key")
+        with pytest.raises(HTTPException) as exc:
+            enforce_rate_limit("user-key")
+    assert exc.value.status_code == 429
+
+
+def test_unknown_key_is_not_exempt(key_engine):
+    assert not rate_limit_service.is_exempt("nobody")
+
+
+def test_no_database_means_not_exempt():
+    rate_limit_service._exempt_cache.clear()
+    with patch.object(rate_limit_service, "_get_engine", return_value=None):
+        assert not rate_limit_service.is_exempt("chat-key")
+
+
+def test_exemption_lookup_failure_falls_back_to_limiting(fake_redis):
+    """A broken DB must not silently grant exemption — the normal limit
+    keeps applying."""
+    from fastapi import HTTPException
+
+    from backend.middleware.ratelimit import enforce_rate_limit
+
+    rate_limit_service._exempt_cache.clear()
+    broken = create_engine("sqlite:///file:/nonexistent/x.db?mode=ro&uri=true")
+    with (
+        patch.object(rate_limit_service, "_get_engine", return_value=broken),
+        _settings_rpm(1),
+    ):
+        enforce_rate_limit("chat-key")
+        with pytest.raises(HTTPException):
+            enforce_rate_limit("chat-key")
+
+
+def test_passthrough_routing_honours_exemption(fake_redis, key_engine):
+    """The chat UI's key reaches a passthrough provider however often it
+    calls — the exemption applies on the routing path, not just in
+    isolation."""
+    from backend.services import route_service
+    from backend.services.passthrough_service import Provider, ResolvedModel
+
+    provider = Provider(
+        name="cscs_L1",
+        base_url="https://l1/v1",
+        api_key="pk",
+        device="CSCS L1",
+        prefix="CSCS-Inference",
+    )
+    resolved = ResolvedModel(
+        provider=provider,
+        upstream_id="swiss-ai/x",
+        public_id="CSCS-Inference/swiss-ai/x",
+    )
+    with (
+        patch.object(
+            route_service, "resolve_model", new=AsyncMock(return_value=resolved)
+        ),
+        _settings_rpm(1),
+    ):
+        for _ in range(5):
+            route = asyncio.run(
+                route_service.resolve_route("CSCS-Inference/swiss-ai/x", "chat-key")
+            )
+    assert route.endpoint == "https://l1/v1"

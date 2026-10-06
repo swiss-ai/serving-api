@@ -19,6 +19,11 @@ class APIKey(SQLModel, table=True):
     # to record someone's prompts, held far more narrowly than is_admin.
     # Set via SQL only.
     is_superadmin: bool = Field(default=False)
+    # Skips the passthrough rate limiter entirely. Meant for the shared
+    # service keys behind our chat UIs (Open WebUI prod/dev): every chat
+    # user rides one key there, so a per-key limit becomes a limit on the
+    # whole chat. Set via SQL only — see rate_limit_service.
+    rate_limit_exempt: bool = Field(default=False)
 
 
 class PerfBenchmark(SQLModel, table=True):
