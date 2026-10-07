@@ -7,9 +7,9 @@ def enforce_rate_limit(token: str) -> None:
     """Count this request against the caller's per-minute budget and raise
     when exceeded. Called after model routing resolves to an external
     passthrough provider — OpenTela-served models are backed by the user's
-    own GPU allocation and are deliberately not limited. Keys flagged
-    apikey.rate_limit_exempt (the chat UIs' shared keys) are skipped
-    without counting. The 429 is a plain HTTPException so backend.main's
+    own GPU allocation and are deliberately not limited. The chat UIs'
+    keys (CHAT_API_KEYS) are never limited and are skipped without
+    counting. The 429 is a plain HTTPException so backend.main's
     handler wraps it in the OpenAI error envelope (type=rate_limit_error)."""
     if is_exempt(token):
         return
