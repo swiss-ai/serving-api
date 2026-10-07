@@ -60,6 +60,11 @@ class Settings(BaseSettings):
     # take precedence so admins can adjust live without a redeploy — see
     # backend/services/rate_limit_service.py.
     rate_limit_rpm: int = 0
+    # Comma-separated API keys of our chat UIs (Open WebUI). Never rate
+    # limited: every chat user shares one connection key, so a per-key
+    # limit would throttle the whole chat. In k8s, source it from the
+    # Open WebUI secret so it always matches the key chat actually uses.
+    chat_api_keys: str = ""
     # Upstream inference timeouts. aiohttp's default is total=300s, which
     # silently caps every generation at 5 minutes — long-output work (eval
     # suites with a big max_gen_toks, reasoning traces) dies mid-flight.
