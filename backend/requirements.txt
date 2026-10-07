@@ -9,6 +9,10 @@ async-lru
 backoff
 langfuse
 openai
+# Imported directly (auth/metrics/model services). Was only ever pulled in
+# transitively via langfuse -> opentelemetry-exporter-otlp-proto-http, which
+# made it an optional extra in 1.45.0 — the image then booted without it.
+requests
 # ==0.0.46 matches prod. From 0.0.45 a plain `datetime` field is UTCDateTime
 # and rejects naive values at insert. Timestamp columns use pydantic
 # NaiveDatetime (DateTime(timezone=False)), so this pin keeps that check in
