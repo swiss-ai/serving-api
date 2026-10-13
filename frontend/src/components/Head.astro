@@ -1,13 +1,5 @@
 ---
 import "../styles/global.css";
-import "@fontsource/inter/latin-400.css";
-import "@fontsource/inter/latin-600.css";
-import "@fontsource/lora/400.css";
-import "@fontsource/lora/600.css";
-import inter400 from "@fontsource/inter/files/inter-latin-400-normal.woff2";
-import inter600 from "@fontsource/inter/files/inter-latin-600-normal.woff2";
-import lora400 from "@fontsource/lora/files/lora-latin-400-normal.woff2";
-import lora600 from "@fontsource/lora/files/lora-latin-600-normal.woff2";
 
 interface Props {
   title: string;
@@ -25,12 +17,6 @@ const { title, description, image = "/nano.png" } = Astro.props;
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <link rel="icon" type="image/svg+xml" href="/favicon-light.svg">
 <meta name="generator" content={Astro.generator} />
-
-<!-- Font preloads -->
-<link rel="preload" href={inter400} as="font" type="font/woff2" crossorigin/>
-<link rel="preload" href={inter600} as="font" type="font/woff2" crossorigin/>
-<link rel="preload" href={lora400} as="font" type="font/woff2" crossorigin/>
-<link rel="preload" href={lora600} as="font" type="font/woff2" crossorigin/>
 
 <!-- Canonical URL -->
 <link rel="canonical" href={canonicalURL} />
@@ -54,17 +40,6 @@ const { title, description, image = "/nano.png" } = Astro.props;
 <meta property="twitter:description" content={description} />
 <meta property="twitter:image" content={new URL(image, Astro.url)} />
 
-<script>
-  import type { TransitionBeforeSwapEvent } from "astro:transitions/client";
-  document.addEventListener("astro:before-swap", (e) =>
-    [
-      ...(e as TransitionBeforeSwapEvent).newDocument.head.querySelectorAll(
-        "link[as=\"font\"]"
-      ),
-    ].forEach((link) => link.remove())
-  );
-</script>
-
 <script is:inline>
   function init() {
     preloadTheme();
@@ -81,19 +56,24 @@ const { title, description, image = "/nano.png" } = Astro.props;
     lightThemeButton?.addEventListener("click", () => {
       localStorage.setItem("theme", "light");
       toggleTheme(false);
+      markThemeChoice();
     });
 
     const darkThemeButton = document.getElementById("dark-theme-button");
     darkThemeButton?.addEventListener("click", () => {
       localStorage.setItem("theme", "dark");
       toggleTheme(true);
+      markThemeChoice();
     });
 
     const systemThemeButton = document.getElementById("system-theme-button");
     systemThemeButton?.addEventListener("click", () => {
       localStorage.setItem("theme", "system");
       toggleTheme(window.matchMedia("(prefers-color-scheme: dark)").matches);
+      markThemeChoice();
     });
+
+    markThemeChoice();
 
     window.matchMedia("(prefers-color-scheme: dark)")
       .addEventListener("change", event => {
@@ -104,6 +84,16 @@ const { title, description, image = "/nano.png" } = Astro.props;
     );
 
     document.addEventListener("scroll", onScroll);
+  }
+
+  function markThemeChoice() {
+    const choice = localStorage.theme === "light" || localStorage.theme === "dark"
+      ? localStorage.theme
+      : "system";
+    for (const name of ["light", "dark", "system"]) {
+      document.getElementById(`${name}-theme-button`)
+        ?.setAttribute("aria-pressed", String(name === choice));
+    }
   }
 
   function animate() {

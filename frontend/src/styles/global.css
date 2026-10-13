@@ -1,3 +1,8 @@
+/* Shared tokens and primitives. Must stay first: @import has to precede
+   the @tailwind directives, and utilities should win over commons classes
+   (class="card p-0" works because utilities are emitted later). */
+@import "./commons.css";
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -5,11 +10,6 @@
 @layer base {
   html {
     overflow-y: scroll;
-    color-scheme: light;
-  }
-
-  html.dark {
-    color-scheme: dark;
   }
 
   html,
@@ -18,113 +18,97 @@
   }
 
   body {
-    @apply font-sans antialiased;
-    @apply flex flex-col;
-    /* Clean, modern background with subtle gradient */
-    @apply bg-slate-50 dark:bg-slate-950;
-    @apply text-slate-900 dark:text-slate-50;
-    @apply selection:bg-indigo-500/30 dark:selection:bg-indigo-400/30;
+    @apply flex flex-col antialiased;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-sans);
+    font-size: var(--text-base);
+    line-height: 1.5;
   }
 
-  /* Decorative background mesh */
-  body::before {
-    content: "";
-    @apply fixed inset-0 -z-10;
-    @apply bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(120,119,198,0.15),rgba(255,255,255,0))] dark:bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(120,119,198,0.15),rgba(255,255,255,0))];
-  }
-}
-
-@layer components {
-  /* Modern Glass Header */
-  header {
-    @apply fixed top-0 w-full z-50 py-4;
-    @apply bg-white/70 dark:bg-slate-950/70 backdrop-blur-xl border-b border-slate-200/50 dark:border-slate-800/50;
-    @apply transition-all duration-300;
+  ::selection {
+    background: color-mix(in srgb, var(--primary) 25%, transparent);
   }
 
-  main {
-    @apply flex-1 pt-32 pb-20;
-  }
-
-  footer {
-    @apply py-12 text-sm;
-    @apply border-t border-slate-200 dark:border-slate-800;
-    @apply bg-slate-50/50 dark:bg-slate-950/50;
-  }
-
-  /* Typography Enhancements */
   h1, h2, h3, h4, h5, h6 {
     @apply font-semibold tracking-tight;
   }
 
+  code, kbd, pre, samp {
+    font-family: var(--font-mono);
+  }
+}
+
+@layer components {
+  /* Sticky app header, same shell as evals-svc and model-launch-factory. */
+  header.site-header {
+    @apply sticky top-0 z-50;
+    background: var(--card);
+    border-bottom: 1px solid var(--border);
+  }
+
+  main {
+    @apply flex-1 pt-10 pb-20;
+  }
+
+  footer.site-footer {
+    @apply py-8 text-sm;
+    background: var(--card);
+    border-top: 1px solid var(--border);
+    color: var(--muted);
+  }
+
+  /* Long-form reading (articles, guides). Typography plugin, recoloured
+     to the commons tokens so light and dark follow the theme. */
   article {
-    @apply max-w-full prose dark:prose-invert prose-img:mx-auto prose-img:rounded-xl prose-img:shadow-lg;
-    @apply prose-headings:font-bold prose-headings:tracking-tight;
-    @apply prose-a:text-indigo-600 dark:prose-a:text-indigo-400 prose-a:no-underline hover:prose-a:underline;
-    @apply prose-pre:border prose-pre:border-slate-200 dark:prose-pre:border-slate-800 prose-pre:rounded-xl;
+    @apply max-w-full prose prose-slate prose-img:mx-auto prose-img:rounded-card;
+    @apply prose-headings:font-semibold prose-headings:tracking-tight;
+    @apply prose-a:no-underline hover:prose-a:underline;
+    --tw-prose-body: var(--text);
+    --tw-prose-headings: var(--text);
+    --tw-prose-lead: var(--muted);
+    --tw-prose-links: var(--primary-ink);
+    --tw-prose-bold: var(--text);
+    --tw-prose-counters: var(--muted);
+    --tw-prose-bullets: var(--border-strong);
+    --tw-prose-hr: var(--border);
+    --tw-prose-quotes: var(--text);
+    --tw-prose-quote-borders: var(--border-strong);
+    --tw-prose-captions: var(--muted);
+    --tw-prose-code: var(--text);
+    --tw-prose-pre-code: var(--log-text);
+    --tw-prose-pre-bg: var(--log-bg);
+    --tw-prose-th-borders: var(--border-strong);
+    --tw-prose-td-borders: var(--border);
+  }
+
+  article pre {
+    border-radius: var(--radius-card);
+  }
+
+  article :not(pre) > code {
+    @apply rounded px-1 py-0.5 font-normal before:content-none after:content-none;
+    background: var(--subtle);
+    font-size: 0.85em;
   }
 }
 
 @layer utilities {
-  /* Card Component */
-  .card {
-    @apply relative overflow-hidden;
-    @apply bg-white dark:bg-slate-900;
-    @apply border border-slate-200 dark:border-slate-800;
-    @apply rounded-xl;
-    @apply transition-all duration-300 ease-out;
-    @apply hover:border-slate-300 dark:hover:border-slate-700;
-    @apply hover:shadow-lg hover:shadow-slate-200/50 dark:hover:shadow-black/50;
-  }
-
-  /* Button Components */
-  .btn-primary {
-    @apply inline-flex items-center justify-center;
-    @apply px-5 py-2.5 rounded-lg;
-    @apply text-sm font-medium text-white;
-    @apply bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700;
-    @apply shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/40;
-    @apply transition-all duration-200;
-    @apply focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:ring-offset-2 dark:focus:ring-offset-slate-950;
-  }
-
-  .btn-secondary {
-    @apply inline-flex items-center justify-center;
-    @apply px-5 py-2.5 rounded-lg;
-    @apply text-sm font-medium;
-    @apply text-slate-700 dark:text-slate-200;
-    @apply bg-white dark:bg-slate-900;
-    @apply border border-slate-200 dark:border-slate-800;
-    @apply hover:bg-slate-50 dark:hover:bg-slate-800;
-    @apply hover:border-slate-300 dark:hover:border-slate-700;
-    @apply transition-all duration-200;
-    @apply focus:outline-none focus:ring-2 focus:ring-slate-500/50 focus:ring-offset-2 dark:focus:ring-offset-slate-950;
-  }
-
-  /* Animations */
-  .animate-enter {
-    @apply opacity-0 translate-y-4 animate-[slideUp_0.5s_ease-out_forwards];
-  }
-
-  /* Text Gradients */
-  .gradient-text {
-    @apply bg-clip-text text-transparent bg-gradient-to-r from-indigo-500 to-violet-500;
-  }
-
-  /* Custom Scrollbar */
+  /* Custom scrollbar for inner scroll areas. */
   .custom-scrollbar::-webkit-scrollbar {
     @apply w-1.5;
   }
-  
+
   .custom-scrollbar::-webkit-scrollbar-track {
     @apply bg-transparent;
   }
-  
+
   .custom-scrollbar::-webkit-scrollbar-thumb {
-    @apply bg-slate-200 dark:bg-slate-800 rounded-full;
+    @apply rounded-full;
+    background: var(--border);
   }
-  
+
   .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-    @apply bg-slate-300 dark:bg-slate-700;
+    background: var(--border-strong);
   }
 }
