@@ -85,13 +85,6 @@ export default defineConfig({
       authorization: {
         params: {
           scope: 'openid profile email offline_access groups',
-          // Require an explicit sign-in confirmation even when institutional
-          // SSO survives logout. Keep this on the provider so every sign-in
-          // entry point is covered; existing app sessions and refreshes are
-          // unaffected. Authentik must still accept the session established
-          // by an invited user's enrollment or portal login, so do not force
-          // its CILogon-only authentication flow again with prompt=login.
-          prompt: 'consent',
           // Force specific connection (e.g., Google Workspace)
           // connection: 'google-oauth2',
 

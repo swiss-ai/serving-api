@@ -152,7 +152,7 @@ test('omits the post-logout redirect if no ID token is available', async () => {
   assert.equal(logout.searchParams.has('post_logout_redirect_uri'), false);
 });
 
-test('a new sign-in requests explicit confirmation even if the IdP still has an SSO session', async () => {
+test('a new sign-in follows the provider login flow without forcing consent or reauthentication', async () => {
   const { default: configured } = await server.ssrLoadModule('/auth.config.ts');
   const provider = configured.providers[0];
   const issuer = 'https://auth.example.test';
@@ -189,7 +189,7 @@ test('a new sign-in requests explicit confirmation even if the IdP still has an 
   }), config);
   const authorization = new URL((await response.json()).url);
   assert.equal(authorization.origin, issuer);
-  assert.equal(authorization.searchParams.get('prompt'), 'consent');
+  assert.equal(authorization.searchParams.has('prompt'), false);
   assert.equal(authorization.searchParams.get('response_type'), 'code');
   assert.ok(authorization.searchParams.get('scope').includes('offline_access'));
   assert.equal(config.session.maxAge, 30 * 24 * 60 * 60);

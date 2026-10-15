@@ -49,7 +49,9 @@ entries:
       refresh_token_validity: days=30
       # Implicit consent: no "authorize this app?" screen on every local login.
       authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-implicit-consent]]
-      invalidation_flow: !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
+      # The provider-only flow leaves the Authentik SSO session alive. Use the
+      # flow containing UserLogoutStage so the next sign-in asks for login.
+      invalidation_flow: !Find [authentik_flows.flow, [slug, default-invalidation-flow]]
       signing_key: !Find [authentik_crypto.certificatekeypair, [name, "authentik Self-signed Certificate"]]
       redirect_uris:
         - { url: "http://localhost:4321/api/auth/callback/auth0", matching_mode: strict, redirect_uri_type: authorization }
