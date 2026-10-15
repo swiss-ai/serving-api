@@ -89,17 +89,17 @@ jobs:
       - name: Update backend image tag
         if: needs.changes.outputs.backend == 'true'
         run: |
-          sed -i "s|image: ghcr.io/swiss-ai/serving-api/backend:.*|image: ghcr.io/swiss-ai/serving-api/backend:${{ github.sha }}|" argocd/serving-api/dev/backend-deployment.yaml
+          sed -i "s|image: ghcr.io/swiss-ai/serving-api/backend:.*|image: ghcr.io/swiss-ai/serving-api/backend:${{ github.sha }}|" argocd/swissai-research-platform/serving-api/dev/backend-deployment.yaml
       - name: Update frontend image tag
         if: needs.changes.outputs.frontend == 'true'
         run: |
-          sed -i "s|image: ghcr.io/swiss-ai/serving-api/frontend:.*|image: ghcr.io/swiss-ai/serving-api/frontend:${{ github.sha }}|" argocd/serving-api/dev/frontend-deployment.yaml
+          sed -i "s|image: ghcr.io/swiss-ai/serving-api/frontend:.*|image: ghcr.io/swiss-ai/serving-api/frontend:${{ github.sha }}|" argocd/swissai-research-platform/serving-api/dev/frontend-deployment.yaml
       - name: Commit and push
         run: |
           cd argocd
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add serving-api/dev/
+          git add swissai-research-platform/serving-api/dev/
           git diff --staged --quiet && echo "No changes to deploy" || (git commit -m "deploy serving-api ${{ github.sha }}" && git push)
 
   notify:
