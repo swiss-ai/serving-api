@@ -8,8 +8,8 @@
   // Hiding the admin entry is presentation only: every admin endpoint
   // checks apikey.is_admin for itself.
   import { onMount, onDestroy } from 'svelte';
-  import { signIn, signOut } from 'auth-astro/client';
-  import { endSessionUrl } from '@lib/endSessionUrl';
+  import { signIn } from 'auth-astro/client';
+  import { signOut } from '@lib/signOut';
 
   export let signedIn = false;
   export let isAdmin = false;
@@ -57,11 +57,12 @@
   }
 
   async function doSignOut() {
-    const target = endSessionUrl(endSession, window.location.origin);
-    await signOut({ redirect: false });
-    // Clearing our own cookie leaves the IdP session alive, so the next sign in
-    // completes with no prompt and "signed out" is not signed out.
-    window.location.href = target || '/';
+    try {
+      await signOut(endSession);
+    } catch (error) {
+      console.error('Sign-out failed:', error);
+      window.alert('Could not sign out. Please try again.');
+    }
   }
 
   onMount(() => {

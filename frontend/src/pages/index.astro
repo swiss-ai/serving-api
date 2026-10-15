@@ -131,7 +131,7 @@ const sponsors = [
                       </svg>
                       View API Key
                     </a>
-                    <button id="logout-btn" class="btn-secondary">
+                    <button id="logout-btn" class="btn-secondary" data-end-session={JSON.stringify(endSession)}>
                       Logout
                     </button>
                   </div>
@@ -158,34 +158,15 @@ const sponsors = [
           </div>
 
           <script>
-            // Expose auth-astro's client signOut to the inline handler below
-            // (mirrors auth-astro's own SignOut component pattern). The handler
-            // is a define:vars script, which Astro inlines without bundling, so
-            // it cannot import anything itself.
-            import { signOut } from 'auth-astro/client';
-            import { endSessionUrl } from '@lib/endSessionUrl';
-            // @ts-ignore
-            window.__signOut = signOut;
-            // @ts-ignore
-            window.__endSessionUrl = endSessionUrl;
-          </script>
-          <script define:vars={{ endSession }}>
-            document.getElementById('logout-btn')?.addEventListener('click', async () => {
-              // @ts-ignore
-              const target = window.__endSessionUrl(endSession, window.location.origin);
-
-              // 1) Clear the local app session cookie.
+            import { signOut } from '@lib/signOut';
+            const logoutButton = document.getElementById('logout-btn');
+            logoutButton?.addEventListener('click', async () => {
               try {
-                // @ts-ignore
-                await window.__signOut({ redirect: false });
+                await signOut(JSON.parse(logoutButton.dataset.endSession || '{}'));
               } catch (e) {
-                console.error('Local sign-out failed:', e);
+                console.error('Sign-out failed:', e);
+                window.alert('Could not sign out. Please try again.');
               }
-              // 2) Clear the IdP session so the next sign-in shows the login
-              //    screen instead of silently re-authenticating. The upstream
-              //    (CILogon/institution) SSO session can't be cleared
-              //    programmatically.
-              window.location.href = target || window.location.origin;
             });
           </script>
 
