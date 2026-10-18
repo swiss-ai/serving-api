@@ -13,6 +13,7 @@ from backend.middleware.logging import AccessLogMiddleware
 from backend.models.protocols import BackendHTTPError
 from backend.routers import (
     admin_monitoring,
+    audio,
     completions,
     responses,
     embeddings,
@@ -130,6 +131,7 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
 app.include_router(completions.router)
 app.include_router(responses.router)
 app.include_router(embeddings.router)
+app.include_router(audio.router)
 app.include_router(models.router)
 app.include_router(profile.router)
 app.include_router(metrics.router)
