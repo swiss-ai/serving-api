@@ -24,3 +24,5 @@ pydantic-settings
 redis
 hiredis
 alembic
+# request.form() for the multipart /v1/audio/* routes.
+python-multipart
