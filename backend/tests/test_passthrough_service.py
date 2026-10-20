@@ -5,6 +5,7 @@ rejected at the request boundary (see test_model_id_validation.py);
 here they must simply not resolve to any provider."""
 
 import asyncio
+import time
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -330,6 +331,63 @@ def test_stale_cache_preferred_over_fallback_after_initial_success():
         second = _run(get_synthetic_entries())
     assert {e["id"] for e in first} == {f"CSCS-Inference/{APERTUS_8B}"}
     assert {e["id"] for e in second} == {f"CSCS-Inference/{APERTUS_8B}"}
+
+
+def test_failed_fetch_backs_off_instead_of_retrying_every_call():
+    """A dead upstream costs one fetch per backoff window, not one per
+    call — later callers get the fallback ids straight away."""
+    fake = AsyncMock(return_value=None)
+    with (
+        _patch_settings(_FakeSettings()),
+        patch.object(passthrough_service, "_fetch_model_ids", new=fake),
+    ):
+        for _ in range(5):
+            entries = _run(get_synthetic_entries())
+    assert fake.await_count == 1
+    assert {e["id"] for e in entries} == {
+        f"CSCS-Inference/{m}" for m in _CSCS_L1_FALLBACK_IDS
+    }
+
+
+def test_retries_after_backoff_window_and_recovers():
+    fake = AsyncMock(side_effect=[None, {APERTUS_8B}])
+    with (
+        _patch_settings(_FakeSettings()),
+        patch.object(passthrough_service, "_fetch_model_ids", new=fake),
+    ):
+        _run(get_synthetic_entries())
+        passthrough_service._cache["cscs_L1"]["failed_at"] = 0.0
+        recovered = _run(get_synthetic_entries())
+    assert fake.await_count == 2
+    assert {e["id"] for e in recovered} == {f"CSCS-Inference/{APERTUS_8B}"}
+
+
+def test_dead_provider_does_not_delay_listing_or_other_providers():
+    """CSCS hangs for its full timeout; many concurrent listings must still
+    finish in about one timeout (not N), and RCP's rows must not wait on
+    CSCS's lock."""
+
+    async def fake(provider):
+        if provider.name == "cscs_L1":
+            await asyncio.sleep(0.3)
+            return None
+        return {APERTUS_8B}
+
+    settings = _FakeSettings(rcp_base_url="https://rcp/v1", rcp_api_key="k")
+
+    async def run():
+        t = time.monotonic()
+        results = await asyncio.gather(*[get_synthetic_entries() for _ in range(8)])
+        return time.monotonic() - t, results
+
+    with (
+        _patch_settings(settings),
+        patch.object(passthrough_service, "_fetch_model_ids", new=fake),
+    ):
+        elapsed, results = _run(run())
+    assert elapsed < 0.6  # 8 serialized 0.3s fetches would be ~2.4s
+    for entries in results:
+        assert f"RCP-AIaaS/{APERTUS_8B}" in {e["id"] for e in entries}
 
 
 # ── helpers ─────────────────────────────────────────────────────────────────
