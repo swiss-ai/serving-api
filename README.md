@@ -100,3 +100,16 @@ OpenTela (formerly OCF / "Open Compute Framework") is maintained upstream at [et
 make install      # install backend dependencies
 make run          # start backend on :8080
 ```
+
+### Dependencies and tests
+
+`backend/requirements.txt` and `requirements-dev.txt` are lockfiles generated
+from the `.in` files. CI, the Docker image and local installs all use them, so
+prod runs exactly the versions CI tested. To add or change a dependency, edit
+`backend/requirements.in` and run `make lock`. Dependabot opens weekly bump PRs.
+
+```bash
+make test         # unit + integration tests (Postgres via testcontainers)
+make test-e2e     # real sign-up against Authentik in testcontainers (~1 min)
+E2E_BACKEND_IMAGE=<image> make test-e2e   # same, against a built backend image
+```
