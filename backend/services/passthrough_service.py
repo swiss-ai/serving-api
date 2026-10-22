@@ -6,15 +6,13 @@ requests for their model ids straight through and surface those ids in
 /v1/models* alongside our locally-served (OpenTela) models.
 
 Each provider is a small config: a base URL + API key (from env via
-Settings), a display label, and an optional cold-start fallback id list.
+Settings), and a display label.
 Adding a provider = one entry in `registered_providers()`, not new code.
 
 Discovery: we hit each provider's own /models endpoint on first use (and
 every 30 s thereafter) so the set of routable models tracks whatever the
-upstream exposes, without code changes. A per-provider `fallback_ids`
-list backstops the cold-start case when the upstream is unreachable on
-the very first fetch, so its rows aren't completely missing during a
-brief outage.
+upstream exposes, without code changes. A provider that has never been
+reached advertises nothing: we only list models we can actually serve.
 
 Every id a provider surfaces is namespaced under its reserved prefix
 (``CSCS-Inference/...``, ``RCP-AIaaS/...``), so ids are structurally
@@ -52,6 +50,14 @@ _CACHE_TTL_SECONDS = 30.0
 # Timeout for the GET /models probe — keep tight so a wedged upstream
 # can't stall /v1/models page loads on our side.
 _FETCH_TIMEOUT_SECONDS = 5.0
+# A blackholed host (packets dropped, no RST) never completes the TCP
+# handshake; cap that phase well below the total so it costs little.
+_CONNECT_TIMEOUT_SECONDS = 2.0
+# After a failed fetch, don't retry for this long: callers get the stale
+# ids (none on a cold start) immediately instead of each paying the fetch timeout.
+# Without it a dead provider makes every /v1/models call wait out the
+# timeout, and concurrent calls queue behind each other.
+_FAILURE_BACKOFF_SECONDS = 30.0
 
 
 @dataclass(frozen=True)
@@ -72,24 +78,11 @@ class Provider:
     # model id is matched against these, so prefixes are reserved names:
     # they must never collide with a HF org, a username, or each other.
     prefix: str = ""
-    # Cold-start backstop, used only if we haven't successfully fetched
-    # /models yet AND the current fetch fails. Empty = nothing advertised
-    # until the first successful fetch.
-    fallback_ids: tuple[str, ...] = ()
     # Alias curation: discovered ids ending in one of these suffixes
     # (case-insensitive) are dropped before listing or routing — for
     # upstreams that advertise the same weights under several ids.
     # Empty = everything surfaces.
     hidden_id_suffixes: tuple[str, ...] = ()
-
-
-# CSCS L1 cold-start fallback so the Apertus rows don't vanish during a
-# brief L1 outage on the very first fetch. New providers (e.g. RCP) get
-# no fallback — we just wait for the first successful discovery.
-_CSCS_L1_FALLBACK_IDS: tuple[str, ...] = (
-    "swiss-ai/Apertus-70B-Instruct-2509",
-    "swiss-ai/Apertus-8B-Instruct-2509",
-)
 
 
 def registered_providers() -> list[Provider]:
@@ -107,7 +100,6 @@ def registered_providers() -> list[Provider]:
                 api_key=s.cscs_l1_api_key,
                 device="CSCS L1",
                 prefix="CSCS-Inference",
-                fallback_ids=_CSCS_L1_FALLBACK_IDS,
             )
         )
     if s.rcp_base_url and s.rcp_api_key:
@@ -127,15 +119,26 @@ def registered_providers() -> list[Provider]:
     return providers
 
 
-_cache_lock = asyncio.Lock()
-# Keyed by provider name → {"fetched_at": float, "ids": set | None}.
+# One lock per provider so a slow or dead upstream only ever holds up
+# its own refresh, never another provider's listing.
+_cache_locks: dict[str, asyncio.Lock] = {}
+# Keyed by provider name → {"fetched_at": float, "ids": set | None,
+# "failed_at": float | None}.
 _cache: dict[str, dict] = {}
+
+
+def _lock_for(provider: Provider) -> asyncio.Lock:
+    lock = _cache_locks.get(provider.name)
+    if lock is None:
+        lock = _cache_locks[provider.name] = asyncio.Lock()
+    return lock
 
 
 def _reset_cache_for_tests() -> None:
     """Test helper — clears the cache so tests can simulate cold start
     without leaking state across cases."""
     _cache.clear()
+    _cache_locks.clear()
 
 
 def endpoint(provider: Provider) -> str:
@@ -162,7 +165,9 @@ async def _fetch_model_ids(provider: Provider) -> set[str] | None:
     url = endpoint(provider) + "/models"
     headers = {"Authorization": f"Bearer {provider.api_key}"}
     try:
-        timeout = aiohttp.ClientTimeout(total=_FETCH_TIMEOUT_SECONDS)
+        timeout = aiohttp.ClientTimeout(
+            total=_FETCH_TIMEOUT_SECONDS, sock_connect=_CONNECT_TIMEOUT_SECONDS
+        )
         async with aiohttp.ClientSession(timeout=timeout) as session:
             async with session.get(url, headers=headers) as resp:
                 if resp.status != 200:
@@ -189,39 +194,61 @@ async def _get_cached_ids(provider: Provider) -> set[str]:
 async def _discover_ids(provider: Provider) -> set[str]:
     """Return the provider's discovered model id set (pre-curation).
     Refreshes if TTL has expired; on fetch failure keeps stale cache,
-    falling back to ``provider.fallback_ids`` only at true cold start. A
+    advertising nothing until the first successful fetch. A
     transient upstream outage shouldn't make rows that *were* there
-    disappear."""
-    now = time.time()
+    disappear. After a failure the upstream isn't retried for
+    ``_FAILURE_BACKOFF_SECONDS``, so an outage costs one bounded fetch per
+    window rather than one per request."""
     slot = _cache.get(provider.name)
-    if (
-        slot is not None
-        and slot["ids"] is not None
-        and (now - slot["fetched_at"]) < _CACHE_TTL_SECONDS
-    ):
-        return slot["ids"]
+    if _is_fresh(slot) or _in_backoff(slot):
+        return _ids_or_empty(provider, slot)
 
-    async with _cache_lock:
-        # Another coroutine may have refreshed while we waited on the lock.
+    async with _lock_for(provider):
+        # Another coroutine may have refreshed (or failed) while we waited
+        # on the lock.
         slot = _cache.get(provider.name)
-        if (
-            slot is not None
-            and slot["ids"] is not None
-            and (time.time() - slot["fetched_at"]) < _CACHE_TTL_SECONDS
-        ):
-            return slot["ids"]
+        if _is_fresh(slot) or _in_backoff(slot):
+            return _ids_or_empty(provider, slot)
 
         fetched = await _fetch_model_ids(provider)
         if fetched is not None:
-            _cache[provider.name] = {"ids": fetched, "fetched_at": time.time()}
+            _cache[provider.name] = {
+                "ids": fetched,
+                "fetched_at": time.time(),
+                "failed_at": None,
+            }
             return fetched
 
-        if slot is not None and slot["ids"] is not None:
-            # Keep serving stale cache; don't touch fetched_at so we retry
-            # on the next call instead of waiting a full TTL.
-            return slot["ids"]
+        # Keep the stale ids (if any); leave fetched_at alone so the entry
+        # stays expired, and let the backoff gate the next attempt.
+        _cache[provider.name] = {
+            "ids": slot["ids"] if slot else None,
+            "fetched_at": slot["fetched_at"] if slot else 0.0,
+            "failed_at": time.time(),
+        }
+        return _ids_or_empty(provider, _cache[provider.name])
 
-        return set(provider.fallback_ids)
+
+def _is_fresh(slot: dict | None) -> bool:
+    return (
+        slot is not None
+        and slot["ids"] is not None
+        and (time.time() - slot["fetched_at"]) < _CACHE_TTL_SECONDS
+    )
+
+
+def _in_backoff(slot: dict | None) -> bool:
+    return (
+        slot is not None
+        and slot.get("failed_at") is not None
+        and (time.time() - slot["failed_at"]) < _FAILURE_BACKOFF_SECONDS
+    )
+
+
+def _ids_or_empty(provider: Provider, slot: dict | None) -> set[str]:
+    if slot is not None and slot["ids"] is not None:
+        return slot["ids"]
+    return set()
 
 
 # This platform's own namespace: SwissAI-Research/<org>/<model> is the

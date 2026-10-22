@@ -23,6 +23,11 @@ redeploy needed to adjust:
 A resolved limit of 0 (or less) means unlimited at that tier's scope, so
 the feature ships dark until an env value or Redis override turns it on.
 
+The chat UIs' keys (``CHAT_API_KEYS``) skip all of the above. Open WebUI
+reaches us through one shared connection key, so a per-key limit would
+throttle every chat user together; chat is never limited. Those requests
+touch no counters.
+
 Availability beats strictness: Redis being unreachable logs a warning and
 allows the request. Rejected requests still count toward the window, so a
 client hammering through 429s stays limited instead of resetting its own
@@ -58,6 +63,13 @@ def _identity(token: str) -> str:
     """Stable per-caller key component. Hashed so raw API keys (secrets)
     never appear as Redis key names."""
     return hashlib.sha256(token.encode()).hexdigest()[:16]
+
+
+def is_exempt(token: str) -> bool:
+    """Whether this is one of the chat UIs' keys (CHAT_API_KEYS)."""
+    return token in {
+        k.strip() for k in get_settings().chat_api_keys.split(",") if k.strip()
+    }
 
 
 def _effective_limit(user_override, default_override) -> int:

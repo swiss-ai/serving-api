@@ -1,10 +1,11 @@
 """Unit tests for the OpenAI-compatible passthrough registry — provider
 prefix namespacing, dynamic model discovery with per-provider TTL cache,
-stale fallback, and gating on configuration. Bare (un-prefixed) ids are
+stale cache, and gating on configuration. Bare (un-prefixed) ids are
 rejected at the request boundary (see test_model_id_validation.py);
 here they must simply not resolve to any provider."""
 
 import asyncio
+import time
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -12,7 +13,6 @@ import pytest
 from backend.services import passthrough_service
 from backend.services.passthrough_service import (
     Provider,
-    _CSCS_L1_FALLBACK_IDS,
     _reset_cache_for_tests,
     endpoint,
     get_synthetic_entries,
@@ -292,19 +292,18 @@ def test_rcp_surfaces_everything_else_it_advertises():
 # ── failure modes ───────────────────────────────────────────────────────────
 
 
-def test_cold_start_fetch_failure_falls_back_for_cscs_l1():
-    """If CSCS L1 is unreachable on the very first call, surface its
-    fallback list so the Apertus rows still appear instead of vanishing."""
+def test_cold_start_fetch_failure_advertises_nothing_for_cscs_l1():
+    """If CSCS L1 is unreachable on the very first call, nothing is listed
+    or routable: we only advertise models we can actually serve."""
     with _patch_settings(_FakeSettings()), _patch_fetch(None):
         entries = _run(get_synthetic_entries())
-    assert {e["id"] for e in entries} == {
-        f"CSCS-Inference/{m}" for m in _CSCS_L1_FALLBACK_IDS
-    }
+        assert _run(resolve_model(f"CSCS-Inference/{APERTUS_8B}")) is None
+    assert entries == []
 
 
-def test_cold_start_failure_no_fallback_for_provider_without_one():
-    """A provider with no fallback_ids (e.g. RCP) advertises nothing until
-    its first successful fetch — not a stale Apertus list."""
+def test_cold_start_failure_advertises_nothing_for_any_provider():
+    """Any provider (e.g. RCP) advertises nothing until its first
+    successful fetch."""
     rcp = Provider(
         name="rcp",
         base_url="https://rcp/v1",
@@ -316,9 +315,9 @@ def test_cold_start_failure_no_fallback_for_provider_without_one():
         assert _run(passthrough_service._get_cached_ids(rcp)) == set()
 
 
-def test_stale_cache_preferred_over_fallback_after_initial_success():
+def test_stale_cache_kept_after_initial_success():
     """Once we've fetched successfully, a later fetch failure keeps serving
-    the real (stale) set rather than resetting to the fallback."""
+    the real (stale) set rather than dropping the rows."""
     fake = AsyncMock(side_effect=[{APERTUS_8B}, None])
     with (
         _patch_settings(_FakeSettings()),
@@ -330,6 +329,61 @@ def test_stale_cache_preferred_over_fallback_after_initial_success():
         second = _run(get_synthetic_entries())
     assert {e["id"] for e in first} == {f"CSCS-Inference/{APERTUS_8B}"}
     assert {e["id"] for e in second} == {f"CSCS-Inference/{APERTUS_8B}"}
+
+
+def test_failed_fetch_backs_off_instead_of_retrying_every_call():
+    """A dead upstream costs one fetch per backoff window, not one per
+    call — later callers get the (empty) cached answer straight away."""
+    fake = AsyncMock(return_value=None)
+    with (
+        _patch_settings(_FakeSettings()),
+        patch.object(passthrough_service, "_fetch_model_ids", new=fake),
+    ):
+        for _ in range(5):
+            entries = _run(get_synthetic_entries())
+    assert fake.await_count == 1
+    assert entries == []
+
+
+def test_retries_after_backoff_window_and_recovers():
+    fake = AsyncMock(side_effect=[None, {APERTUS_8B}])
+    with (
+        _patch_settings(_FakeSettings()),
+        patch.object(passthrough_service, "_fetch_model_ids", new=fake),
+    ):
+        _run(get_synthetic_entries())
+        passthrough_service._cache["cscs_L1"]["failed_at"] = 0.0
+        recovered = _run(get_synthetic_entries())
+    assert fake.await_count == 2
+    assert {e["id"] for e in recovered} == {f"CSCS-Inference/{APERTUS_8B}"}
+
+
+def test_dead_provider_does_not_delay_listing_or_other_providers():
+    """CSCS hangs for its full timeout; many concurrent listings must still
+    finish in about one timeout (not N), and RCP's rows must not wait on
+    CSCS's lock."""
+
+    async def fake(provider):
+        if provider.name == "cscs_L1":
+            await asyncio.sleep(0.3)
+            return None
+        return {APERTUS_8B}
+
+    settings = _FakeSettings(rcp_base_url="https://rcp/v1", rcp_api_key="k")
+
+    async def run():
+        t = time.monotonic()
+        results = await asyncio.gather(*[get_synthetic_entries() for _ in range(8)])
+        return time.monotonic() - t, results
+
+    with (
+        _patch_settings(settings),
+        patch.object(passthrough_service, "_fetch_model_ids", new=fake),
+    ):
+        elapsed, results = _run(run())
+    assert elapsed < 0.6  # 8 serialized 0.3s fetches would be ~2.4s
+    for entries in results:
+        assert f"RCP-AIaaS/{APERTUS_8B}" in {e["id"] for e in entries}
 
 
 # ── helpers ─────────────────────────────────────────────────────────────────

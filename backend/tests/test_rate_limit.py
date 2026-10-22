@@ -92,9 +92,11 @@ def fake_redis():
         yield client
 
 
-def _settings_rpm(rpm: int):
+def _settings_rpm(rpm: int, chat_api_keys: str = ""):
     class _S:
         rate_limit_rpm = rpm
+
+    _S.chat_api_keys = chat_api_keys
 
     return patch.object(rate_limit_service, "get_settings", return_value=_S())
 
@@ -349,3 +351,89 @@ def test_platform_namespace_is_never_limited(fake_redis):
     assert route.api_key == "tok"
     ident = rate_limit_service._identity("tok")
     assert not any(k.startswith(f"rl:req:{ident}") for k in fake_redis.store)
+
+
+# ── chat keys (CHAT_API_KEYS) ───────────────────────────────────────────────
+
+
+def test_chat_key_is_never_limited_or_counted(fake_redis):
+    from backend.middleware.ratelimit import enforce_rate_limit
+
+    with _settings_rpm(1, chat_api_keys="chat-key"):
+        for _ in range(20):
+            enforce_rate_limit("chat-key")
+    ident = rate_limit_service._identity("chat-key")
+    assert not any(k.startswith(f"rl:req:{ident}") for k in fake_redis.store)
+
+
+def test_chat_key_beats_redis_overrides(fake_redis):
+    """Even an admin's Redis limit can't re-throttle chat."""
+    fake_redis.set("rl:limit:default", 1)
+    fake_redis.set(f"rl:limit:{rate_limit_service._identity('chat-key')}", 1)
+    from backend.middleware.ratelimit import enforce_rate_limit
+
+    with _settings_rpm(1, chat_api_keys="chat-key"):
+        for _ in range(5):
+            enforce_rate_limit("chat-key")
+
+
+def test_other_keys_still_limited_alongside_chat(fake_redis):
+    from fastapi import HTTPException
+
+    from backend.middleware.ratelimit import enforce_rate_limit
+
+    with _settings_rpm(1, chat_api_keys="chat-key"):
+        enforce_rate_limit("user-key")
+        with pytest.raises(HTTPException) as exc:
+            enforce_rate_limit("user-key")
+    assert exc.value.status_code == 429
+
+
+@pytest.mark.parametrize(
+    "configured", ["chat-a,chat-b", " chat-a , chat-b ", "chat-b,,chat-a,"]
+)
+def test_chat_api_keys_parsing(configured):
+    """Comma-separated, whitespace and empty entries tolerated — prod and
+    dev chat keys can share one setting."""
+    with _settings_rpm(1, chat_api_keys=configured):
+        assert rate_limit_service.is_exempt("chat-a")
+        assert rate_limit_service.is_exempt("chat-b")
+        assert not rate_limit_service.is_exempt("chat")
+        assert not rate_limit_service.is_exempt("")
+
+
+def test_no_chat_keys_configured_exempts_nobody():
+    with _settings_rpm(1):
+        assert not rate_limit_service.is_exempt("chat-key")
+        assert not rate_limit_service.is_exempt("")
+
+
+def test_passthrough_routing_never_limits_chat(fake_redis):
+    """The chat key reaches a passthrough provider however often it calls —
+    the exemption applies on the routing path, not just in isolation."""
+    from backend.services import route_service
+    from backend.services.passthrough_service import Provider, ResolvedModel
+
+    provider = Provider(
+        name="cscs_L1",
+        base_url="https://l1/v1",
+        api_key="pk",
+        device="CSCS L1",
+        prefix="CSCS-Inference",
+    )
+    resolved = ResolvedModel(
+        provider=provider,
+        upstream_id="swiss-ai/x",
+        public_id="CSCS-Inference/swiss-ai/x",
+    )
+    with (
+        patch.object(
+            route_service, "resolve_model", new=AsyncMock(return_value=resolved)
+        ),
+        _settings_rpm(1, chat_api_keys="chat-key"),
+    ):
+        for _ in range(5):
+            route = asyncio.run(
+                route_service.resolve_route("CSCS-Inference/swiss-ai/x", "chat-key")
+            )
+    assert route.endpoint == "https://l1/v1"
