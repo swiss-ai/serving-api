@@ -54,7 +54,7 @@ certifi==2026.7.22
     #   httpcore
     #   httpx
     #   requests
-cffi==2.1.1 ; platform_python_implementation != 'PyPy'
+cffi==2.1.1
     # via
     #   -c requirements.txt
     #   cryptography
@@ -66,11 +66,6 @@ click==8.5.0
     # via
     #   -c requirements.txt
     #   uvicorn
-colorama==0.4.6 ; sys_platform == 'win32'
-    # via
-    #   -c requirements.txt
-    #   loguru
-    #   pytest
 cryptography==50.0.1
     # via
     #   -c requirements.txt
@@ -90,7 +85,7 @@ googleapis-common-protos==1.75.4
     # via
     #   -c requirements.txt
     #   opentelemetry-exporter-otlp-proto-http
-greenlet==3.5.6 ; platform_machine == 'AMD64' or platform_machine == 'WIN32' or platform_machine == 'aarch64' or platform_machine == 'amd64' or platform_machine == 'ppc64le' or platform_machine == 'win32' or platform_machine == 'x86_64'
+greenlet==3.5.6
     # via
     #   -c requirements.txt
     #   sqlalchemy
@@ -108,7 +103,7 @@ httpcore==1.0.9
     # via
     #   -c requirements.txt
     #   httpx
-httpcore2==2.13.1 ; sys_platform != 'emscripten'
+httpcore2==2.13.1
     # via
     #   -c requirements.txt
     #   httpx2
@@ -121,10 +116,6 @@ httpx2==2.13.1
     # via
     #   -c requirements.txt
     #   openai
-httpx2-jsfetch==1.0 ; sys_platform == 'emscripten'
-    # via
-    #   -c requirements.txt
-    #   httpx2
 idna==3.20
     # via
     #   -c requirements.txt
@@ -139,7 +130,7 @@ jiter==0.17.0
     # via
     #   -c requirements.txt
     #   openai
-langfuse==4.15.6
+langfuse==5.0.2
     # via
     #   -c requirements.txt
     #   -r requirements.in
@@ -172,7 +163,7 @@ opentelemetry-api==1.45.0
     #   opentelemetry-exporter-otlp-proto-http
     #   opentelemetry-sdk
     #   opentelemetry-semantic-conventions
-opentelemetry-exporter-http-transport==0.66b0
+opentelemetry-exporter-http-transport[urllib3]==0.66b0
     # via
     #   -c requirements.txt
     #   opentelemetry-exporter-otlp-proto-http
@@ -224,7 +215,7 @@ psycopg2-binary==2.9.13
     # via
     #   -c requirements.txt
     #   -r requirements.in
-pycparser==3.0 ; implementation_name != 'PyPy' and platform_python_implementation != 'PyPy'
+pycparser==3.0
     # via
     #   -c requirements.txt
     #   cffi
@@ -247,7 +238,7 @@ pydantic-settings==2.15.0
     #   -r requirements.in
 pygments==2.21.0
     # via pytest
-pyjwt==2.15.0
+pyjwt[crypto]==2.15.0
     # via
     #   -c requirements.txt
     #   -r requirements.in
@@ -259,8 +250,6 @@ python-dotenv==1.2.3
     #   -r requirements.in
     #   pydantic-settings
     #   testcontainers
-pywin32==312 ; sys_platform == 'win32'
-    # via docker
 redis==8.1.0
     # via
     #   -c requirements.txt
@@ -292,7 +281,7 @@ starlette==1.7.0
     #   fastapi
 testcontainers==4.15.0
     # via -r requirements-dev.in
-truststore==0.10.4 ; sys_platform != 'emscripten'
+truststore==0.10.4
     # via
     #   -c requirements.txt
     #   httpcore2
@@ -332,10 +321,6 @@ uvicorn==0.54.0
     # via
     #   -c requirements.txt
     #   -r requirements.in
-win32-setctime==1.2.0 ; sys_platform == 'win32'
-    # via
-    #   -c requirements.txt
-    #   loguru
 wrapt==2.4.1
     # via
     #   -c requirements.txt
