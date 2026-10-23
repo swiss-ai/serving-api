@@ -34,7 +34,7 @@ jobs:
       SYNTHETIC_USERNAME: ${{ secrets.SYNTHETIC_USERNAME }}
       SYNTHETIC_APP_PASSWORD: ${{ secrets.SYNTHETIC_APP_PASSWORD }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         if: env.SYNTHETIC_APP_PASSWORD != ''
       - name: Run synthetic sign-up
         if: env.SYNTHETIC_APP_PASSWORD != ''
@@ -44,7 +44,7 @@ jobs:
         run: echo "::notice::Synthetic sign-up secrets not set; skipping."
       - name: Notify Slack
         if: failure()
-        uses: slackapi/slack-github-action@v2
+        uses: slackapi/slack-github-action@v4
         with:
           webhook-type: incoming-webhook
           webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
