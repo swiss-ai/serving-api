@@ -74,7 +74,11 @@ reserved names: never launch a local model whose id starts with one.
 **Rate limiting** applies only to passthrough traffic: external
 providers are a shared, platform-accountable resource, while
 OpenTela-served models run on the caller's own GPU allocation. See
-`backend/services/rate_limit_service.py`.
+`backend/services/rate_limit_service.py`. To give one user a different
+limit, an admin calls `PUT /v1/admin/rate-limits/{email}` with
+`{"rpm": 500}` (`0` = unlimited; `DELETE` reverts to the default). It is
+stored on their API key row, so it survives Redis restarts and key
+rotation.
 
 **Back-compat.** Un-prefixed passthrough ids (the historical form) still
 route during a deprecation window — logged, first provider in

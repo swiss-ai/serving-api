@@ -56,8 +56,10 @@ class Settings(BaseSettings):
     rcp_api_key: str = ""
     # Per-user request limit on traffic routed to external passthrough
     # providers (OpenTela-served models are not limited), requests/minute;
-    # 0 disables. Redis overrides (rl:limit:<identity>, rl:limit:default)
-    # take precedence so admins can adjust live without a redeploy — see
+    # 0 disables. Per-user limits (apikey.rate_limit_rpm, set via
+    # PUT /v1/admin/rate-limits/{email}) and Redis overrides
+    # (rl:limit:<identity>, rl:limit:default) take precedence so admins can
+    # adjust live without a redeploy — see
     # backend/services/rate_limit_service.py.
     rate_limit_rpm: int = 0
     # Comma-separated API keys of our chat UIs (Open WebUI). Never rate
