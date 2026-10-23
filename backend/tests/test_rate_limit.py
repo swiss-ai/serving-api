@@ -1,15 +1,19 @@
 """Unit tests for the per-user rate limiter — sliding-window math,
 override precedence, fail-open behavior, and the 429 surface (envelope +
-Retry-After headers) through the middleware dependency."""
+Retry-After headers) through the middleware dependency. The durable
+per-user limit (apikey.rate_limit_rpm) and its admin API run against the
+shared migrated Postgres from conftest.py."""
 
 import asyncio
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+from sqlmodel import Session, select
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from backend.models.entities import APIKey
 from backend.services import rate_limit_service
 from backend.services.rate_limit_service import (
     WINDOW_SECONDS,
@@ -79,6 +83,15 @@ class _FakePipeline:
 class _FakeTokenCache:
     def __init__(self, client):
         self.redis_client = client
+
+
+@pytest.fixture(autouse=True)
+def no_db_limits():
+    """No per-user DB limit unless a test wires in Postgres (db_limits), so
+    the Redis-only tests never depend on a database being reachable."""
+    with patch.object(rate_limit_service, "_get_engine", return_value=None):
+        yield
+    rate_limit_service._db_limit_cache.clear()
 
 
 @pytest.fixture()
@@ -437,3 +450,141 @@ def test_passthrough_routing_never_limits_chat(fake_redis):
                 route_service.resolve_route("CSCS-Inference/swiss-ai/x", "chat-key")
             )
     assert route.endpoint == "https://l1/v1"
+
+
+# ── durable per-user limit (apikey.rate_limit_rpm) ──────────────────────────
+
+
+@pytest.fixture()
+def db_limits(engine):
+    """Wire the migrated test DB into the limiter; drop the test keys after."""
+    with patch.object(rate_limit_service, "_get_engine", return_value=engine):
+        yield engine
+    with Session(engine) as session:
+        for row in session.exec(
+            select(APIKey).where(APIKey.owner_email.like("%@rl.test"))
+        ).all():
+            session.delete(row)
+        session.commit()
+    rate_limit_service._db_limit_cache.clear()
+
+
+def _make_key(engine, key, email, rpm=None):
+    with Session(engine) as session:
+        session.add(APIKey(key=key, owner_email=email, rate_limit_rpm=rpm))
+        session.commit()
+
+
+def test_db_limit_applies_without_redis_override(fake_redis, db_limits):
+    _make_key(db_limits, "sk-rc-rl-a", "a@rl.test", rpm=2)
+    with _settings_rpm(1):
+        check_rate_limit("sk-rc-rl-a", now=T0)
+        check_rate_limit("sk-rc-rl-a", now=T0)
+        denied = check_rate_limit("sk-rc-rl-a", now=T0)
+    assert not denied.allowed
+    assert denied.limit == 2
+
+
+def test_db_limit_beats_default_override_and_env(fake_redis, db_limits):
+    fake_redis.set("rl:limit:default", 1)
+    _make_key(db_limits, "sk-rc-rl-b", "b@rl.test", rpm=500)
+    with _settings_rpm(1):
+        check_rate_limit("sk-rc-rl-b", now=T0)
+        decision = check_rate_limit("sk-rc-rl-b", now=T0)
+    assert decision.allowed
+    assert decision.limit == 500
+
+
+def test_redis_user_override_beats_db_limit(fake_redis, db_limits):
+    """The Redis per-user key stays the instant hotfix on top."""
+    _make_key(db_limits, "sk-rc-rl-c", "c@rl.test", rpm=500)
+    fake_redis.set(f"rl:limit:{rate_limit_service._identity('sk-rc-rl-c')}", 1)
+    with _settings_rpm(15):
+        check_rate_limit("sk-rc-rl-c", now=T0)
+        denied = check_rate_limit("sk-rc-rl-c", now=T0)
+    assert not denied.allowed
+    assert denied.limit == 1
+
+
+def test_db_limit_zero_means_unlimited(fake_redis, db_limits):
+    _make_key(db_limits, "sk-rc-rl-d", "d@rl.test", rpm=0)
+    with _settings_rpm(1):
+        for _ in range(5):
+            assert check_rate_limit("sk-rc-rl-d", now=T0).allowed
+
+
+def test_db_limit_survives_key_rotation(fake_redis, db_limits):
+    """A Redis override hangs off the old key's hash and is orphaned by a
+    rotation; the DB limit lives on the row rotate_key rewrites in place."""
+    from backend.services import auth_service
+
+    _make_key(db_limits, "sk-rc-rl-e", "e@rl.test", rpm=500)
+    with patch.object(auth_service, "get_token_cache", return_value=MagicMock()):
+        new_key = auth_service.rotate_key(db_limits, "sk-rc-rl-e").key
+    assert new_key != "sk-rc-rl-e"
+    with _settings_rpm(1):
+        check_rate_limit(new_key, now=T0)
+        decision = check_rate_limit(new_key, now=T0)
+    assert decision.allowed
+    assert decision.limit == 500
+
+
+def test_set_user_limit_applies_at_once_on_this_replica(fake_redis, db_limits):
+    """Writing drops the ~60s lookup cache, so the replica that served the
+    admin call doesn't keep enforcing the old limit."""
+    _make_key(db_limits, "sk-rc-rl-f", "f@rl.test")
+    with _settings_rpm(1):
+        assert check_rate_limit("sk-rc-rl-f", now=T0).limit == 1
+        assert rate_limit_service.set_user_limit(db_limits, "f@rl.test", 500) == 1
+        assert check_rate_limit("sk-rc-rl-f", now=T0).limit == 500
+    assert rate_limit_service.set_user_limit(db_limits, "nobody@rl.test", 500) == 0
+
+
+def test_db_lookup_failure_falls_back_to_default(fake_redis):
+    with (
+        patch.object(rate_limit_service, "_get_engine", return_value=object()),
+        patch.object(rate_limit_service, "Session", side_effect=RuntimeError("down")),
+        _settings_rpm(1),
+    ):
+        check_rate_limit("tok", now=T0)
+        denied = check_rate_limit("tok", now=T0)
+    assert not denied.allowed
+    assert denied.limit == 1
+
+
+# ── admin API ───────────────────────────────────────────────────────────────
+
+
+def test_admin_rate_limit_roundtrip(client, db_limits):
+    from backend.routers.admin_monitoring import require_admin
+
+    _make_key(db_limits, "sk-rc-rl-g", "g@rl.test")
+    client.app.dependency_overrides[require_admin] = lambda: "admin@test.ch"
+    try:
+        missing = client.put("/v1/admin/rate-limits/nobody@rl.test", json={"rpm": 5})
+        assert missing.status_code == 404
+        negative = client.put("/v1/admin/rate-limits/g@rl.test", json={"rpm": -1})
+        assert negative.status_code == 422
+
+        set_resp = client.put("/v1/admin/rate-limits/g@rl.test", json={"rpm": 500})
+        assert set_resp.status_code == 200
+        assert set_resp.json() == {"owner_email": "g@rl.test", "rate_limit_rpm": 500}
+        listed = client.get("/v1/admin/rate-limits").json()["users"]
+        assert {"owner_email": "g@rl.test", "rate_limit_rpm": 500} in listed
+
+        cleared = client.delete("/v1/admin/rate-limits/g@rl.test")
+        assert cleared.json() == {"owner_email": "g@rl.test", "rate_limit_rpm": None}
+        listed = client.get("/v1/admin/rate-limits").json()["users"]
+        assert all(u["owner_email"] != "g@rl.test" for u in listed)
+    finally:
+        client.app.dependency_overrides.pop(require_admin, None)
+
+
+def test_admin_rate_limit_requires_admin(client, db_limits):
+    _make_key(db_limits, "sk-rc-rl-h", "h@rl.test")
+    resp = client.put(
+        "/v1/admin/rate-limits/h@rl.test",
+        json={"rpm": 500},
+        headers={"Authorization": "Bearer sk-rc-rl-h"},
+    )
+    assert resp.status_code == 403
