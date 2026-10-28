@@ -11,6 +11,31 @@ version: 1
 metadata:
   name: serving-api-local
 entries:
+  # Resolve built-in dependencies before !Find evaluates on an empty Authentik DB.
+  - model: authentik_blueprints.metaapplyblueprint
+    attrs:
+      identifiers:
+        name: "System - OAuth2 Provider - Scopes"
+      required: true
+
+  - model: authentik_blueprints.metaapplyblueprint
+    attrs:
+      identifiers:
+        name: "Default - Authentication flow"
+      required: true
+
+  - model: authentik_blueprints.metaapplyblueprint
+    attrs:
+      identifiers:
+        name: "Default - Provider authorization flow (implicit consent)"
+      required: true
+
+  - model: authentik_blueprints.metaapplyblueprint
+    attrs:
+      identifiers:
+        name: "Default - Invalidation flow"
+      required: true
+
   - model: authentik_providers_oauth2.scopemapping
     id: scope-serving-api-groups
     identifiers:
@@ -63,7 +88,7 @@ entries:
         - !Find [authentik_providers_oauth2.scopemapping, [managed, goauthentik.io/providers/oauth2/scope-profile]]
         - !Find [authentik_providers_oauth2.scopemapping, [managed, goauthentik.io/providers/oauth2/scope-offline_access]]
 
-  # The slug fixes the issuer: http://localhost:9000/application/o/serving-api-local/
+  # The slug fixes the issuer path; Docker uses authentik.localhost as its public host.
   - model: authentik_core.application
     id: app-serving-api-local
     identifiers:

@@ -5,6 +5,7 @@ import { SITE } from "@consts";
 import NavMenus from "@components/NavMenus.svelte";
 import { getActiveSession } from '@lib/activeSession';
 import { endSessionConfig } from '@lib/endSession';
+import { getApiUrl } from '@lib/config';
 
 // Sessions are auth-astro cookies resolved during SSR; local dev signs in
 // through the compose Authentik — there is no bypass.
@@ -21,10 +22,7 @@ try {
 let isAdmin = false;
 if (session?.accessToken) {
   try {
-    const apiBase =
-      process.env.VITE_API_URL ||
-      import.meta.env.VITE_API_URL ||
-      "https://api.swissai.svc.cscs.ch";
+    const apiBase = getApiUrl();
     const res = await fetch(`${apiBase}/v1/profile`, {
       headers: { Authorization: `Bearer ${session.accessToken}` },
       signal: AbortSignal.timeout(3000),

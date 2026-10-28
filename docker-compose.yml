@@ -1,72 +1,139 @@
+# Local development only. Runtime defaults do not use deployment secrets or .env.
+name: serving-api-local
+
+x-backend: &backend
+  image: ${COMPOSE_PROJECT_NAME:-serving-api-local}-backend
+  build:
+    context: .
+    dockerfile: backend/Dockerfile
+  environment: &backend-env
+    DATABASE_URL: postgresql://serving:serving@postgres:5432/serving
+    AUTH_PROVIDER: authentik
+    AUTHENTIK_ISSUER: http://authentik.localhost:${LOCAL_AUTHENTIK_PORT:-9000}/application/o/serving-api-local/
+    REDIS_HOST: redis
+    CHAT_API_KEYS: sk-rc-local-chat
+    # An explicitly empty fixture path opts into live discovery.
+    OTELA_FIXTURE_PATH: ${LOCAL_OTELA_FIXTURE_PATH-/app/backend/tests/fixtures/dnt_table_live.json}
+    OTELA_HEAD_ADDR: ${LOCAL_OTELA_HEAD_ADDR:-}
+
 services:
-  app:
-    build:
-      context: .
-      dockerfile: backend/Dockerfile
-    ports:
-      - "8080:8080"
+  bootstrap:
+    <<: *backend
+    entrypoint: ["python", "-m", "backend.local_dev"]
     depends_on:
-      - postgres
-    environment:
-      - DATABASE_URL=postgresql://serving:serving@postgres:5432/serving
-      - AUTH0_DOMAIN=${AUTH0_DOMAIN}
-      - AUTH0_ISSUER=${AUTH0_ISSUER}
+      postgres:
+        condition: service_healthy
+      authentik-server:
+        condition: service_healthy
+      authentik-worker:
+        condition: service_healthy
+    restart: "no"
+
+  app:
+    <<: *backend
+    ports:
+      - "127.0.0.1:8080:8080"
+    depends_on:
+      bootstrap:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/openapi.json', timeout=5)"]
+      interval: 5s
+      timeout: 10s
+      retries: 12
     restart: unless-stopped
-    volumes:
-      - ./:/app
 
   frontend:
     build:
       context: .
       dockerfile: frontend/Dockerfile
     ports:
-      - "80:4321"
+      - "127.0.0.1:4321:4321"
     depends_on:
-      - app
+      app:
+        condition: service_healthy
     environment:
-      - PUBLIC_API_URL=http://app:8080
-      - CHAT_APP_URL=http://localhost:8081
+      VITE_API_URL: http://localhost:8080
+      INTERNAL_API_URL: http://app:8080
+      CHAT_APP_URL: http://localhost:8081
+      AUTH_PROVIDER: authentik
+      AUTHENTIK_ISSUER: http://authentik.localhost:${LOCAL_AUTHENTIK_PORT:-9000}/application/o/serving-api-local/
+      AUTHENTIK_CLIENT_ID: serving-api-local
+      AUTHENTIK_CLIENT_SECRET: local-dev-secret-not-for-deployment
+      AUTH_SECRET: local-dev-auth-secret-32-chars-min-ok
+      AUTH_TRUST_HOST: "true"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:4321/').then(r => { if (!r.ok) process.exit(1) }).catch(() => process.exit(1))"]
+      interval: 5s
+      timeout: 10s
+      retries: 12
     restart: unless-stopped
 
   openwebui:
-    image: ghcr.io/open-webui/open-webui:main
+    # Initialize alongside Authentik; make run still waits for every service.
+    image: ghcr.io/open-webui/open-webui:v0.9.5
     ports:
-      - "8081:8080"
+      - "127.0.0.1:8081:8080"
     environment:
-      - OPENAI_API_BASE_URL=http://app:8080/v1
-      - WEBUI_AUTH=false
-    depends_on:
-      - app
+      OPENAI_API_BASE_URL: http://app:8080/v1
+      OPENAI_API_KEY: sk-rc-local-chat
+      WEBUI_AUTH: "false"
+      WEBUI_SECRET_KEY: local-chat-secret-not-for-deployment
+      ENABLE_OLLAMA_API: "false"
+      ENABLE_PERSISTENT_CONFIG: "false"
+      # Local chat should not download embedding models during startup.
+      OFFLINE_MODE: "true"
     volumes:
       - openwebui_data:/app/backend/data
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/health', timeout=5)"]
+      interval: 10s
+      timeout: 10s
+      retries: 18
+      start_period: 30s
     restart: unless-stopped
 
   postgres:
     image: postgres:17-alpine
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5433:5432"
     environment:
-      - POSTGRES_USER=serving
-      - POSTGRES_PASSWORD=serving
-      - POSTGRES_DB=serving
+      POSTGRES_USER: serving
+      POSTGRES_PASSWORD: serving
+      POSTGRES_DB: serving
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U serving -d serving"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
     restart: unless-stopped
 
+  redis:
+    image: redis:8-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+    restart: unless-stopped
 
-  # --- Local Authentik IdP -------------------------------------------------
-  # Auth0 is gone; Authentik is the platform IdP. This stack lets `make run`
-  # do a real OIDC flow locally: `make idp-up` starts it, sign in as
-  # admin@localhost / admin. Pinned by digest to match the cluster —
-  # RC tags are reused and deleted upstream.
   authentik-db:
     image: postgres:17-alpine
     environment:
-      - POSTGRES_USER=authentik
-      - POSTGRES_PASSWORD=authentik-local
-      - POSTGRES_DB=authentik
+      POSTGRES_USER: authentik
+      POSTGRES_PASSWORD: authentik-local
+      POSTGRES_DB: authentik
     volumes:
       - authentik_db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U authentik -d authentik"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
     restart: unless-stopped
 
   authentik-redis:
@@ -76,7 +143,7 @@ services:
   authentik-server:
     image: ghcr.io/goauthentik/server:2026.8.0-rc6@sha256:173d7d219cca16a262ae07db77092dfbbb540807019f6bfb705aba95c7118971
     command: server
-    environment: &authentik_env
+    environment: &authentik-env
       AUTHENTIK_SECRET_KEY: local-dev-secret-key-not-for-deployment
       AUTHENTIK_POSTGRESQL__HOST: authentik-db
       AUTHENTIK_POSTGRESQL__USER: authentik
@@ -85,24 +152,33 @@ services:
       AUTHENTIK_REDIS__HOST: authentik-redis
       AUTHENTIK_BOOTSTRAP_EMAIL: admin@localhost
       AUTHENTIK_BOOTSTRAP_PASSWORD: admin
+      AUTHENTIK_LISTEN__HTTP: 0.0.0.0:${LOCAL_AUTHENTIK_PORT:-9000}
       AUTHENTIK_ERROR_REPORTING__ENABLED: "false"
       AUTHENTIK_DISABLE_UPDATE_CHECK: "true"
     ports:
-      - "9000:9000"
+      - "127.0.0.1:${LOCAL_AUTHENTIK_PORT:-9000}:${LOCAL_AUTHENTIK_PORT:-9000}"
+    networks:
+      default:
+        aliases:
+          # Browsers resolve *.localhost to loopback; containers use this alias.
+          - authentik.localhost
     depends_on:
-      - authentik-db
-      - authentik-redis
+      authentik-db:
+        condition: service_healthy
+      authentik-redis:
+        condition: service_started
     restart: unless-stopped
 
   authentik-worker:
-    image: ghcr.io/goauthentik/server:2026.8.0-rc6@sha256:173d7d219cca16a262ae07db77092dfbbb540807019f6bfb705aba95c7118971
+    build:
+      context: authentik-local
     command: worker
-    environment: *authentik_env
-    volumes:
-      - ./authentik-local:/blueprints/local:ro
+    environment: *authentik-env
     depends_on:
-      - authentik-db
-      - authentik-redis
+      authentik-db:
+        condition: service_healthy
+      authentik-redis:
+        condition: service_started
     restart: unless-stopped
 
 volumes:
