@@ -22,10 +22,6 @@ const faqs = [
     a: '<ul class="list-disc pl-8 space-y-2"><li><a class="text-indigo-600 dark:text-indigo-400 underline" href="https://github.com/eth-easl/OpenTela" target="_blank" rel="noopener noreferrer">OpenTela</a> - the decentralized compute fabric that routes requests to models wherever they run (we deploy from a <a class="text-indigo-600 dark:text-indigo-400 underline" href="https://github.com/swiss-ai/opentela" target="_blank" rel="noopener noreferrer">swiss-ai fork</a>).</li><li><a class="text-indigo-600 dark:text-indigo-400 underline" href="https://github.com/swiss-ai/serving-api" target="_blank" rel="noopener noreferrer">serving-api</a> - this website: the API gateway, budgets and the frontend.</li><li><a class="text-indigo-600 dark:text-indigo-400 underline" href="https://github.com/swiss-ai/model-launch" target="_blank" rel="noopener noreferrer">model-launch</a> - tooling to launch and serve your own models on Slurm.</li><li>infra - infrastructure and ArgoCD deployment configs (private).</li></ul>',
   },
   {
-    q: "What do Platform-managed and User-managed mean?",
-    a: '<strong>Platform-managed</strong> models are maintained by SwissAI or a partner as an ongoing service. <strong>User-managed</strong> models are launched by individual users and are available only while their jobs are running. For experiments that need a particular model or configuration, launch your own instance with <a class="text-indigo-600 dark:text-indigo-400 underline" href="/guides/01-getting-started/model-launch">model launch</a> so you control its lifetime.',
-  },
-  {
     q: "What are providers?",
     a: 'Providers are external inference platforms we have a partnership with. We route requests through our <a class="text-indigo-600 dark:text-indigo-400 underline" href="/">SwissAI Research</a> platform to them, so you can reach their models with the same API key and OpenAI-compatible API you already use here. All current providers are Swiss universities, so access remains academic. Requests to providers are currently rate-limited to 15 requests per minute per user.',
   },
