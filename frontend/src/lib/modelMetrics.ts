@@ -2,6 +2,17 @@ const METRICS_BASE = "https://metrics.swissai.svc.cscs.ch/d/inference-unified/in
 
 export type HostingTier = "L2" | "slurm";
 
+export const HOSTING_TIERS: Record<HostingTier, { label: string; description: string }> = {
+  L2: {
+    label: "Platform-managed",
+    description: "Maintained by SwissAI or a partner as an ongoing service.",
+  },
+  slurm: {
+    label: "User-managed",
+    description: "Launched by an individual user. Available only while their job is running.",
+  },
+};
+
 type ModelConfig = {
   metrics?: boolean;
 };
@@ -29,7 +40,7 @@ export function isPassthroughLauncher(launched_by: string | undefined): boolean 
 
 // Tier is now driven by the peer's `launched_by` label instead of a
 // hardcoded model list. Persistent infra launchers ("k8s" plus the
-// passthrough providers) map to the 24/7 badge; anything else (a username
+// passthrough providers) map to Platform-managed; anything else (a username
 // from model-launch, or an older OpenTela binary that doesn't emit the
 // label) is a Slurm job.
 const PERSISTENT_LAUNCHERS = new Set(["k8s", ...PASSTHROUGH_LAUNCHERS]);
