@@ -24,7 +24,6 @@ from backend.services import route_service
 from backend.services.passthrough_service import (
     Provider,
     ResolvedModel,
-    root_endpoint,
 )
 
 RCP = Provider(
@@ -80,20 +79,11 @@ def test_passthrough_route_uses_provider_base_and_key(_no_rate_limit):
     _no_rate_limit.assert_called_once_with("user-tok")
 
 
-def test_passthrough_route_server_root_strips_v1(_no_rate_limit):
+def test_passthrough_route_ignores_server_root(_no_rate_limit):
+    """server_root only applies to OpenTela: a provider gets the path as called."""
     with _resolve(RCP_RESOLVED):
         route = asyncio.run(
             route_service.resolve_route(EMBED_PUBLIC, "user-tok", server_root=True)
-        )
-    assert route.endpoint == "https://rcp.example"
-
-
-def test_passthrough_route_provider_v1_keeps_v1(_no_rate_limit):
-    with _resolve(RCP_RESOLVED):
-        route = asyncio.run(
-            route_service.resolve_route(
-                EMBED_PUBLIC, "user-tok", server_root=True, provider_v1=True
-            )
         )
     assert route.endpoint == "https://rcp.example/v1"
 
@@ -135,19 +125,6 @@ def test_restore_public_id_only_touches_dict_with_model():
     }
     assert route.restore_public_id({"tokens": [1]}) == {"tokens": [1]}
     assert route.restore_public_id([1, 2]) == [1, 2]
-
-
-@pytest.mark.parametrize(
-    "base_url, expected",
-    [
-        ("https://rcp.example/v1", "https://rcp.example"),
-        ("https://rcp.example/v1/", "https://rcp.example"),
-        ("https://gateway.example/llm", "https://gateway.example/llm"),
-    ],
-)
-def test_root_endpoint(base_url, expected):
-    provider = Provider(name="p", base_url=base_url, api_key="k", device="d")
-    assert root_endpoint(provider) == expected
 
 
 # ── routers ──────────────────────────────────────────────────────────────────
@@ -212,24 +189,10 @@ POOLING_ROUTES = [
 ]
 
 
-def test_rerank_prefixed_id_to_provider_v1():
-    """Rerank is the exception: RCP serves /v1/rerank, not /rerank."""
-    proxy = AsyncMock(return_value=RawResponse(data={"results": []}))
-    with _resolve(RCP_RESOLVED), patch.object(rerank, "llm_proxy_rerank", proxy):
-        resp = _client(rerank).post(
-            "/v1/rerank",
-            json={"model": EMBED_PUBLIC, "query": "q", "documents": ["a"]},
-        )
-    assert resp.status_code == 200, resp.text
-    kwargs = proxy.await_args.kwargs
-    assert kwargs["endpoint"] == "https://rcp.example/v1"
-    assert kwargs["payload"]["model"] == EMBED_UPSTREAM
-
-
-@pytest.mark.parametrize("module, proxy_name, path, body", POOLING_ROUTES[1:])
-def test_pooling_routes_prefixed_id_to_provider_root(module, proxy_name, path, body):
-    """The pooling family lives at the vLLM server root: on the provider
-    arm the base is the provider URL minus /v1, with key + id swapped."""
+@pytest.mark.parametrize("module, proxy_name, path, body", POOLING_ROUTES)
+def test_pooling_routes_prefixed_id_to_provider_v1(module, proxy_name, path, body):
+    """A provider gets the path as called: the base keeps its /v1, with
+    key + id swapped."""
     proxy = AsyncMock(
         return_value=RawResponse(data={"model": EMBED_UPSTREAM, "ok": True})
     )
@@ -238,7 +201,7 @@ def test_pooling_routes_prefixed_id_to_provider_root(module, proxy_name, path, b
     assert resp.status_code == 200, resp.text
     assert resp.json() == {"model": EMBED_PUBLIC, "ok": True}
     kwargs = proxy.await_args.kwargs
-    assert kwargs["endpoint"] == "https://rcp.example"
+    assert kwargs["endpoint"] == "https://rcp.example/v1"
     assert kwargs["api_key"] == "provider-key"
     assert kwargs["provider_label"] == "EPFL RCP"
     assert kwargs["model"] == EMBED_UPSTREAM

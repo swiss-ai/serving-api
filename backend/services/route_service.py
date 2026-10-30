@@ -11,21 +11,17 @@ prefixed id such as ``RCP-AIaaS/Qwen/Qwen3-Embedding-8B`` went verbatim
 to OpenTela from ``/v1/embeddings``, which has no service by that name and
 answered 503 "No provider found for the requested service".
 
-Two upstream base URLs exist because vLLM serves the pooling family at
-the server root, not under ``/v1`` like chat/completions/embeddings:
+A passthrough provider gets the path the client called: ``/v1/rerank``
+on this API is ``/v1/rerank`` on the provider, for every route.
 
-- ``server_root=False`` → the OpenAI-style base (``.../v1``). Callers
-  append ``/chat/completions``, ``/embeddings``, ...
-- ``server_root=True`` → the server root. Callers append ``/rerank``,
-  ``/score``, ``/classify``, ``/tokenize``, ``/detokenize``.
+Only the OpenTela arm has two upstream base URLs, because vLLM serves the
+pooling family at the server root, not under ``/v1`` like
+chat/completions/embeddings:
 
-On the OpenTela arm those are ``<head>/v1/service/llm/v1/`` and
-``<head>/v1/service/llm/``; on the passthrough arm the provider's base
-URL with and without its trailing ``/v1``.
-
-``provider_v1=True`` keeps the ``/v1`` base on the passthrough arm even
-with ``server_root=True``: provider gateways don't all forward the root
-path (EPFL RCP answers 404 on ``/rerank`` but serves ``/v1/rerank``).
+- ``server_root=False`` → ``<head>/v1/service/llm/v1/``. Callers append
+  ``/chat/completions``, ``/embeddings``, ...
+- ``server_root=True`` → ``<head>/v1/service/llm/``. Callers append
+  ``/rerank``, ``/score``, ``/classify``, ``/tokenize``, ``/detokenize``.
 """
 
 from dataclasses import dataclass
@@ -36,7 +32,6 @@ from backend.services.passthrough_service import (
     ResolvedModel,
     endpoint as passthrough_endpoint,
     resolve_model,
-    root_endpoint as passthrough_root_endpoint,
 )
 
 
@@ -81,11 +76,7 @@ class Route:
 
 
 async def resolve_route(
-    model: str,
-    user_token: str,
-    *,
-    server_root: bool = False,
-    provider_v1: bool = False,
+    model: str, user_token: str, *, server_root: bool = False
 ) -> Route:
     """Prefixed passthrough ids (CSCS-Inference/..., RCP-AIaaS/...) go to
     that provider's upstream endpoint with its shared key; SwissAI-Research/
@@ -101,12 +92,9 @@ async def resolve_route(
     if resolved is not None and resolved.provider is not None:
         enforce_rate_limit(user_token)
         provider = resolved.provider
-        base = (
-            passthrough_root_endpoint(provider)
-            if server_root and not provider_v1
-            else passthrough_endpoint(provider)
+        return Route(
+            passthrough_endpoint(provider), provider.api_key, provider.device, resolved
         )
-        return Route(base, provider.api_key, provider.device, resolved)
     head = get_settings().otela_head_addr
     base = head + ("/v1/service/llm/" if server_root else "/v1/service/llm/v1/")
     return Route(base, user_token, None, resolved)
