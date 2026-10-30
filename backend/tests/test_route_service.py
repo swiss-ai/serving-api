@@ -236,4 +236,5 @@ def test_responses_routes_prefixed_id_to_provider():
     kwargs = proxy.await_args.kwargs
     assert kwargs["endpoint"] == "https://rcp.example/v1"
     assert kwargs["api_key"] == "provider-key"
+    assert kwargs["provider_label"] == "EPFL RCP"
     assert kwargs["payload"]["model"] == EMBED_UPSTREAM
