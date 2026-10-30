@@ -22,6 +22,10 @@ the server root, not under ``/v1`` like chat/completions/embeddings:
 On the OpenTela arm those are ``<head>/v1/service/llm/v1/`` and
 ``<head>/v1/service/llm/``; on the passthrough arm the provider's base
 URL with and without its trailing ``/v1``.
+
+``provider_v1=True`` keeps the ``/v1`` base on the passthrough arm even
+with ``server_root=True``: provider gateways don't all forward the root
+path (EPFL RCP answers 404 on ``/rerank`` but serves ``/v1/rerank``).
 """
 
 from dataclasses import dataclass
@@ -77,7 +81,11 @@ class Route:
 
 
 async def resolve_route(
-    model: str, user_token: str, *, server_root: bool = False
+    model: str,
+    user_token: str,
+    *,
+    server_root: bool = False,
+    provider_v1: bool = False,
 ) -> Route:
     """Prefixed passthrough ids (CSCS-Inference/..., RCP-AIaaS/...) go to
     that provider's upstream endpoint with its shared key; SwissAI-Research/
@@ -95,7 +103,7 @@ async def resolve_route(
         provider = resolved.provider
         base = (
             passthrough_root_endpoint(provider)
-            if server_root
+            if server_root and not provider_v1
             else passthrough_endpoint(provider)
         )
         return Route(base, provider.api_key, provider.device, resolved)

@@ -12,6 +12,8 @@ router = APIRouter()
 # upstream base here must be the server root (server_root=True): on OpenTela
 # ".../v1/service/llm/", on a passthrough provider its base URL minus "/v1".
 # Appending "/v1/" would forward to a nonexistent "/v1/score" and 404.
+# Exception: rerank on a passthrough provider stays on "/v1" (provider_v1=True),
+# because the EPFL RCP gateway serves /v1/rerank but 404s on /rerank.
 
 
 @router.post("/v1/rerank")
@@ -20,7 +22,7 @@ async def rerank(
     data: dict = Depends(json_body),
 ):
     public_model = require_namespaced_model(data.get("model"))
-    route = await resolve_route(public_model, token, server_root=True)
+    route = await resolve_route(public_model, token, server_root=True, provider_v1=True)
     data["model"] = route.upstream_model(public_model)
     response = await llm_proxy_rerank(
         endpoint=route.endpoint,

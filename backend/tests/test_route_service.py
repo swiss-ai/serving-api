@@ -88,6 +88,16 @@ def test_passthrough_route_server_root_strips_v1(_no_rate_limit):
     assert route.endpoint == "https://rcp.example"
 
 
+def test_passthrough_route_provider_v1_keeps_v1(_no_rate_limit):
+    with _resolve(RCP_RESOLVED):
+        route = asyncio.run(
+            route_service.resolve_route(
+                EMBED_PUBLIC, "user-tok", server_root=True, provider_v1=True
+            )
+        )
+    assert route.endpoint == "https://rcp.example/v1"
+
+
 def test_opentela_route_keeps_user_token(_no_rate_limit):
     with _resolve(None):
         openai = asyncio.run(route_service.resolve_route("user/org/m", "user-tok"))
@@ -202,7 +212,21 @@ POOLING_ROUTES = [
 ]
 
 
-@pytest.mark.parametrize("module, proxy_name, path, body", POOLING_ROUTES)
+def test_rerank_prefixed_id_to_provider_v1():
+    """Rerank is the exception: RCP serves /v1/rerank, not /rerank."""
+    proxy = AsyncMock(return_value=RawResponse(data={"results": []}))
+    with _resolve(RCP_RESOLVED), patch.object(rerank, "llm_proxy_rerank", proxy):
+        resp = _client(rerank).post(
+            "/v1/rerank",
+            json={"model": EMBED_PUBLIC, "query": "q", "documents": ["a"]},
+        )
+    assert resp.status_code == 200, resp.text
+    kwargs = proxy.await_args.kwargs
+    assert kwargs["endpoint"] == "https://rcp.example/v1"
+    assert kwargs["payload"]["model"] == EMBED_UPSTREAM
+
+
+@pytest.mark.parametrize("module, proxy_name, path, body", POOLING_ROUTES[1:])
 def test_pooling_routes_prefixed_id_to_provider_root(module, proxy_name, path, body):
     """The pooling family lives at the vLLM server root: on the provider
     arm the base is the provider URL minus /v1, with key + id swapped."""
