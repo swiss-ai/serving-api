@@ -312,7 +312,9 @@ async def _shared_proxy_handler(
 
         return resp
 
-    except BackendHTTPError:
+    except BackendHTTPError as e:
+        e.model = model
+        e.provider = provider_label
         active_requests -= 1
         if not session.closed:
             await session.close()
