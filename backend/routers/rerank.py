@@ -9,9 +9,9 @@ router = APIRouter()
 
 # vLLM serves the pooling-family endpoints (/score, /rerank, /pooling, /classify)
 # at the server root, NOT under /v1 like chat/completions/embeddings. So the
-# upstream base here must be the server root (server_root=True): on OpenTela
-# ".../v1/service/llm/", on a passthrough provider its base URL minus "/v1".
-# Appending "/v1/" would forward to a nonexistent "/v1/score" and 404.
+# OpenTela upstream base here must be the server root (server_root=True),
+# ".../v1/service/llm/". Appending "/v1/" would forward to a nonexistent
+# "/v1/score" and 404. Passthrough providers always get the path as called.
 
 
 @router.post("/v1/rerank")

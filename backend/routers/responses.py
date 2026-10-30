@@ -30,6 +30,7 @@ async def create_response(
         payload=data,
         stream=stream,
         model=model,
+        provider_label=route.provider_label,
     )
 
     if stream:

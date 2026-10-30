@@ -312,7 +312,9 @@ async def _shared_proxy_handler(
 
         return resp
 
-    except BackendHTTPError:
+    except BackendHTTPError as e:
+        e.model = model
+        e.provider = provider_label
         active_requests -= 1
         if not session.closed:
             await session.close()
@@ -380,7 +382,12 @@ async def llm_proxy_embeddings(
 
 
 async def llm_proxy_responses(
-    endpoint, api_key, payload: dict, stream: bool, model: str
+    endpoint,
+    api_key,
+    payload: dict,
+    stream: bool,
+    model: str,
+    provider_label: str = None,
 ):
     return await _shared_proxy_handler(
         endpoint=endpoint,
@@ -391,6 +398,7 @@ async def llm_proxy_responses(
         full_url=endpoint.rstrip("/") + "/responses",
         model=model,
         raw_response=True,
+        provider_label=provider_label,
     )
 
 
