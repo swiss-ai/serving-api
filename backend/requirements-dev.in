@@ -4,4 +4,4 @@
 -r requirements.in
 pytest
 testcontainers
-ruff>=0.15.22,<0.16
+ruff>=0.17.2,<0.18

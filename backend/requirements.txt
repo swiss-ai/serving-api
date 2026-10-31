@@ -43,7 +43,7 @@ colorama==0.4.6 ; sys_platform == 'win32'
     # via loguru
 cryptography==50.0.2
     # via pyjwt
-fastapi==0.161.0
+fastapi==0.162.0
     # via -r requirements.in
 frozenlist==1.8.0
     # via
@@ -170,7 +170,7 @@ sqlalchemy==2.0.55
     #   -r requirements.in
     #   alembic
     #   sqlmodel
-sqlmodel==0.0.46
+sqlmodel==0.0.48
     # via -r requirements.in
 starlette==1.9.0
     # via fastapi
