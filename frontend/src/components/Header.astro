@@ -73,19 +73,7 @@ const endSession = await endSessionConfig(session);
       
       <!-- Desktop Navigation -->
       <nav class="hidden md:flex items-center gap-6">
-        <Link
-          href="/leaderboard"
-          class="text-sm font-medium text-slate-600 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-400 transition-colors"
-        >
-          Leaderboard
-        </Link>
-        <Link
-          href="/performance"
-          class="text-sm font-medium text-slate-600 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-400 transition-colors"
-        >
-          Performance
-        </Link>
-        <NavMenus client:load signedIn={signedIn} isAdmin={isAdmin} email={userEmail} section="about" />
+        <NavMenus client:load signedIn={signedIn} isAdmin={isAdmin} email={userEmail} section="menus" />
         <a
           href="https://swissai-initiative.slack.com/archives/C07DHJFRE2X"
           target="_blank"
@@ -145,18 +133,6 @@ const endSession = await endSessionConfig(session);
       id="mobile-menu"
       class="hidden md:hidden flex-col gap-4 pt-4 pb-2 border-t border-slate-200 dark:border-slate-800 mt-4"
     >
-      <Link
-        href="/leaderboard"
-        class="text-sm font-medium text-slate-600 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-400 transition-colors py-2"
-      >
-        Leaderboard
-      </Link>
-      <Link
-        href="/performance"
-        class="text-sm font-medium text-slate-600 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-400 transition-colors py-2"
-      >
-        Performance
-      </Link>
       <NavMenus client:load signedIn={signedIn} isAdmin={isAdmin} email={userEmail} endSession={endSession} mobile={true} />
       <a
         href="https://swissai-initiative.slack.com/archives/C07DHJFRE2X"
