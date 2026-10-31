@@ -55,16 +55,32 @@ app.add_middleware(
 )
 
 
+_UPSTREAM_DETAIL_LIMIT = 500
+
+
 @app.exception_handler(BackendHTTPError)
 async def backend_http_error_handler(request: Request, exc: BackendHTTPError):
     try:
         json.loads(exc.body)
-        media_type = "application/json"
-        content = exc.body
     except (json.JSONDecodeError, TypeError):
-        media_type = "text/plain"
-        content = exc.body
-    return Response(content=content, status_code=exc.status_code, media_type=media_type)
+        return _upstream_error_response(request, exc)
+    return Response(
+        content=exc.body, status_code=exc.status_code, media_type="application/json"
+    )
+
+
+def _upstream_error_response(request: Request, exc: BackendHTTPError) -> JSONResponse:
+    """Wrap a non-JSON upstream error in the OpenAI envelope. Plain-text
+    bodies are kept (truncated) as they often carry the reason, e.g. OpenTela's
+    "No provider found"; HTML ones are a gateway's error page, so dropped."""
+    message = f"upstream {exc.provider or 'server'} returned {exc.status_code}"
+    if exc.model:
+        message += f" for model {exc.model}"
+    message += f" on {request.url.path}"
+    detail = (exc.body or "").strip()
+    if detail and not detail.startswith("<"):
+        message += f": {detail[:_UPSTREAM_DETAIL_LIMIT]}"
+    return _openai_error_response(exc.status_code, message, error_type="upstream_error")
 
 
 def _openai_error_type(status_code: int) -> str:
@@ -86,13 +102,14 @@ def _openai_error_response(
     code=None,
     param=None,
     headers=None,
+    error_type=None,
 ) -> JSONResponse:
     return JSONResponse(
         status_code=status_code,
         content={
             "error": {
                 "message": message,
-                "type": _openai_error_type(status_code),
+                "type": error_type or _openai_error_type(status_code),
                 "param": param,
                 "code": code,
             }

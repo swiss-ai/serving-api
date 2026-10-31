@@ -1,0 +1,7 @@
+# Dev/test tools. `make lock` compiles this against requirements.txt so the
+# runtime packages in requirements-dev.txt match the prod lock exactly.
+-c requirements.txt
+-r requirements.in
+pytest
+testcontainers
+ruff>=0.15.22,<0.16

@@ -2,7 +2,7 @@
     import { onMount } from "svelte";
     import ModelCard from "./ModelCard.svelte";
     import { getApiUrl } from "../../lib/config";
-    import { getTierFromLaunchedBy, isPassthroughLauncher } from "../../lib/modelMetrics";
+    import { HOSTING_TIERS, getTierFromLaunchedBy, isPassthroughLauncher } from "../../lib/modelMetrics";
 
     export let chatAppUrl;
 
@@ -14,16 +14,16 @@
 
     let search = "";
     // One mutually-exclusive facet: "all" | "24/7" | "slurm" | a provider
-    // label. Providers are all 24/7, so a provider is a refinement of 24/7
-    // rather than a second axis — one selection. The three tiers stay as
-    // pills; providers live in a compact dropdown so the row doesn't grow
-    // with every provider we add.
+    // label. Providers are all Platform-managed, so a provider refines
+    // that tier rather than adding a second axis — one selection. Tiers
+    // stay as pills; providers live in a compact dropdown so the row
+    // doesn't grow with every provider we add.
     let activeFilter = "all";
 
     // Provider facet, derived from the data: passthrough models carry
     // their provider's namespace as the id's first segment (CSCS-Inference,
     // RCP-AIaaS), and our own OpenTela k8s launches live under
-    // SwissAI-Research. User Slurm launches have no provider — the Slurm
+    // SwissAI-Research. User launches have no provider — the User-managed
     // pill already selects exactly those.
     function providerOf(m) {
         const launched = m.data.replicas[0]?.head?.launched_by;
@@ -168,12 +168,14 @@
                 class="pill"
                 class:active={activeFilter === "24/7"}
                 on:click={() => (activeFilter = "24/7")}
-            >24/7</button>
+                title={HOSTING_TIERS.L2.description}
+            >{HOSTING_TIERS.L2.label}</button>
             <button
                 class="pill"
                 class:active={activeFilter === "slurm"}
                 on:click={() => (activeFilter = "slurm")}
-            >Slurm</button>
+                title={HOSTING_TIERS.slurm.description}
+            >{HOSTING_TIERS.slurm.label}</button>
             {#if providers.length > 0}
                 <select
                     class="pill provider-select"

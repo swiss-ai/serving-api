@@ -1,4 +1,4 @@
-FROM node:22-slim AS runtime
+FROM node:22.23.4-slim AS runtime
 WORKDIR /app
 
 COPY frontend/ .

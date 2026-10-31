@@ -1,3 +1,7 @@
+import asyncio
+from unittest.mock import AsyncMock, patch
+
+import pytest
 from fastapi import FastAPI, HTTPException
 from fastapi.exceptions import RequestValidationError
 from fastapi.testclient import TestClient
@@ -87,3 +91,81 @@ def test_error_type_mapping():
     assert _openai_error_type(429) == "rate_limit_error"
     assert _openai_error_type(500) == "api_error"
     assert _openai_error_type(503) == "api_error"
+
+
+def _upstream_client(body: str, status: int = 404) -> TestClient:
+    from backend.main import backend_http_error_handler
+    from backend.models.protocols import BackendHTTPError
+
+    app = FastAPI()
+    app.add_exception_handler(BackendHTTPError, backend_http_error_handler)
+
+    @app.post("/v1/rerank")
+    def rerank():
+        raise BackendHTTPError(status, body, model="org/m", provider="EPFL RCP")
+
+    return TestClient(app)
+
+
+def test_upstream_html_error_is_wrapped_without_the_page():
+    resp = _upstream_client("<html><body><h1>404 Not Found</h1></body></html>").post(
+        "/v1/rerank"
+    )
+    assert resp.status_code == 404
+    assert resp.headers["content-type"].startswith("application/json")
+    err = resp.json()["error"]
+    assert err["type"] == "upstream_error"
+    assert err["message"] == (
+        "upstream EPFL RCP returned 404 for model org/m on /v1/rerank"
+    )
+
+
+def test_upstream_plain_text_error_keeps_truncated_reason():
+    resp = _upstream_client("No provider found" + "x" * 1000, status=503).post(
+        "/v1/rerank"
+    )
+    assert resp.status_code == 503
+    message = resp.json()["error"]["message"]
+    assert message.startswith(
+        "upstream EPFL RCP returned 503 for model org/m on /v1/rerank: "
+        "No provider found"
+    )
+    assert len(message) < 600
+
+
+@pytest.mark.parametrize("body", ["", None])
+def test_upstream_empty_error_is_wrapped(body):
+    resp = _upstream_client(body, status=502).post("/v1/rerank")
+    assert resp.status_code == 502
+    assert resp.json()["error"]["type"] == "upstream_error"
+
+
+def test_upstream_json_error_passes_through_unchanged():
+    body = '{"error":{"message":"bad model","type":"invalid_request_error"}}'
+    resp = _upstream_client(body, status=400).post("/v1/rerank")
+    assert resp.status_code == 400
+    assert resp.text == body
+
+
+def test_proxy_handler_attaches_model_and_provider():
+    from backend.models.protocols import BackendHTTPError
+    from backend.services import llm_service
+
+    async def call():
+        await llm_service._shared_proxy_handler(
+            endpoint="https://rcp.example/v1",
+            api_key="k",
+            payload={},
+            headers_extra={},
+            stream=False,
+            full_url="https://rcp.example/v1/rerank",
+            model="org/m",
+            provider_label="EPFL RCP",
+        )
+
+    failing = AsyncMock(side_effect=BackendHTTPError(404, "<html>"))
+    with patch.object(llm_service, "_execute_http_request", failing):
+        with pytest.raises(BackendHTTPError) as caught:
+            asyncio.run(call())
+    assert caught.value.model == "org/m"
+    assert caught.value.provider == "EPFL RCP"

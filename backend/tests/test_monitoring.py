@@ -1,45 +1,11 @@
 from datetime import datetime, timedelta
 
 import pytest
-from fastapi.testclient import TestClient
-from testcontainers.postgres import PostgresContainer
-from sqlmodel import SQLModel, Session, create_engine
+from sqlmodel import Session
 
 
-@pytest.fixture(scope="module")
-def postgres():
-    with PostgresContainer("postgres:17-alpine") as pg:
-        yield pg
-
-
-@pytest.fixture(scope="module")
-def client(postgres):
-    import os
-
-    os.environ["DATABASE_URL"] = postgres.get_connection_url()
-
-    from backend.config import get_settings
-
-    get_settings.cache_clear()
-
-    from backend.main import app
-
-    settings = get_settings()
-    engine = create_engine(settings.database_url)
-    SQLModel.metadata.create_all(engine)
-
-    with TestClient(app) as c:
-        # main.py's lifespan builds the engine from the module-level settings
-        # captured at FIRST import — under a full suite run that is another
-        # test module's (already torn down) postgres container. Point the app
-        # at this module's container explicitly.
-        c.app.state.engine = engine
-        yield c
-
-
-@pytest.fixture()
-def engine(client):
-    return client.app.state.engine
+# `client` and `engine` come from conftest.py (shared, alembic-migrated
+# Postgres).
 
 
 @pytest.fixture(autouse=True)

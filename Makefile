@@ -1,4 +1,4 @@
-.PHONY: install install-dev format check test run dummy-run seed-usage idp-up idp-down db-up db-down migrate _ensure-env _ensure-frontend-env _guard-local-db _guard-local-api
+.PHONY: install install-dev lock lock-check format check test test-e2e run dummy-run seed-usage idp-up idp-down db-up db-down migrate _ensure-env _ensure-frontend-env _guard-local-db _guard-local-api
 
 UV_EXTRA ?=
 
@@ -15,6 +15,31 @@ install:
 install-dev:
 	uv pip install $(UV_EXTRA) -r backend/requirements-dev.txt
 
+# requirements*.txt are generated lockfiles: edit the .in files, then run
+# `make lock`. Resolved for the Docker image's Python (3.13) and universal
+# across platforms, so macOS dev, CI and the linux image install the same
+# versions. `make lock` keeps existing pins; bump one package with
+# `make lock LOCK_ARGS="--upgrade-package sqlmodel"` or all with
+# `make lock LOCK_ARGS=--upgrade`.
+LOCK_ARGS ?=
+UV_COMPILE := uv pip compile --quiet --universal --python-version 3.13
+
+lock:
+	cd backend && $(UV_COMPILE) $(LOCK_ARGS) requirements.in -o requirements.txt
+	cd backend && $(UV_COMPILE) $(LOCK_ARGS) requirements-dev.in -o requirements-dev.txt
+
+# CI: fail if a .in file changed without re-locking. Compiles into a temp
+# dir seeded with the committed locks, so pins are kept and nothing in the
+# working tree is touched.
+lock-check:
+	@tmp=$$(mktemp -d); cp backend/*.in backend/requirements*.txt $$tmp/; \
+	(cd $$tmp && $(UV_COMPILE) requirements.in -o requirements.txt \
+	          && $(UV_COMPILE) requirements-dev.in -o requirements-dev.txt) || exit 1; \
+	for f in requirements.txt requirements-dev.txt; do \
+		diff -u backend/$$f $$tmp/$$f \
+			|| { echo "backend/$$f is stale: run 'make lock' and commit it."; exit 1; }; \
+	done; echo "lockfiles up to date"
+
 format:
 	ruff check --fix backend/
 	ruff format backend/
@@ -24,7 +49,12 @@ check:
 	ruff format --check backend/
 
 test:
-	pytest backend/tests/ -v
+	pytest backend/tests/ -v -m "not e2e"
+
+# Real sign-up flow: Postgres + Authentik (+ the backend image when
+# E2E_BACKEND_IMAGE is set) in testcontainers. Needs Docker; ~1-2 min.
+test-e2e:
+	pytest backend/tests/ -v -m e2e
 
 _ensure-env:
 	@if [ ! -f .env ]; then \
