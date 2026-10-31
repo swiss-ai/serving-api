@@ -1,6 +1,6 @@
 from functools import lru_cache
 
-from pydantic import AliasChoices, Field
+from pydantic import AliasChoices, Field, field_validator
 from pydantic_settings import BaseSettings
 
 
@@ -110,6 +110,17 @@ class Settings(BaseSettings):
         # AUTH0_ALGORITHMS, AUTH0_API_AUDIENCE, ...). Ignore them instead of
         # crashing on startup — matches what the running prod image tolerates.
         extra = "ignore"
+
+    @field_validator("database_url")
+    @classmethod
+    def name_the_postgres_driver(cls, url: str) -> str:
+        """SQLAlchemy 2.1 made psycopg the default for postgresql:// URLs. We
+        install psycopg2, so say so here, the one place every engine and
+        alembic read the URL from, and DATABASE_URL values can stay as they
+        are."""
+        if url.startswith("postgresql://"):
+            return url.replace("postgresql://", "postgresql+psycopg2://", 1)
+        return url
 
 
 def parse_hardware_info(hardware_info):
