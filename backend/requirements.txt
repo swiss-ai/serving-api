@@ -26,7 +26,7 @@ backoff==2.2.1
     # via
     #   -r requirements.in
     #   langfuse
-cachetools==7.2.4
+cachetools==7.2.7
     # via -r requirements.in
 certifi==2026.10.19
     # via
@@ -93,7 +93,7 @@ multidict==7.1.0
     # via
     #   aiohttp
     #   yarl
-openai==3.37.0
+openai==3.42.0
     # via -r requirements.in
 opentelemetry-api==1.45.1
     # via
