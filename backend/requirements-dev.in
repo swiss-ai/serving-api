@@ -2,6 +2,6 @@
 # runtime packages in requirements-dev.txt match the prod lock exactly.
 -c requirements.txt
 -r requirements.in
-pytest
-testcontainers
-ruff>=0.15.22,<0.16
+pytest==9.2.0
+testcontainers==4.15.0
+ruff==0.17.3
