@@ -20,15 +20,15 @@ from backend.services import passthrough_service, route_service
 from backend.services.passthrough_service import Provider
 
 AUDIO_DIR = Path(__file__).parent / "fixtures" / "audio"
-WAV_NAME = "fox_16k_mono.wav"
+WAV_NAME = "quick_16k_mono.wav"
 WAV = (AUDIO_DIR / WAV_NAME).read_bytes()
 # Each format a client is likely to upload, by file: see fixtures/audio/README.md.
 AUDIO_FILES = [
-    ("fox_8k_stereo.wav", "audio/wav"),
-    ("fox_24k_mono.wav", "audio/wav"),
-    ("fox_16k_mono.wav", "audio/wav"),
-    ("fox_8k_mono.wav", "audio/wav"),
-    ("fox_16k_mono.flac", "audio/flac"),
+    ("quick_8k_stereo.wav", "audio/wav"),
+    ("quick_24k_mono.wav", "audio/wav"),
+    ("quick_16k_mono.wav", "audio/wav"),
+    ("quick_8k_mono.wav", "audio/wav"),
+    ("quick_16k_mono.flac", "audio/flac"),
     ("fox_44k_stereo.mp3", "audio/mpeg"),
     ("fox_44k_stereo.ogg", "audio/ogg"),
 ]
