@@ -20,6 +20,11 @@ class APIKey(SQLModel, table=True):
     # to record someone's prompts, held far more narrowly than is_admin.
     # Set via SQL only.
     is_superadmin: bool = Field(default=False)
+    # Per-user passthrough rate limit, requests/minute; NULL = the default
+    # applies, 0 = unlimited. On the row rather than in Redis so it
+    # survives Redis restarts, LRU eviction and key rotation (rotate_key
+    # rewrites `key` in place). Set via PUT /v1/admin/rate-limits/{email}.
+    rate_limit_rpm: Optional[int] = Field(default=None)
 
 
 class PerfBenchmark(SQLModel, table=True):

@@ -8,11 +8,12 @@ to an apikey row whose flag decides. When the IdP exposes a group claim
 stays the durable base.
 """
 
+import logging
 from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from backend.services.auth_service import get_profile_from_accesstoken
 from backend.services.monitoring_service import (
@@ -26,6 +27,9 @@ from backend.services.monitoring_service import (
     resolve_owner_email,
     upsert_rule,
 )
+from backend.services.rate_limit_service import list_user_limits, set_user_limit
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 security = HTTPBearer()
@@ -90,6 +94,10 @@ class MonitoringRuleIn(BaseModel):
     level: str  # 'metadata' | 'full'
     ttl: str  # '1h' | '6h' | '1d' | '7d' | '90d'
     note: str = ""
+
+
+class RateLimitIn(BaseModel):
+    rpm: int = Field(ge=0)  # passthrough requests/minute; 0 = unlimited
 
 
 @router.get("/v1/admin/metrics/users")
@@ -226,3 +234,42 @@ async def delete_monitoring_rule(
     if removed == 0:
         raise HTTPException(status_code=404, detail="No matching rule")
     return {"removed": removed}
+
+
+@router.get("/v1/admin/rate-limits")
+async def list_rate_limits(
+    request: Request,
+    admin: str = Depends(require_admin),
+):
+    """Users with a durable per-user passthrough limit. Everyone else gets
+    the default (rl:limit:default, else RATE_LIMIT_RPM)."""
+    return {"users": list_user_limits(request.app.state.engine)}
+
+
+@router.put("/v1/admin/rate-limits/{owner_email}")
+async def set_rate_limit(
+    request: Request,
+    owner_email: str,
+    body: RateLimitIn,
+    admin: str = Depends(require_admin),
+):
+    """Durable per-user passthrough limit. Unlike a Redis rl:limit:<identity>
+    override it survives Redis restarts and key rotation, and needs no key
+    hash. Applies on every replica within a minute."""
+    if set_user_limit(request.app.state.engine, owner_email, body.rpm) == 0:
+        raise HTTPException(status_code=404, detail="No API key for this user")
+    logger.info("%s set rate limit for %s to %d rpm", admin, owner_email, body.rpm)
+    return {"owner_email": owner_email, "rate_limit_rpm": body.rpm}
+
+
+@router.delete("/v1/admin/rate-limits/{owner_email}")
+async def clear_rate_limit(
+    request: Request,
+    owner_email: str,
+    admin: str = Depends(require_admin),
+):
+    """Drop the user's limit back to the default."""
+    if set_user_limit(request.app.state.engine, owner_email, None) == 0:
+        raise HTTPException(status_code=404, detail="No API key for this user")
+    logger.info("%s cleared rate limit for %s", admin, owner_email)
+    return {"owner_email": owner_email, "rate_limit_rpm": None}
