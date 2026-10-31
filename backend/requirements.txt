@@ -26,24 +26,22 @@ backoff==2.2.1
     # via
     #   -r requirements.in
     #   langfuse
-cachetools==7.2.4
+cachetools==7.2.6
     # via -r requirements.in
 certifi==2026.10.19
     # via
     #   httpcore
     #   httpx
     #   requests
-cffi==2.1.1 ; platform_python_implementation != 'PyPy'
+cffi==2.1.1
     # via cryptography
 charset-normalizer==3.5.2
     # via requests
 click==8.5.0
     # via uvicorn
-colorama==0.4.6 ; sys_platform == 'win32'
-    # via loguru
 cryptography==50.0.2
     # via pyjwt
-fastapi==0.161.0
+fastapi==0.162.0
     # via -r requirements.in
 frozenlist==1.8.0
     # via
@@ -51,7 +49,7 @@ frozenlist==1.8.0
     #   aiosignal
 googleapis-common-protos==1.75.5
     # via opentelemetry-exporter-otlp-proto-http
-greenlet==3.5.6 ; platform_machine == 'AMD64' or platform_machine == 'WIN32' or platform_machine == 'aarch64' or platform_machine == 'amd64' or platform_machine == 'ppc64le' or platform_machine == 'win32' or platform_machine == 'x86_64'
+greenlet==3.5.6
     # via sqlalchemy
 h11==0.16.0
     # via
@@ -62,7 +60,7 @@ hiredis==3.5.0
     # via -r requirements.in
 httpcore==1.0.9
     # via httpx
-httpcore2==2.16.0 ; sys_platform != 'emscripten'
+httpcore2==2.16.0
     # via httpx2
 httpx==0.28.1
     # via
@@ -70,8 +68,6 @@ httpx==0.28.1
     #   langfuse
 httpx2==2.16.0
     # via openai
-httpx2-jsfetch==1.0 ; sys_platform == 'emscripten'
-    # via httpx2
 idna==3.20
     # via
     #   anyio
@@ -93,7 +89,7 @@ multidict==7.1.0
     # via
     #   aiohttp
     #   yarl
-openai==3.37.0
+openai==3.40.0
     # via -r requirements.in
 opentelemetry-api==1.45.1
     # via
@@ -103,7 +99,7 @@ opentelemetry-api==1.45.1
     #   opentelemetry-exporter-otlp-proto-http
     #   opentelemetry-sdk
     #   opentelemetry-semantic-conventions
-opentelemetry-exporter-http-transport==0.66b1
+opentelemetry-exporter-http-transport[requests]==0.66b1
     # via opentelemetry-exporter-otlp-proto-http
 opentelemetry-exporter-otlp-common==0.66b1
     # via opentelemetry-exporter-otlp-proto-http
@@ -134,7 +130,7 @@ protobuf==7.36.2
     #   opentelemetry-proto
 psycopg2-binary==2.9.13
     # via -r requirements.in
-pycparser==3.12 ; implementation_name != 'PyPy' and platform_python_implementation != 'PyPy'
+pycparser==3.12
     # via cffi
 pydantic==2.14.1
     # via
@@ -148,7 +144,7 @@ pydantic-core==2.50.1
     # via pydantic
 pydantic-settings==2.16.1
     # via -r requirements.in
-pyjwt==2.15.1
+pyjwt[crypto]==2.15.1
     # via -r requirements.in
 python-dotenv==1.2.4
     # via
@@ -170,11 +166,11 @@ sqlalchemy==2.0.55
     #   -r requirements.in
     #   alembic
     #   sqlmodel
-sqlmodel==0.0.46
+sqlmodel==0.0.48
     # via -r requirements.in
 starlette==1.9.0
     # via fastapi
-truststore==0.10.5 ; sys_platform != 'emscripten'
+truststore==0.10.5
     # via
     #   httpcore2
     #   httpx2
@@ -204,8 +200,6 @@ urllib3==2.8.0
     # via requests
 uvicorn==0.54.0
     # via -r requirements.in
-win32-setctime==1.2.0 ; sys_platform == 'win32'
-    # via loguru
 wrapt==2.5.1
     # via langfuse
 yarl==1.25.1
