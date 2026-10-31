@@ -148,6 +148,17 @@ async def response_generator_raw(response):
         active_requests -= 1
 
 
+async def response_passthrough(response):
+    """Byte-for-byte stream passthrough. Unlike response_generator_raw it
+    keeps the blank lines that delimit SSE events."""
+    try:
+        async for chunk in response:
+            yield chunk
+    finally:
+        global active_requests
+        active_requests -= 1
+
+
 class StreamWrapper:
     def __init__(self, gen, headers=None):
         self.gen = gen
@@ -162,6 +173,17 @@ class RawResponse:
 
     def __init__(self, data: dict, headers: dict = None):
         self.data = data
+        self.headers = headers or {}
+
+
+class BinaryResponse:
+    """Wrapper for an upstream body passed through verbatim — the audio
+    endpoints answer text/plain, SRT or VTT as well as JSON depending on
+    ``response_format``, so the body can't be assumed to parse."""
+
+    def __init__(self, body: bytes, media_type: str, headers: dict = None):
+        self.body = body
+        self.media_type = media_type
         self.headers = headers or {}
 
 
@@ -198,8 +220,12 @@ async def _execute_http_request(
     payload: Dict,
     stream: bool,
     raw_response: bool = False,
-) -> Union[ModelResponse, StreamWrapper, RawResponse]:
-    req_cm = session.post(url, json=payload, headers=headers)
+    form: aiohttp.FormData = None,
+) -> Union[ModelResponse, StreamWrapper, RawResponse, BinaryResponse]:
+    if form is not None:
+        req_cm = session.post(url, data=form, headers=headers)
+    else:
+        req_cm = session.post(url, json=payload, headers=headers)
     try:
         resp = await req_cm.__aenter__()
     except Exception as e:
@@ -227,6 +253,14 @@ async def _execute_http_request(
                 await session.close()
 
         return StreamWrapper(wrapped_content(), headers=response_headers)
+    elif form is not None:
+        try:
+            body = await resp.read()
+        finally:
+            await req_cm.__aexit__(None, None, None)
+            await session.close()
+        media_type = resp.headers.get("Content-Type", "application/json")
+        return BinaryResponse(body, media_type, headers=response_headers)
     else:
         try:
             data = await resp.json()
@@ -252,12 +286,19 @@ async def _shared_proxy_handler(
     model: str,
     raw_response: bool = False,
     provider_label: str = None,
-) -> Union[ModelResponse, StreamWrapper, RawResponse]:
+    form: aiohttp.FormData = None,
+) -> Union[ModelResponse, StreamWrapper, RawResponse, BinaryResponse]:
+    """``form`` sends a multipart body instead of the JSON ``payload`` and
+    returns the upstream body untouched as a BinaryResponse (or a raw
+    stream)."""
     global active_requests
     active_requests += 1
     start_time = time.time()
 
-    headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+    headers = {"Authorization": f"Bearer {api_key}"}
+    if form is None:
+        # aiohttp sets the multipart Content-Type, boundary included.
+        headers["Content-Type"] = "application/json"
     headers.update(headers_extra)
 
     session = aiohttp.ClientSession(timeout=_upstream_timeout(stream))
@@ -269,6 +310,7 @@ async def _shared_proxy_handler(
             payload=payload,
             stream=stream,
             raw_response=raw_response,
+            form=form,
         )
         node_id = (
             resp.headers.get("X-Computing-Node", "unknown")
@@ -479,4 +521,28 @@ async def llm_proxy_detokenize(
         model=model,
         raw_response=True,
         provider_label=provider_label,
+    )
+
+
+async def llm_proxy_audio(
+    endpoint,
+    api_key,
+    operation: str,
+    form: aiohttp.FormData,
+    stream: bool,
+    model: str,
+    provider_label: str = None,
+):
+    """``operation`` is ``transcriptions`` or ``translations``; the body is
+    the caller's multipart form, re-encoded with the upstream model id."""
+    return await _shared_proxy_handler(
+        endpoint=endpoint,
+        api_key=api_key,
+        payload=None,
+        headers_extra={},
+        stream=stream,
+        full_url=endpoint.rstrip("/") + "/audio/" + operation,
+        model=model,
+        provider_label=provider_label,
+        form=form,
     )

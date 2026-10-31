@@ -154,6 +154,8 @@ python-dotenv==1.2.4
     # via
     #   -r requirements.in
     #   pydantic-settings
+python-multipart==0.0.32
+    # via -r requirements.in
 redis==8.1.0
     # via -r requirements.in
 requests==2.34.2

@@ -260,6 +260,10 @@ python-dotenv==1.2.4
     #   -r requirements.in
     #   pydantic-settings
     #   testcontainers
+python-multipart==0.0.32
+    # via
+    #   -c requirements.txt
+    #   -r requirements.in
 pywin32==312 ; sys_platform == 'win32'
     # via docker
 redis==8.1.0
