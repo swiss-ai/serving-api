@@ -21,6 +21,8 @@ The first part of the model id decides where a request goes:
 | `/v1/chat/completions` | Yes | Yes | Yes |
 | `/v1/completions` | Yes | Yes | Yes |
 | `/v1/responses` | Yes | No | Yes |
+| `/v1/audio/transcriptions` | No | Audio models | Audio models |
+| `/v1/audio/translations` | No | No | Audio models |
 | `/v1/embeddings` | No | Embedding models | Embedding models |
 | `/v1/rerank` | No | Reranker models | Reranker models |
 | `/v1/score` | No | No | Reranker models |
@@ -30,7 +32,24 @@ The first part of the model id decides where a request goes:
 
 "No" means the backend doesn't serve that route. You get an error with the backend's status code, usually a 404.
 
-For Slurm models, the embedding, rerank, score and classify routes only work if the model was launched for that task. See [model-launch](/guides/01-getting-started/model-launch) to launch one.
+For Slurm models, the audio, embedding, rerank, score and classify routes only work if the model was launched for that task. See [model-launch](/guides/01-getting-started/model-launch) to launch one.
+
+## Transcribe an audio file
+
+Audio routes take a file upload rather than JSON:
+
+```bash
+curl https://api.swissai.svc.cscs.ch/v1/audio/transcriptions \
+  -H "Authorization: Bearer $API_KEY" \
+  -F model=RCP-AIaaS/openai/whisper-large-v3 \
+  -F file=@test.wav
+```
+
+```json
+{"text":" The quick brown fox jumps over the lazy dog.","usage":{"type":"duration","seconds":4.0}}
+```
+
+On EPFL RCP, `response_format` can be `json` or `verbose_json`.
 
 ## How requests are forwarded
 
