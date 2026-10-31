@@ -1,5 +1,5 @@
 <script>
-  // The collapsed nav: an About dropdown (Docs / Research / FAQ) and,
+  // The collapsed nav: Apertus, Model Stats and About dropdowns and,
   // depending on session state, either a profile menu (My Usage, API Key,
   // Users for admins, Sign out) or a Sign in button. Session and admin
   // status are resolved server-side in Header.astro and passed as props —
@@ -17,16 +17,44 @@
   export let mobile = false;
   // Resolved in Header.astro; the ID token and issuer are server-side only.
   export let endSession = { endpoint: '', clientId: '', idToken: '' };
-  // Which part to render: 'about', 'profile', or 'both' (mobile). Lets the
+  // Which part to render: 'menus', 'profile', or 'both' (mobile). Lets the
   // header put Get Help between the two on desktop while the profile menu
   // keeps the rightmost slot.
   export let section = 'both';
 
-  const ABOUT = [
-    { href: '/guides', label: 'Docs' },
-    { href: '/articles', label: 'Research' },
-    { href: '/faq', label: 'FAQ' },
+  const MENUS = [
+    {
+      key: 'apertus',
+      label: 'Apertus',
+      links: [
+        {
+          href: 'https://apertus-search.swissai.svc.cscs.ch',
+          label: 'Apertus-Search',
+          external: true,
+        },
+      ],
+    },
+    {
+      key: 'stats',
+      label: 'Model Stats',
+      links: [
+        { href: '/leaderboard', label: 'Leaderboard' },
+        { href: '/performance', label: 'Performance' },
+      ],
+    },
+    {
+      key: 'about',
+      label: 'About',
+      links: [
+        { href: '/guides', label: 'Docs' },
+        { href: '/articles', label: 'Research' },
+        { href: '/faq', label: 'FAQ' },
+      ],
+    },
   ];
+
+  const linkTarget = (link) =>
+    link.external ? { target: '_blank', rel: 'noopener noreferrer' } : {};
 
   $: profileLinks = [
     { href: '/usage', label: 'My Usage' },
@@ -39,7 +67,7 @@
       : []),
   ];
 
-  let openMenu = null; // 'about' | 'profile' | null
+  let openMenu = null; // a MENUS key | 'profile' | null
   let root;
 
   const initial = () => (email || '?').charAt(0).toUpperCase();
@@ -84,16 +112,18 @@
 
 {#if mobile}
   <!-- Mobile: flat labelled sections instead of dropdowns -->
+  {#each MENUS as menu}
   <div class="py-2">
     <p class="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500 mb-1">
-      About
+      {menu.label}
     </p>
-    {#each ABOUT as link}
-      <a href={link.href} class="block text-sm font-medium text-slate-600 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-400 transition-colors py-1">
+    {#each menu.links as link}
+      <a href={link.href} class="block text-sm font-medium text-slate-600 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-400 transition-colors py-1" {...linkTarget(link)}>
         {link.label}
       </a>
     {/each}
   </div>
+  {/each}
   {#if signedIn}
     <div class="py-2">
       <p class="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500 mb-1">
@@ -123,33 +153,35 @@
   {/if}
 {:else}
   <div class="flex items-center gap-6" bind:this={root}>
-    <!-- About ▾ -->
+    <!-- Apertus ▾, Model Stats ▾, About ▾ -->
     {#if section !== 'profile'}
+    {#each MENUS as menu}
     <div class="relative">
       <button
         type="button"
         class={triggerClass}
         aria-haspopup="true"
-        aria-expanded={openMenu === 'about'}
-        on:click|stopPropagation={() => toggle('about')}
+        aria-expanded={openMenu === menu.key}
+        on:click|stopPropagation={() => toggle(menu.key)}
       >
-        About
-        <svg class="w-3.5 h-3.5 transition-transform {openMenu === 'about' ? 'rotate-180' : ''}" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+        {menu.label}
+        <svg class="w-3.5 h-3.5 transition-transform {openMenu === menu.key ? 'rotate-180' : ''}" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
           <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
         </svg>
       </button>
-      {#if openMenu === 'about'}
+      {#if openMenu === menu.key}
         <div class="absolute right-0 mt-2 w-44 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-lg py-1 z-50">
-          {#each ABOUT as link}
-            <a href={link.href} class={itemClass}>{link.label}</a>
+          {#each menu.links as link}
+            <a href={link.href} class={itemClass} {...linkTarget(link)}>{link.label}</a>
           {/each}
         </div>
       {/if}
     </div>
+    {/each}
     {/if}
 
     <!-- Profile ◉ ▾ / Sign in -->
-    {#if section !== 'about'}
+    {#if section !== 'menus'}
     {#if signedIn}
       <div class="relative">
         <button
