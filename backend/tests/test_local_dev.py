@@ -1,8 +1,14 @@
 """The local startup regression: keys must exist in migrated Postgres before login."""
 
+import pytest
 from sqlmodel import Session, delete, select
 
-from backend.local_dev import LOCAL_ACCOUNTS, seed_accounts
+from backend.local_dev import (
+    LOCAL_ACCOUNTS,
+    main,
+    require_local_database,
+    seed_accounts,
+)
 from backend.models.entities import APIKey
 
 
@@ -93,3 +99,42 @@ def test_provider_failure_aborts_bootstrap(monkeypatch):
         wait_for_provider(
             "http://authentik.localhost:9000/application/o/serving-api-local/"
         )
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "postgresql://serving:serving@postgres:5432/serving",
+        "postgresql+psycopg2://serving:serving@localhost:5433/serving",
+    ],
+)
+def test_local_database_is_allowed(url):
+    require_local_database(url)
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "postgresql://app:secret@serving-api-prod-postgres:5432/serving",
+        "postgresql://app:secret@db.example.org/serving",
+        "postgresql:///serving",
+    ],
+)
+def test_other_databases_are_refused(url):
+    with pytest.raises(SystemExit):
+        require_local_database(url)
+
+
+def test_bootstrap_stops_before_touching_a_remote_database(monkeypatch):
+    class Settings:
+        database_url = "postgresql://app:secret@db.example.org/serving"
+
+    def fail(*args):
+        raise AssertionError("bootstrap went past the guard")
+
+    monkeypatch.setattr("backend.local_dev.get_settings", lambda: Settings())
+    monkeypatch.setattr("backend.local_dev.command.upgrade", fail)
+    monkeypatch.setattr("backend.local_dev.create_engine", fail)
+
+    with pytest.raises(SystemExit):
+        main()
