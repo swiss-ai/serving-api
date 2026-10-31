@@ -5,6 +5,7 @@ import time
 import requests
 from alembic import command
 from alembic.config import Config
+from sqlalchemy.engine import make_url
 from sqlmodel import Session, create_engine, select
 
 from backend.config import get_settings
@@ -16,6 +17,17 @@ LOCAL_ACCOUNTS = (
     ("user@localhost", "sk-rc-local-user", False),
     ("chat@localhost", "sk-rc-local-chat", False),
 )
+
+# The Compose service plus the host's view of it. Nothing else may be seeded.
+LOCAL_DATABASE_HOSTS = ("postgres", "localhost", "127.0.0.1")
+
+
+def require_local_database(database_url: str) -> None:
+    """This module ships in the deployed image and seeds an admin with a key
+    that's public in this file. Refuse any database but the local one."""
+    host = make_url(database_url).host
+    if host not in LOCAL_DATABASE_HOSTS:
+        raise SystemExit(f"Refusing to bootstrap non-local database host: {host}")
 
 
 def seed_accounts(engine) -> None:
@@ -60,6 +72,7 @@ def wait_for_provider(issuer: str, timeout: float = 120) -> None:
 
 def main() -> None:
     settings = get_settings()
+    require_local_database(settings.database_url)
     # A failure aborts bootstrap and keeps the app from starting.
     command.upgrade(Config("alembic.ini"), "head")
     engine = create_engine(settings.database_url)
