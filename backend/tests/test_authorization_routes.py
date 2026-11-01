@@ -405,6 +405,44 @@ def test_chat_completions_403_uses_permission_error_envelope(client, monkeypatch
     assert "alice/org/secret-model" in body["error"]["message"]
 
 
+@pytest.mark.parametrize("operation", ["transcriptions", "translations"])
+def test_audio_routes_enforce_authorization(client, monkeypatch, operation):
+    """/v1/audio/* reads the model id from a multipart form rather than a
+    JSON body, but it is an inference route like any other: a caller not on
+    the list gets 403 and the upload never reaches the upstream."""
+    from backend.routers import audio as audio_router
+    from backend.services import authorization_service
+
+    dnt = {
+        "/QmSecret": {
+            "id": "QmSecret",
+            "labels": {"worker_group_id": "wg", "authorization": ALICE},
+            "service": [
+                {"name": "llm", "identity_group": ["model=alice/org/secret-asr"]},
+            ],
+        }
+    }
+    monkeypatch.setattr(
+        authorization_service, "_fetch_dnt", AsyncMock(return_value=dnt)
+    )
+
+    async def never_proxied(**kwargs):
+        raise AssertionError("proxy must not be reached on a 403")
+
+    monkeypatch.setattr(audio_router, "llm_proxy_audio", never_proxied)
+
+    response = client.post(
+        f"/v1/audio/{operation}",
+        headers=_bearer(CAROL_KEY),
+        data={"model": "alice/org/secret-asr"},
+        files={"file": ("clip.wav", b"RIFF", "audio/wav")},
+    )
+    assert response.status_code == 403
+    body = response.json()
+    assert body["error"]["type"] == "permission_error"
+    assert "alice/org/secret-asr" in body["error"]["message"]
+
+
 def test_non_string_model_falls_through_not_500(client, monkeypatch):
     """Routes that pass the raw body value give the gate whatever JSON came
     in — a non-string model must behave like an unknown id (fall through to

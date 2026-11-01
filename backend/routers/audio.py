@@ -5,6 +5,7 @@ from starlette.datastructures import UploadFile
 
 from backend.middleware.auth import require_auth
 from backend.middleware.model_id import require_namespaced_model
+from backend.services.authorization_service import ensure_model_access
 from backend.services.llm_service import llm_proxy_audio, response_passthrough
 from backend.services.route_service import resolve_route
 
@@ -21,6 +22,7 @@ router = APIRouter()
 async def _audio_proxy(request: Request, token: str, operation: str):
     form = await request.form()
     public_model = require_namespaced_model(form.get("model"))
+    await ensure_model_access(request.app.state.engine, token, public_model)
     if not isinstance(form.get("file"), UploadFile):
         raise HTTPException(
             status_code=400,
