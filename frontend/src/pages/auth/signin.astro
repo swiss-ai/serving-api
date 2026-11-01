@@ -12,8 +12,7 @@ export const prerender = false;
 // nothing that can only send a browser somewhere — an IdP finishing an
 // enrolment, a mail, the Sign In button on the API key page — can start it.
 // Landing such a user on `/` leaves them looking at an anonymous page with a
-// Sign in button they have to press, even when they already hold an IdP
-// session and the handshake would complete without a prompt.
+// Sign in button they have to press before reaching the IdP sign-in flow.
 //
 // This page is that missing link: it runs the same signIn() the nav button
 // runs, on load. It deliberately does not reimplement the POST — the CSRF

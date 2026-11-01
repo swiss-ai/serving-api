@@ -16,7 +16,7 @@ jobs:
       backend: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.backend == 'true' }}
       frontend: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.frontend == 'true' }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - uses: dorny/paths-filter@v4
         id: filter
         with:
@@ -31,14 +31,14 @@ jobs:
     needs: [changes]
     if: needs.changes.outputs.backend == 'true'
     steps:
-      - uses: actions/checkout@v5
-      - uses: docker/setup-buildx-action@v3
-      - uses: docker/login-action@v3
+      - uses: actions/checkout@v7
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - uses: docker/build-push-action@v6
+      - uses: docker/build-push-action@v7
         with:
           context: .
           file: backend/Dockerfile
@@ -55,14 +55,14 @@ jobs:
     needs: [changes]
     if: needs.changes.outputs.frontend == 'true'
     steps:
-      - uses: actions/checkout@v5
-      - uses: docker/setup-buildx-action@v3
-      - uses: docker/login-action@v3
+      - uses: actions/checkout@v7
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - uses: docker/build-push-action@v6
+      - uses: docker/build-push-action@v7
         with:
           context: .
           file: frontend/Dockerfile
@@ -81,7 +81,7 @@ jobs:
       !cancelled() &&
       (needs.docker-backend.result == 'success' || needs.docker-frontend.result == 'success')
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           repository: breithorn-poc/rob-poc
           token: ${{ secrets.ARGO_PAT }}
@@ -89,17 +89,17 @@ jobs:
       - name: Update backend image tag
         if: needs.changes.outputs.backend == 'true'
         run: |
-          sed -i "s|image: ghcr.io/swiss-ai/serving-api/backend:.*|image: ghcr.io/swiss-ai/serving-api/backend:${{ github.sha }}|" argocd/serving-api/dev/backend-deployment.yaml
+          sed -i "s|image: ghcr.io/swiss-ai/serving-api/backend:.*|image: ghcr.io/swiss-ai/serving-api/backend:${{ github.sha }}|" argocd/swissai-research-platform/serving-api/dev/backend-deployment.yaml
       - name: Update frontend image tag
         if: needs.changes.outputs.frontend == 'true'
         run: |
-          sed -i "s|image: ghcr.io/swiss-ai/serving-api/frontend:.*|image: ghcr.io/swiss-ai/serving-api/frontend:${{ github.sha }}|" argocd/serving-api/dev/frontend-deployment.yaml
+          sed -i "s|image: ghcr.io/swiss-ai/serving-api/frontend:.*|image: ghcr.io/swiss-ai/serving-api/frontend:${{ github.sha }}|" argocd/swissai-research-platform/serving-api/dev/frontend-deployment.yaml
       - name: Commit and push
         run: |
           cd argocd
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add serving-api/dev/
+          git add swissai-research-platform/serving-api/dev/
           git diff --staged --quiet && echo "No changes to deploy" || (git commit -m "deploy serving-api ${{ github.sha }}" && git push)
 
   notify:
@@ -109,7 +109,7 @@ jobs:
     if: always()
     steps:
       - name: Notify Slack
-        uses: slackapi/slack-github-action@v2
+        uses: slackapi/slack-github-action@v4
         with:
           webhook-type: incoming-webhook
           webhook: ${{ secrets.SLACK_WEBHOOK_URL }}

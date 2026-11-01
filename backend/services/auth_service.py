@@ -1,21 +1,11 @@
-import json
 import secrets
 from functools import lru_cache
-from pathlib import Path
 
 import requests
 from sqlmodel import Session, select
 from backend.config import get_settings
 from backend.models.entities import APIKey
 from backend.redis_cache import get_token_cache
-
-
-# Institutions whose members are auto-enabled (active budget on first sign-in).
-# Canonical list. No longer linked from the public FAQ — the FAQ now tells
-# unrecognised users to get in touch instead of publishing the domain list.
-_SWISS_DOMAINS_FILE = Path(__file__).resolve().parent.parent / "swiss_domains.json"
-with open(_SWISS_DOMAINS_FILE) as f:
-    SWISS_DOMAINS = json.load(f)
 
 
 def get_or_create_apikey(engine, owner_email: str, owner_name: str = "") -> APIKey:
@@ -36,12 +26,8 @@ def get_or_create_apikey(engine, owner_email: str, owner_name: str = "") -> APIK
         ).first()
         if api_key is None:
             key = f"sk-rc-{secrets.token_urlsafe(16)}"
-            if any(owner_email.lower().endswith(domain) for domain in SWISS_DOMAINS):
-                budget = 1000
-            else:
-                budget = -1
             api_key = APIKey(
-                key=key, owner_email=owner_email, owner_name=name, budget=budget
+                key=key, owner_email=owner_email, owner_name=name, budget=1000
             )
             session.add(api_key)
             session.commit()

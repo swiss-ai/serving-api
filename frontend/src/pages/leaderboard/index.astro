@@ -2,6 +2,7 @@
 import PageLayout from "@layouts/PageLayout.astro";
 import Container from "@components/Container.astro";
 import ArenaRankings from "@components/ArenaRankings.svelte";
+import { getApiUrl } from "@lib/config";
 
 export const prerender = false;
 
@@ -11,7 +12,7 @@ let error = null;
 try {
     // Postgres usage_daily via the public leaderboard endpoint — the same
     // store behind My Usage, so the pages agree. Langfuse is not read.
-    const apiUrl = process.env.VITE_API_URL || import.meta.env.VITE_API_URL || 'https://api.swissai.svc.cscs.ch';
+    const apiUrl = getApiUrl();
     const response = await fetch(`${apiUrl}/v1/leaderboard?days=30`);
 
     if (!response.ok) {

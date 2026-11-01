@@ -1,6 +1,6 @@
 from functools import lru_cache
 
-from pydantic import AliasChoices, Field
+from pydantic import AliasChoices, Field, field_validator
 from pydantic_settings import BaseSettings
 
 
@@ -42,8 +42,9 @@ class Settings(BaseSettings):
         validation_alias=AliasChoices("otela_fixture_path", "ocf_fixture_path"),
     )
     # OpenAI-compatible passthrough providers — when a provider's pair is
-    # set, chat/completion requests for model ids that provider exposes are
-    # forwarded to its endpoint instead of the OpenTela network. Lets us
+    # set, inference requests (chat, completions, responses, embeddings and
+    # the pooling family) for model ids that provider exposes are forwarded
+    # to its endpoint instead of the OpenTela network. Lets us
     # surface upstream-hosted models without launching our own k8s pods.
     # Each pair must be provided via env in k8s secrets; registration +
     # discovery live in backend/services/passthrough_service.py.
@@ -55,10 +56,28 @@ class Settings(BaseSettings):
     rcp_api_key: str = ""
     # Per-user request limit on traffic routed to external passthrough
     # providers (OpenTela-served models are not limited), requests/minute;
-    # 0 disables. Redis overrides (rl:limit:<identity>, rl:limit:default)
-    # take precedence so admins can adjust live without a redeploy — see
+    # 0 disables. Per-user limits (apikey.rate_limit_rpm, set via
+    # PUT /v1/admin/rate-limits/{email}) and Redis overrides
+    # (rl:limit:<identity>, rl:limit:default) take precedence so admins can
+    # adjust live without a redeploy — see
     # backend/services/rate_limit_service.py.
     rate_limit_rpm: int = 0
+    # Comma-separated API keys of our chat UIs (Open WebUI). Never rate
+    # limited: every chat user shares one connection key, so a per-key
+    # limit would throttle the whole chat. In k8s, source it from the
+    # Open WebUI secret so it always matches the key chat actually uses.
+    chat_api_keys: str = ""
+    # Upstream inference timeouts. aiohttp's default is total=300s, which
+    # silently caps every generation at 5 minutes — long-output work (eval
+    # suites with a big max_gen_toks, reasoning traces) dies mid-flight.
+    # Non-streaming replies send nothing until the whole completion is
+    # ready, so the only safe bound there is an overall cap.
+    upstream_timeout_seconds: int = 3600
+    # Streaming replies arrive as a steady chunk flow, so silence — not
+    # elapsed time — is what distinguishes a wedged upstream from a slow
+    # one. Bounding the gap instead of the total lets a long generation run
+    # to completion while still reaping dead connections.
+    upstream_stream_stall_seconds: int = 300
     # /v1/models* advertises only OpenTela ids under the platform
     # namespace, i.e. SwissAI-Research/<hf_org>/<hf_model>. User launches
     # carry their own first segment ($USERNAME/<hf_org>/<hf_model>) and are
@@ -98,6 +117,17 @@ class Settings(BaseSettings):
         # AUTH0_ALGORITHMS, AUTH0_API_AUDIENCE, ...). Ignore them instead of
         # crashing on startup — matches what the running prod image tolerates.
         extra = "ignore"
+
+    @field_validator("database_url")
+    @classmethod
+    def name_the_postgres_driver(cls, url: str) -> str:
+        """SQLAlchemy 2.1 made psycopg the default for postgresql:// URLs. We
+        install psycopg2, so say so here, the one place every engine and
+        alembic read the URL from, and DATABASE_URL values can stay as they
+        are."""
+        if url.startswith("postgresql://"):
+            return url.replace("postgresql://", "postgresql+psycopg2://", 1)
+        return url
 
 
 def parse_hardware_info(hardware_info):

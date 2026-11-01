@@ -74,7 +74,11 @@ reserved names: never launch a local model whose id starts with one.
 **Rate limiting** applies only to passthrough traffic: external
 providers are a shared, platform-accountable resource, while
 OpenTela-served models run on the caller's own GPU allocation. See
-`backend/services/rate_limit_service.py`.
+`backend/services/rate_limit_service.py`. To give one user a different
+limit, an admin calls `PUT /v1/admin/rate-limits/{email}` with
+`{"rpm": 500}` (`0` = unlimited; `DELETE` reverts to the default). It is
+stored on their API key row, so it survives Redis restarts and key
+rotation.
 
 **Back-compat.** Un-prefixed passthrough ids (the historical form) still
 route during a deprecation window — logged, first provider in
@@ -188,6 +192,61 @@ caller may edit all of them. See ADR-0002.
 ## Dev Quick Start
 
 ```bash
-make install      # install backend dependencies
-make run          # start backend on :8080
+make run          # build and start the complete local stack with Docker Compose
+```
+
+Docker with Compose v2.20+ and `make` are the only prerequisites. The first run
+builds the application images and downloads the service images; Python, uv,
+Node and npm are not needed on the host. Startup waits for database migrations,
+idempotent account seeding, the Authentik OIDC provider, and the application
+health checks. Re-running `make run` preserves local data and rotated user keys.
+
+- Website: http://localhost:4321
+- API / docs: http://localhost:8080/docs
+- Chat: http://localhost:8081 (local development session; no separate login)
+- Authentik: http://authentik.localhost:9000
+- Website logins: `admin@localhost` / `admin`, `user@localhost` / `user`
+- Application Postgres: `localhost:5433`, user/password/database `serving`
+
+The local OIDC hostname is shared by browser redirects and Docker DNS. Browsers
+resolve `authentik.localhost` to loopback; no hosts-file change is needed.
+If port 9000 is occupied, use `LOCAL_AUTHENTIK_PORT=9002 make run`; the issuer,
+container listener and published port change together.
+
+Compose owns these local settings. Existing root/frontend `.env` files are not
+loaded into the application containers or copied into the images, and the
+local stack uses its own `serving-api-local` Compose project and named volumes.
+The fixed credentials are for local development only. `COMPOSE_PROJECT_NAME`
+can select a separate instance when needed.
+
+```bash
+make stop         # stop/remove local containers; preserve database and chat data
+make reset        # stop and delete this local stack's data volumes
+```
+
+Models are listed from the checked-in OpenTela snapshot by default, so browsing
+the site and local chat's model picker does not require the shared dev network.
+The snapshot supplies discovery metadata, not a running LLM. To use real models,
+opt into a reachable OpenTela head (and launch models there):
+
+```bash
+LOCAL_OTELA_FIXTURE_PATH= LOCAL_OTELA_HEAD_ADDR=http://<reachable-head>:8092 make run
+```
+
+The upstream must be reachable from the backend container. The local chat is
+already connected to the backend with its own seeded API key. `make dummy-run`
+remains an alias for fixture startup plus optional demo usage data; `make
+seed-usage` also seeds that data separately.
+
+### Dependencies and tests
+
+`backend/requirements.txt` and `requirements-dev.txt` are lockfiles generated
+from the `.in` files. CI, the Docker image and local installs all use them, so
+prod runs exactly the versions CI tested. To add or change a dependency, edit
+`backend/requirements.in` and run `make lock`. Dependabot opens weekly bump PRs.
+
+```bash
+make test         # unit + integration tests (Postgres via testcontainers)
+make test-e2e     # real sign-up against Authentik in testcontainers (~1 min)
+E2E_BACKEND_IMAGE=<image> make test-e2e   # same, against a built backend image
 ```

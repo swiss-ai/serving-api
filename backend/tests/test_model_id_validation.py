@@ -54,11 +54,11 @@ def _make_client() -> TestClient:
 
 
 def test_chat_completion_rejects_bare_id_before_routing():
-    """A bare id must be refused before _resolve_route runs — the old
+    """A bare id must be refused before resolve_route runs — the old
     back-compat would otherwise have silently picked a provider."""
     client = _make_client()
     with patch.object(
-        completions, "_resolve_route", new=AsyncMock(side_effect=AssertionError)
+        completions, "resolve_route", new=AsyncMock(side_effect=AssertionError)
     ) as route:
         resp = client.post(
             "/v1/chat/completions",

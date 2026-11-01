@@ -50,6 +50,13 @@
     return modelName.replace('-responses', '').replace(/apertus3-/, '');
   }
 
+  // Model ids have no spaces, so a 140-char name would otherwise force the
+  // column to its full width. Split after each separator so the browser can
+  // wrap at those points (a <wbr> is inserted between segments in the markup).
+  function getNameSegments(modelName) {
+    return getDisplayName(modelName).split(/(?<=[/_\-.])/);
+  }
+
   onMount(async () => {
     try {
       const response = await fetch(`${getApiUrl()}/v1/perf`);
@@ -142,12 +149,12 @@
                 <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
                     {#each sortedData as row}
                         <tr class="bg-white dark:bg-slate-900 hover:bg-gray-50 dark:hover:bg-slate-800/50 transition-colors">
-                            <td class="px-6 py-4 font-medium text-gray-900 dark:text-white whitespace-nowrap">
-                                <div class="flex items-center space-x-3">
+                            <td class="px-6 py-4 font-medium text-gray-900 dark:text-white">
+                                <div class="flex items-center space-x-3 max-w-sm">
                                     {#if getModelLogo(row.model)}
                                         <img src={getModelLogo(row.model)} alt="" class="w-6 h-6 rounded-sm flex-shrink-0" />
                                     {/if}
-                                    <span title={row.model}>{getDisplayName(row.model)}</span>
+                                    <span title={row.model} class="min-w-0 break-words">{#each getNameSegments(row.model) as seg, i}{#if i > 0}<wbr />{/if}{seg}{/each}</span>
                                 </div>
                             </td>
                              <td class="px-6 py-4 text-gray-600 dark:text-gray-400">
@@ -210,11 +217,11 @@
             {#each sortedData as row}
                 <div class="p-4 border-b border-gray-100 dark:border-gray-800 last:border-0 hover:bg-gray-50 dark:hover:bg-slate-800/50 transition-colors">
                     <div class="flex items-center justify-between mb-3">
-                        <div class="flex items-center space-x-2 font-medium text-gray-900 dark:text-white">
+                        <div class="flex items-center space-x-2 font-medium text-gray-900 dark:text-white min-w-0">
                              {#if getModelLogo(row.model)}
                                 <img src={getModelLogo(row.model)} alt="" class="w-5 h-5 rounded-sm flex-shrink-0" />
                             {/if}
-                            <span class="text-sm">{getDisplayName(row.model)}</span>
+                            <span class="text-sm min-w-0 break-words">{#each getNameSegments(row.model) as seg, i}{#if i > 0}<wbr />{/if}{seg}{/each}</span>
                         </div>
                     </div>
                     

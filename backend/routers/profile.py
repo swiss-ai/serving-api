@@ -1,3 +1,4 @@
+import logging
 from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
@@ -20,6 +21,7 @@ from backend.services.monitoring_service import (
 
 router = APIRouter()
 security = HTTPBearer()
+logger = logging.getLogger(__name__)
 
 
 def _email_from_credentials(credentials) -> str:
@@ -50,28 +52,37 @@ async def get_profile(
     request: Request,
     credentials: Annotated[HTTPAuthorizationCredentials, Depends(security)] = None,
 ):
+    # Only the token check maps to 401. A failure after it (DB down, a
+    # dependency change breaking the insert) must surface as a 500: it used
+    # to be reported as "Invalid access token", which hid the sqlmodel 0.0.46
+    # break behind what looked like expired logins.
     try:
         user_profile = get_profile_from_accesstoken(credentials.credentials)
-        if user_profile:
-            engine = request.app.state.engine
-            # The `name` claim comes along so the model catalogue can credit
-            # this user's launches by name instead of by email address.
-            api_key = get_or_create_apikey(
-                engine, user_profile["email"], user_profile.get("name", "")
-            )
-        user_profile["api_key"] = api_key.key
-        user_profile["budget"] = api_key.budget
-        # Lets the UI decide whether to offer the admin menu. Endpoints
-        # still check for themselves — this is presentation, not access
-        # control.
-        user_profile["is_admin"] = bool(api_key.is_admin)
-        user_profile["is_superadmin"] = bool(api_key.is_superadmin)
-        return user_profile
+        email = user_profile["email"]
     except Exception:
-        raise HTTPException(
-            status_code=401,
-            detail="Invalid access token",
+        logger.warning("GET /v1/profile: token rejected", exc_info=True)
+        raise HTTPException(status_code=401, detail="Invalid access token")
+
+    try:
+        # The `name` claim comes along so the model catalogue can credit
+        # this user's launches by name instead of by email address.
+        api_key = get_or_create_apikey(
+            request.app.state.engine, email, user_profile.get("name", "")
         )
+    except Exception:
+        logger.exception("GET /v1/profile: API key lookup/create failed")
+        raise HTTPException(
+            status_code=500, detail="Could not load or create your API key"
+        )
+
+    user_profile["api_key"] = api_key.key
+    user_profile["budget"] = api_key.budget
+    # Lets the UI decide whether to offer the admin menu. Endpoints
+    # still check for themselves — this is presentation, not access
+    # control.
+    user_profile["is_admin"] = bool(api_key.is_admin)
+    user_profile["is_superadmin"] = bool(api_key.is_superadmin)
+    return user_profile
 
 
 @router.post("/v1/profile/rotate")

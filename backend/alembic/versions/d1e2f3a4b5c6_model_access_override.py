@@ -11,7 +11,7 @@ can never outlive its job and re-attach to a different launch that later
 takes the same name.
 
 Revision ID: d1e2f3a4b5c6
-Revises: b7c8d9e0f1a2
+Revises: f7a8b9c0d1e2
 Create Date: 2026-09-05 10:00:00.000000
 
 """
@@ -25,7 +25,7 @@ import sqlmodel
 
 # revision identifiers, used by Alembic.
 revision: str = "d1e2f3a4b5c6"
-down_revision: Union[str, Sequence[str], None] = "b7c8d9e0f1a2"
+down_revision: Union[str, Sequence[str], None] = "f7a8b9c0d1e2"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

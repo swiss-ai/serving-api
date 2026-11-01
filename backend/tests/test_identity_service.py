@@ -46,8 +46,10 @@ def test_never_returns_something_mailable(email):
 # A Postgres that is not there. Resolving names is what first put the
 # database on the path of an anonymous /v1/models request, so a blip here
 # would 500 the public catalogue for logged-out visitors — a page that did
-# not touch the database at all before this feature.
-_DEAD_DB = "postgresql://nobody:nobody@127.0.0.1:1/none"
+# not touch the database at all before this feature. The driver is named
+# because this bypasses Settings, which is where SQLAlchemy 2.1's psycopg
+# default is otherwise overridden.
+_DEAD_DB = "postgresql+psycopg2://nobody:nobody@127.0.0.1:1/none"
 
 
 @pytest.mark.parametrize("engine", [create_engine(_DEAD_DB), None])

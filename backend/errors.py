@@ -40,13 +40,14 @@ def openai_error_response(
     code=None,
     param=None,
     headers=None,
+    error_type=None,
 ) -> JSONResponse:
     return JSONResponse(
         status_code=status_code,
         content={
             "error": {
                 "message": message,
-                "type": openai_error_type(status_code),
+                "type": error_type or openai_error_type(status_code),
                 "param": param,
                 "code": code,
             }

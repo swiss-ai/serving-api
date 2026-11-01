@@ -1,7 +1,7 @@
 <script lang="ts">
   import { getApiUrl } from '../../lib/config';
   import { getModelLogo } from '../../lib/modelLogos';
-  import { getModelMetricsUrl, getTierFromLaunchedBy, isPassthroughLauncher } from '../../lib/modelMetrics';
+  import { HOSTING_TIERS, getModelMetricsUrl, getTierFromLaunchedBy, isPassthroughLauncher } from '../../lib/modelMetrics';
 
   interface Peer {
     peer_id?: string;
@@ -61,14 +61,15 @@
   export let viewerApiKey: string | null = null;
 
   const logoUrl = getModelLogo(entry.data.title);
-  // Tier follows the peer's launched_by label: "k8s" or "cscs_L1" → 24/7,
-  // anything else (a username from model-launch, or no label) → Slurm.
+  // Tier follows the peer's launched_by label: persistent launchers →
+  // Platform-managed; a model-launch username or no label → User-managed.
   const headLaunchedBy = entry.data.replicas[0]?.head?.launched_by;
   const isL1Model = isPassthroughLauncher(headLaunchedBy);
   // Passthrough models (CSCS-Inference, RCP-AIaaS) run on the provider's
   // infrastructure — our Grafana has no panels for them, so no button.
   const metricsUrl = isL1Model ? null : getModelMetricsUrl(entry.data.title);
   const tier = getTierFromLaunchedBy(headLaunchedBy);
+  const hostingTier = HOSTING_TIERS[tier];
   const chatUrl = `${chatAppUrl.replace(/\/$/, "")}/?models=${encodeURIComponent(entry.data.title)}`;
 
   let expanded = false;
@@ -356,7 +357,7 @@
   <div class="flex items-center gap-3 min-w-0">
     <img src={logoUrl} alt="Model logo" class="w-8 h-8 object-contain" />
     <div class="flex flex-col flex-1 min-w-0">
-      <div class="font-semibold flex items-center gap-2 min-w-0">
+      <div class="font-semibold flex flex-wrap items-center gap-2 min-w-0">
         <!-- Traffic-light dot reflects aggregated replica status.
              Visible whether the tile is expanded or not. -->
         <span
@@ -394,9 +395,9 @@
           {/if}
         </button>
         {#if tier === "L2"}
-          <span class="uptime-badge" title="This service is running on CSCS L2 Kubernetes">24/7</span>
+          <span class="uptime-badge" title={hostingTier.description}>{hostingTier.label}</span>
         {:else if tier === "slurm"}
-          <span class="slurm-badge" title="Model-launch Slurm job">Slurm</span>
+          <span class="slurm-badge" title={hostingTier.description}>{hostingTier.label}</span>
         {/if}
         {#if hasAuthConflict}
           <span class="auth-conflict-badge" title="Independent launches are serving this model name with different authorization settings. The API refuses to route requests for it until the conflict is resolved (relaunch under a unique name or with matching authorization).">Out of service</span>

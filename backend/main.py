@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import Response
+from fastapi.responses import JSONResponse, Response
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from sqlmodel import create_engine
 from backend.config import get_settings
@@ -12,12 +12,14 @@ from backend.services.metrics_service import metrics_collector
 from backend.middleware.logging import AccessLogMiddleware
 from backend.errors import (
     http_exception_handler,
+    openai_error_response,
     unhandled_exception_handler,
     validation_exception_handler,
 )
 from backend.models.protocols import BackendHTTPError
 from backend.routers import (
     admin_monitoring,
+    audio,
     completions,
     model_access,
     responses,
@@ -60,16 +62,32 @@ app.add_middleware(
 )
 
 
+_UPSTREAM_DETAIL_LIMIT = 500
+
+
 @app.exception_handler(BackendHTTPError)
 async def backend_http_error_handler(request: Request, exc: BackendHTTPError):
     try:
         json.loads(exc.body)
-        media_type = "application/json"
-        content = exc.body
     except (json.JSONDecodeError, TypeError):
-        media_type = "text/plain"
-        content = exc.body
-    return Response(content=content, status_code=exc.status_code, media_type=media_type)
+        return _upstream_error_response(request, exc)
+    return Response(
+        content=exc.body, status_code=exc.status_code, media_type="application/json"
+    )
+
+
+def _upstream_error_response(request: Request, exc: BackendHTTPError) -> JSONResponse:
+    """Wrap a non-JSON upstream error in the OpenAI envelope. Plain-text
+    bodies are kept (truncated) as they often carry the reason, e.g. OpenTela's
+    "No provider found"; HTML ones are a gateway's error page, so dropped."""
+    message = f"upstream {exc.provider or 'server'} returned {exc.status_code}"
+    if exc.model:
+        message += f" for model {exc.model}"
+    message += f" on {request.url.path}"
+    detail = (exc.body or "").strip()
+    if detail and not detail.startswith("<"):
+        message += f": {detail[:_UPSTREAM_DETAIL_LIMIT]}"
+    return openai_error_response(exc.status_code, message, error_type="upstream_error")
 
 
 # Registered here, defined in backend.errors — see that module for why the
@@ -82,6 +100,7 @@ app.add_exception_handler(Exception, unhandled_exception_handler)
 app.include_router(completions.router)
 app.include_router(responses.router)
 app.include_router(embeddings.router)
+app.include_router(audio.router)
 app.include_router(models.router)
 app.include_router(model_access.router)
 app.include_router(profile.router)

@@ -90,9 +90,6 @@ export default defineConfig({
 
           // Or use organization for ETH/EPFL
           // organization: 'org_eth',
-
-          // Prompt for login_hint to collect email first
-          // prompt: 'login',
         },
       },
     }),

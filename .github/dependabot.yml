@@ -1,0 +1,29 @@
+# Dependency bumps arrive as PRs, so they go through lint, tests and the
+# Authentik e2e job before anything reaches prod. Before this, versions
+# changed silently whenever an image was rebuilt.
+version: 2
+updates:
+  # backend/requirements*.txt are uv-compiled lockfiles from the .in files;
+  # Dependabot edits the .in pins it needs and regenerates the locks.
+  - package-ecosystem: pip
+    directory: /backend
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    groups:
+      python-minor-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: docker
+    directory: /backend
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      actions:
+        patterns: ["*"]

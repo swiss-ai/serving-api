@@ -352,9 +352,17 @@ class BackendHTTPError(Exception):
     """Error from the backend (vllm/sglang) passed through to the client
     with the original status code and body. No retries — clients handle their own."""
 
-    def __init__(self, status_code: int, body: str):
+    def __init__(
+        self,
+        status_code: int,
+        body: str,
+        model: str | None = None,
+        provider: str | None = None,
+    ):
         self.status_code = status_code
         self.body = body
+        self.model = model
+        self.provider = provider
         super().__init__(f"HTTP {status_code}: {body}")
 
 

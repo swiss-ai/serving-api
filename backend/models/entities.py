@@ -1,14 +1,16 @@
 from datetime import date, datetime
 from typing import Optional
 
+from pydantic import NaiveDatetime
+from sqlalchemy import BigInteger, Index
 from sqlmodel import SQLModel, Field, UniqueConstraint
 
 
 class APIKey(SQLModel, table=True):
     key: str = Field(primary_key=True)
     budget: int = Field(default=1000)
-    created_at: datetime = Field(default=datetime.now())
-    updated_at: datetime = Field(default=datetime.now())
+    created_at: NaiveDatetime = Field(default_factory=datetime.now)
+    updated_at: NaiveDatetime = Field(default_factory=datetime.now)
     owner_email: str = Field(default="")
     # The user's real name, as the IdP reports it (`name` claim), recorded
     # whenever they load their profile. The public model catalogue credits
@@ -25,6 +27,11 @@ class APIKey(SQLModel, table=True):
     # to record someone's prompts, held far more narrowly than is_admin.
     # Set via SQL only.
     is_superadmin: bool = Field(default=False)
+    # Per-user passthrough rate limit, requests/minute; NULL = the default
+    # applies, 0 = unlimited. On the row rather than in Redis so it
+    # survives Redis restarts, LRU eviction and key rotation (rotate_key
+    # rewrites `key` in place). Set via PUT /v1/admin/rate-limits/{email}.
+    rate_limit_rpm: Optional[int] = Field(default=None)
 
 
 class PerfBenchmark(SQLModel, table=True):
@@ -46,7 +53,7 @@ class PerfBenchmark(SQLModel, table=True):
     avg_ttft: float = Field(default=0.0)
     avg_latency: float = Field(default=0.0)
     avg_throughput: float = Field(default=0.0)
-    last_updated: datetime = Field(default_factory=datetime.now)
+    last_updated: NaiveDatetime = Field(default_factory=datetime.now)
 
 
 class UserMonitoringRule(SQLModel, table=True):
@@ -67,10 +74,10 @@ class UserMonitoringRule(SQLModel, table=True):
     owner_email: str = Field(index=True)
     level: str  # 'metadata' | 'full'
     source: str  # 'admin' | 'self'
-    expires_at: datetime
+    expires_at: NaiveDatetime
     created_by: str
     note: str = Field(default="")
-    created_at: datetime = Field(default_factory=datetime.now)
+    created_at: NaiveDatetime = Field(default_factory=datetime.now)
 
 
 class UsageDaily(SQLModel, table=True):
@@ -84,14 +91,19 @@ class UsageDaily(SQLModel, table=True):
     """
 
     __tablename__ = "usage_daily"
+    # Mirrors migration a1b2c3d4e5f6; test_schema_drift keeps them in sync.
+    __table_args__ = (
+        Index("ix_usage_daily_day", "day"),
+        Index("ix_usage_daily_owner_day", "owner_email", "day"),
+    )
 
     day: date = Field(primary_key=True)
     owner_email: str = Field(primary_key=True)
     model: str = Field(primary_key=True)  # public (namespaced) id
-    requests: int = Field(default=0)
-    prompt_tokens: int = Field(default=0)
-    completion_tokens: int = Field(default=0)
-    updated_at: datetime = Field(default_factory=datetime.now)
+    requests: int = Field(default=0, sa_type=BigInteger)
+    prompt_tokens: int = Field(default=0, sa_type=BigInteger)
+    completion_tokens: int = Field(default=0, sa_type=BigInteger)
+    updated_at: NaiveDatetime = Field(default_factory=datetime.now)
 
 
 class ModelAccessOverride(SQLModel, table=True):
@@ -129,5 +141,5 @@ class ModelAccessOverride(SQLModel, table=True):
     # the same thing.
     policy: str
     updated_by: str = Field(default="")
-    created_at: datetime = Field(default_factory=datetime.now)
-    updated_at: datetime = Field(default_factory=datetime.now)
+    created_at: NaiveDatetime = Field(default_factory=datetime.now)
+    updated_at: NaiveDatetime = Field(default_factory=datetime.now)

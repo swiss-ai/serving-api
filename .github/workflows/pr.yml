@@ -7,38 +7,49 @@ on:
 permissions:
   contents: read
 
+# Python must match backend/Dockerfile and `make lock` (--python-version).
+env:
+  PYTHON_VERSION: "3.13"
+
 jobs:
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+
   lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v6
         with:
-          python-version: "3.12"
-      - uses: astral-sh/setup-uv@v6
+          python-version: ${{ env.PYTHON_VERSION }}
+      - uses: astral-sh/setup-uv@v7
       - run: make install-dev UV_EXTRA="--system"
       - run: make check
+      # A requirements*.in change must come with a regenerated lockfile.
+      - run: make lock-check
 
+  # Unit + integration tests. Postgres comes from testcontainers (conftest.py),
+  # migrated with alembic like prod.
   test:
     runs-on: ubuntu-latest
+    # Without this, every cache in the app is exercised through its
+    # per-process fallback and the Redis branch prod actually runs is
+    # never tested (see backend/tests/test_redis_cache_shared.py, which
+    # skips when no server is reachable).
     services:
-      postgres:
-        image: postgres:17-alpine
-        env:
-          POSTGRES_USER: serving
-          POSTGRES_PASSWORD: serving
-          POSTGRES_DB: serving
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-      # Without this, every cache in the app is exercised through its
-      # per-process fallback and the Redis branch prod actually runs is
-      # never tested (see backend/tests/test_redis_cache_shared.py, which
-      # skips when no server is reachable).
       redis:
         image: redis:7-alpine
         ports:
@@ -49,13 +60,38 @@ jobs:
           --health-timeout 5s
           --health-retries 5
     env:
-      DATABASE_URL: postgresql://serving:serving@localhost:5432/serving
       REDIS_HOST: localhost
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v6
         with:
-          python-version: "3.12"
-      - uses: astral-sh/setup-uv@v6
+          python-version: ${{ env.PYTHON_VERSION }}
+      - uses: astral-sh/setup-uv@v7
       - run: make install-dev UV_EXTRA="--system"
       - run: make test
+
+  # Builds the backend image exactly as deploy does, then runs a real sign-up
+  # against it: Authentik token -> /v1/profile -> API key -> require_auth.
+  # This is the check that would have caught the sqlmodel 0.0.46 outage.
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: backend/Dockerfile
+          load: true
+          push: false
+          platforms: linux/amd64
+          tags: serving-backend:ci
+          cache-from: type=gha
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - uses: astral-sh/setup-uv@v7
+      - run: make install-dev UV_EXTRA="--system"
+      - run: make test-e2e
+        env:
+          E2E_BACKEND_IMAGE: serving-backend:ci

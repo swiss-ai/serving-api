@@ -1,35 +1,5 @@
+# `client` comes from conftest.py (shared, alembic-migrated Postgres).
 import pytest
-from fastapi.testclient import TestClient
-from testcontainers.postgres import PostgresContainer
-from sqlmodel import SQLModel, create_engine
-
-
-@pytest.fixture(scope="module")
-def postgres():
-    with PostgresContainer("postgres:17-alpine") as pg:
-        yield pg
-
-
-@pytest.fixture(scope="module")
-def client(postgres):
-    import os
-
-    os.environ["DATABASE_URL"] = postgres.get_connection_url()
-
-    # Reset cached settings so it picks up the new DATABASE_URL
-    from backend.config import get_settings
-
-    get_settings.cache_clear()
-
-    from backend.main import app
-
-    # Create tables
-    settings = get_settings()
-    engine = create_engine(settings.database_url)
-    SQLModel.metadata.create_all(engine)
-
-    with TestClient(app) as c:
-        yield c
 
 
 def test_app_starts(client):
@@ -134,7 +104,7 @@ def test_classify_forwards_to_pod_root(client, monkeypatch):
 
     captured = {}
 
-    async def fake_classify(*, endpoint, api_key, payload, model):
+    async def fake_classify(*, endpoint, api_key, payload, model, provider_label):
         captured["endpoint"] = endpoint
         return types.SimpleNamespace(data={"ok": True})
 
@@ -224,7 +194,7 @@ def test_pooling_endpoints_forward_to_pod_root(
     module = importlib.import_module(module_path)
     captured = {}
 
-    async def fake_proxy(*, endpoint, api_key, payload, model):
+    async def fake_proxy(*, endpoint, api_key, payload, model, provider_label):
         captured["endpoint"] = endpoint
         return types.SimpleNamespace(data={"ok": True})
 
@@ -322,3 +292,34 @@ def test_profile_rotate_replaces_key_and_clears_cache(client, monkeypatch):
         assert session.exec(select(APIKey).where(APIKey.key == old_key)).first() is None
         row = session.exec(select(APIKey).where(APIKey.owner_email == email)).first()
         assert row.key == new_key
+
+
+@pytest.mark.parametrize(
+    "email", ["someone@ethz.ch", "someone@gmail.com", "someone@localhost"]
+)
+def test_first_signin_creates_an_active_key(client, email):
+    """Provisioning no longer reads the email domain: whoever gets far enough to
+    sign in gets a usable key, with no manual budget fix afterwards."""
+    from backend.services.auth_service import get_or_create_apikey, verify_token
+
+    engine = client.app.state.engine
+    api_key = get_or_create_apikey(engine, email)
+
+    assert api_key.budget > 0
+    assert verify_token(engine, api_key.key)
+
+
+def test_existing_budget_survives_later_signins(client):
+    """Provisioning sets a budget only when it creates the row, so a suspended
+    account is not silently reactivated on the owner's next sign-in."""
+    from sqlmodel import Session
+    from backend.models.entities import APIKey
+    from backend.services.auth_service import get_or_create_apikey
+
+    email = "suspended@example.org"
+    engine = client.app.state.engine
+    with Session(engine) as session:
+        session.add(APIKey(key="sk-rc-suspended-test", owner_email=email, budget=0))
+        session.commit()
+
+    assert get_or_create_apikey(engine, email).budget == 0

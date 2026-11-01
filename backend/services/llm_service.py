@@ -7,6 +7,7 @@ from backend.models.protocols import (
     LLMRequest,
     LLMCompletionsRequest,
 )
+from backend.config import get_settings
 from backend.services.metrics_service import metrics_collector
 import time
 
@@ -147,6 +148,17 @@ async def response_generator_raw(response):
         active_requests -= 1
 
 
+async def response_passthrough(response):
+    """Byte-for-byte stream passthrough. Unlike response_generator_raw it
+    keeps the blank lines that delimit SSE events."""
+    try:
+        async for chunk in response:
+            yield chunk
+    finally:
+        global active_requests
+        active_requests -= 1
+
+
 class StreamWrapper:
     def __init__(self, gen, headers=None):
         self.gen = gen
@@ -164,6 +176,43 @@ class RawResponse:
         self.headers = headers or {}
 
 
+class BinaryResponse:
+    """Wrapper for an upstream body passed through verbatim — the audio
+    endpoints answer text/plain, SRT or VTT as well as JSON depending on
+    ``response_format``, so the body can't be assumed to parse."""
+
+    def __init__(self, body: bytes, media_type: str, headers: dict = None):
+        self.body = body
+        self.media_type = media_type
+        self.headers = headers or {}
+
+
+def _upstream_timeout(stream: bool) -> aiohttp.ClientTimeout:
+    """Timeout for one upstream inference call.
+
+    Must be passed explicitly: aiohttp's default is ``total=300``, and
+    ``total`` spans the whole exchange including every streamed chunk, so
+    the default quietly kills any generation past 5 minutes regardless of
+    how healthy it is.
+
+    Streaming gets ``sock_read`` and no total — chunks arrive continuously,
+    so a gap means the upstream died while elapsed time means only that the
+    answer is long. Non-streaming can't use that signal: nothing comes back
+    until the completion is finished, so one long silence is the expected
+    shape and an overall cap is all that's left.
+    """
+    settings = get_settings()
+    if stream:
+        return aiohttp.ClientTimeout(
+            total=None,
+            sock_connect=30,
+            sock_read=settings.upstream_stream_stall_seconds,
+        )
+    return aiohttp.ClientTimeout(
+        total=settings.upstream_timeout_seconds, sock_connect=30
+    )
+
+
 async def _execute_http_request(
     session: aiohttp.ClientSession,
     url: str,
@@ -171,8 +220,12 @@ async def _execute_http_request(
     payload: Dict,
     stream: bool,
     raw_response: bool = False,
-) -> Union[ModelResponse, StreamWrapper, RawResponse]:
-    req_cm = session.post(url, json=payload, headers=headers)
+    form: aiohttp.FormData = None,
+) -> Union[ModelResponse, StreamWrapper, RawResponse, BinaryResponse]:
+    if form is not None:
+        req_cm = session.post(url, data=form, headers=headers)
+    else:
+        req_cm = session.post(url, json=payload, headers=headers)
     try:
         resp = await req_cm.__aenter__()
     except Exception as e:
@@ -200,6 +253,14 @@ async def _execute_http_request(
                 await session.close()
 
         return StreamWrapper(wrapped_content(), headers=response_headers)
+    elif form is not None:
+        try:
+            body = await resp.read()
+        finally:
+            await req_cm.__aexit__(None, None, None)
+            await session.close()
+        media_type = resp.headers.get("Content-Type", "application/json")
+        return BinaryResponse(body, media_type, headers=response_headers)
     else:
         try:
             data = await resp.json()
@@ -225,15 +286,22 @@ async def _shared_proxy_handler(
     model: str,
     raw_response: bool = False,
     provider_label: str = None,
-) -> Union[ModelResponse, StreamWrapper, RawResponse]:
+    form: aiohttp.FormData = None,
+) -> Union[ModelResponse, StreamWrapper, RawResponse, BinaryResponse]:
+    """``form`` sends a multipart body instead of the JSON ``payload`` and
+    returns the upstream body untouched as a BinaryResponse (or a raw
+    stream)."""
     global active_requests
     active_requests += 1
     start_time = time.time()
 
-    headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+    headers = {"Authorization": f"Bearer {api_key}"}
+    if form is None:
+        # aiohttp sets the multipart Content-Type, boundary included.
+        headers["Content-Type"] = "application/json"
     headers.update(headers_extra)
 
-    session = aiohttp.ClientSession()
+    session = aiohttp.ClientSession(timeout=_upstream_timeout(stream))
     try:
         resp = await _execute_http_request(
             session=session,
@@ -242,6 +310,7 @@ async def _shared_proxy_handler(
             payload=payload,
             stream=stream,
             raw_response=raw_response,
+            form=form,
         )
         node_id = (
             resp.headers.get("X-Computing-Node", "unknown")
@@ -285,7 +354,9 @@ async def _shared_proxy_handler(
 
         return resp
 
-    except BackendHTTPError:
+    except BackendHTTPError as e:
+        e.model = model
+        e.provider = provider_label
         active_requests -= 1
         if not session.closed:
             await session.close()
@@ -327,7 +398,9 @@ async def llm_proxy_completions(
     )
 
 
-async def llm_proxy_embeddings(endpoint, api_key, **kwargs) -> ModelResponse:
+async def llm_proxy_embeddings(
+    endpoint, api_key, provider_label: str = None, **kwargs
+) -> ModelResponse:
     embedding_params = {
         "model": kwargs.get("model"),
         "input": kwargs.get("input", []),
@@ -346,11 +419,17 @@ async def llm_proxy_embeddings(endpoint, api_key, **kwargs) -> ModelResponse:
         stream=False,
         full_url=endpoint.rstrip("/") + "/embeddings",
         model=kwargs.get("model"),
+        provider_label=provider_label,
     )
 
 
 async def llm_proxy_responses(
-    endpoint, api_key, payload: dict, stream: bool, model: str
+    endpoint,
+    api_key,
+    payload: dict,
+    stream: bool,
+    model: str,
+    provider_label: str = None,
 ):
     return await _shared_proxy_handler(
         endpoint=endpoint,
@@ -361,10 +440,13 @@ async def llm_proxy_responses(
         full_url=endpoint.rstrip("/") + "/responses",
         model=model,
         raw_response=True,
+        provider_label=provider_label,
     )
 
 
-async def llm_proxy_rerank(endpoint, api_key, payload: dict, model: str):
+async def llm_proxy_rerank(
+    endpoint, api_key, payload: dict, model: str, provider_label: str = None
+):
     return await _shared_proxy_handler(
         endpoint=endpoint,
         api_key=api_key,
@@ -374,10 +456,13 @@ async def llm_proxy_rerank(endpoint, api_key, payload: dict, model: str):
         full_url=endpoint.rstrip("/") + "/rerank",
         model=model,
         raw_response=True,
+        provider_label=provider_label,
     )
 
 
-async def llm_proxy_score(endpoint, api_key, payload: dict, model: str):
+async def llm_proxy_score(
+    endpoint, api_key, payload: dict, model: str, provider_label: str = None
+):
     return await _shared_proxy_handler(
         endpoint=endpoint,
         api_key=api_key,
@@ -387,10 +472,13 @@ async def llm_proxy_score(endpoint, api_key, payload: dict, model: str):
         full_url=endpoint.rstrip("/") + "/score",
         model=model,
         raw_response=True,
+        provider_label=provider_label,
     )
 
 
-async def llm_proxy_classify(endpoint, api_key, payload: dict, model: str):
+async def llm_proxy_classify(
+    endpoint, api_key, payload: dict, model: str, provider_label: str = None
+):
     return await _shared_proxy_handler(
         endpoint=endpoint,
         api_key=api_key,
@@ -400,10 +488,13 @@ async def llm_proxy_classify(endpoint, api_key, payload: dict, model: str):
         full_url=endpoint.rstrip("/") + "/classify",
         model=model,
         raw_response=True,
+        provider_label=provider_label,
     )
 
 
-async def llm_proxy_tokenize(endpoint, api_key, payload: dict, model: str):
+async def llm_proxy_tokenize(
+    endpoint, api_key, payload: dict, model: str, provider_label: str = None
+):
     return await _shared_proxy_handler(
         endpoint=endpoint,
         api_key=api_key,
@@ -413,10 +504,13 @@ async def llm_proxy_tokenize(endpoint, api_key, payload: dict, model: str):
         full_url=endpoint.rstrip("/") + "/tokenize",
         model=model,
         raw_response=True,
+        provider_label=provider_label,
     )
 
 
-async def llm_proxy_detokenize(endpoint, api_key, payload: dict, model: str):
+async def llm_proxy_detokenize(
+    endpoint, api_key, payload: dict, model: str, provider_label: str = None
+):
     return await _shared_proxy_handler(
         endpoint=endpoint,
         api_key=api_key,
@@ -426,4 +520,29 @@ async def llm_proxy_detokenize(endpoint, api_key, payload: dict, model: str):
         full_url=endpoint.rstrip("/") + "/detokenize",
         model=model,
         raw_response=True,
+        provider_label=provider_label,
+    )
+
+
+async def llm_proxy_audio(
+    endpoint,
+    api_key,
+    operation: str,
+    form: aiohttp.FormData,
+    stream: bool,
+    model: str,
+    provider_label: str = None,
+):
+    """``operation`` is ``transcriptions`` or ``translations``; the body is
+    the caller's multipart form, re-encoded with the upstream model id."""
+    return await _shared_proxy_handler(
+        endpoint=endpoint,
+        api_key=api_key,
+        payload=None,
+        headers_extra={},
+        stream=stream,
+        full_url=endpoint.rstrip("/") + "/audio/" + operation,
+        model=model,
+        provider_label=provider_label,
+        form=form,
     )

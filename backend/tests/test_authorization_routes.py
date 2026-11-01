@@ -5,9 +5,7 @@ an inference route."""
 from unittest.mock import AsyncMock, patch
 
 import pytest
-from fastapi.testclient import TestClient
-from testcontainers.postgres import PostgresContainer
-from sqlmodel import SQLModel, Session, create_engine
+from sqlmodel import Session
 
 from backend.models.entities import APIKey
 
@@ -27,45 +25,22 @@ BOB_KEY = "sk-rc-bob-authz-test"
 CAROL_KEY = "sk-rc-carol-authz-test"
 
 
-@pytest.fixture(scope="module")
-def postgres():
-    with PostgresContainer("postgres:16-alpine") as pg:
-        yield pg
-
-
-@pytest.fixture(scope="module")
-def client(postgres):
-    import os
-
-    os.environ["DATABASE_URL"] = postgres.get_connection_url()
-
-    # Reset cached settings so it picks up the new DATABASE_URL
-    from backend.config import get_settings
-
-    get_settings.cache_clear()
-
-    import backend.main as main
-
-    # backend.main may already be imported (test_app.py runs first) with its
-    # settings frozen against a container that's gone by now — re-freeze so
-    # the lifespan engine points at THIS module's database.
-    main.settings = get_settings()
-
-    engine = create_engine(main.settings.database_url)
-    SQLModel.metadata.create_all(engine)
-
-    with Session(engine) as session:
-        session.add(
+@pytest.fixture(scope="module", autouse=True)
+def _seed_keys(client):
+    """Alice, Bob and Carol's keys, in the session database conftest.py
+    migrates with alembic like prod. Uses that shared client rather than
+    opening a second TestClient on backend.main.app: leaving one runs the
+    app's lifespan shutdown, which sets app.state.engine to None for every
+    module that runs after this one."""
+    with Session(client.app.state.engine) as session:
+        session.merge(
             APIKey(key=ALICE_KEY, owner_email=ALICE, owner_name=ALICE_NAME, budget=1000)
         )
-        session.add(
+        session.merge(
             APIKey(key=BOB_KEY, owner_email=BOB, owner_name=BOB_NAME, budget=1000)
         )
-        session.add(APIKey(key=CAROL_KEY, owner_email=CAROL, budget=1000))
+        session.merge(APIKey(key=CAROL_KEY, owner_email=CAROL, budget=1000))
         session.commit()
-
-    with TestClient(main.app) as c:
-        yield c
 
 
 @pytest.fixture(autouse=True)
@@ -470,10 +445,9 @@ def test_rotation_immediately_revokes_identity_on_whoami(client):
     """Rotating a key must evict it from the identity cache: the old key was
     just used against /v1/whoami (cache warm), yet after rotation it gets 401
     — not the victim's email for another cache-TTL window."""
-    from backend.config import get_settings
     from backend.services.auth_service import rotate_key
 
-    engine = create_engine(get_settings().database_url)
+    engine = client.app.state.engine
     old_key = "sk-rc-dave-rotation-test"
     with Session(engine) as session:
         session.add(APIKey(key=old_key, owner_email="dave@epfl.ch", budget=1000))
