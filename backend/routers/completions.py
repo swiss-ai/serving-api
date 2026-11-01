@@ -5,6 +5,7 @@ from fastapi.responses import StreamingResponse
 from backend.middleware.auth import require_auth
 from backend.middleware.body import json_body
 from backend.middleware.model_id import require_namespaced_model
+from backend.services.authorization_service import ensure_model_access
 from backend.services.langfuse_service import (
     prepare_stream_trace,
     record_if_monitored,
@@ -114,7 +115,11 @@ async def chat_completion(
         user_id=token, opt_out=opt_out, app_title=app_title, **reorg_data
     )
 
+    # Shape first: a malformed id is a 404 and needs no DNT lookup. Then
+    # authorization, before resolve_route rewrites anything, so the policy
+    # is read under the id the caller actually asked for.
     require_namespaced_model(llm_request.model)
+    await ensure_model_access(request.app.state.engine, token, llm_request.model)
     # Passthrough ids go to the provider, everything else to OpenTela —
     # see backend/services/route_service.py. Traces/monitoring keep the
     # public (prefixed) id the client asked for; only the forwarded
@@ -206,7 +211,11 @@ async def completion(
         user_id=token, opt_out=opt_out, app_title=app_title, **reorg_data
     )
 
+    # Shape first: a malformed id is a 404 and needs no DNT lookup. Then
+    # authorization, before resolve_route rewrites anything, so the policy
+    # is read under the id the caller actually asked for.
     require_namespaced_model(llm_request.model)
+    await ensure_model_access(request.app.state.engine, token, llm_request.model)
     # Passthrough ids go to the provider, everything else to OpenTela —
     # see backend/services/route_service.py. Traces/monitoring keep the
     # public (prefixed) id the client asked for; only the forwarded

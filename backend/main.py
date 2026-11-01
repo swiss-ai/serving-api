@@ -10,11 +10,18 @@ from sqlmodel import create_engine
 from backend.config import get_settings
 from backend.services.metrics_service import metrics_collector
 from backend.middleware.logging import AccessLogMiddleware
+from backend.errors import (
+    http_exception_handler,
+    openai_error_response,
+    unhandled_exception_handler,
+    validation_exception_handler,
+)
 from backend.models.protocols import BackendHTTPError
 from backend.routers import (
     admin_monitoring,
     audio,
     completions,
+    model_access,
     responses,
     embeddings,
     models,
@@ -80,69 +87,14 @@ def _upstream_error_response(request: Request, exc: BackendHTTPError) -> JSONRes
     detail = (exc.body or "").strip()
     if detail and not detail.startswith("<"):
         message += f": {detail[:_UPSTREAM_DETAIL_LIMIT]}"
-    return _openai_error_response(exc.status_code, message, error_type="upstream_error")
+    return openai_error_response(exc.status_code, message, error_type="upstream_error")
 
 
-def _openai_error_type(status_code: int) -> str:
-    if status_code == 429:
-        return "rate_limit_error"
-    if status_code >= 500:
-        return "api_error"
-    if status_code == 401:
-        return "authentication_error"
-    if status_code == 403:
-        return "permission_error"
-    return "invalid_request_error"
-
-
-def _openai_error_response(
-    status_code: int,
-    message: str,
-    *,
-    code=None,
-    param=None,
-    headers=None,
-    error_type=None,
-) -> JSONResponse:
-    return JSONResponse(
-        status_code=status_code,
-        content={
-            "error": {
-                "message": message,
-                "type": error_type or _openai_error_type(status_code),
-                "param": param,
-                "code": code,
-            }
-        },
-        headers=headers,
-    )
-
-
-@app.exception_handler(StarletteHTTPException)
-async def http_exception_handler(request: Request, exc: StarletteHTTPException):
-    detail = exc.detail
-    message = detail if isinstance(detail, str) else json.dumps(detail)
-    return _openai_error_response(
-        exc.status_code,
-        message,
-        headers=getattr(exc, "headers", None),
-    )
-
-
-@app.exception_handler(RequestValidationError)
-async def validation_exception_handler(request: Request, exc: RequestValidationError):
-    errors = exc.errors()
-    first = errors[0] if errors else {}
-    message = first.get("msg", "Invalid request")
-    loc = [str(p) for p in first.get("loc", []) if p not in ("body", "query", "path")]
-    param = ".".join(loc) if loc else None
-    return _openai_error_response(422, message, param=param, code="invalid_request")
-
-
-@app.exception_handler(Exception)
-async def unhandled_exception_handler(request: Request, exc: Exception):
-    logging.getLogger("backend").exception("Unhandled gateway error")
-    return _openai_error_response(500, "Internal server error", code="internal_error")
+# Registered here, defined in backend.errors — see that module for why the
+# handlers must not live next to the app's import-time settings.
+app.add_exception_handler(StarletteHTTPException, http_exception_handler)
+app.add_exception_handler(RequestValidationError, validation_exception_handler)
+app.add_exception_handler(Exception, unhandled_exception_handler)
 
 
 app.include_router(completions.router)
@@ -150,6 +102,7 @@ app.include_router(responses.router)
 app.include_router(embeddings.router)
 app.include_router(audio.router)
 app.include_router(models.router)
+app.include_router(model_access.router)
 app.include_router(profile.router)
 app.include_router(metrics.router)
 app.include_router(rerank.router)

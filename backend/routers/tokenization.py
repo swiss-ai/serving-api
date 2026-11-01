@@ -1,7 +1,8 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from backend.middleware.auth import require_auth
 from backend.middleware.body import json_body
 from backend.middleware.model_id import require_namespaced_model
+from backend.services.authorization_service import ensure_model_access
 from backend.services.llm_service import llm_proxy_tokenize, llm_proxy_detokenize
 from backend.services.route_service import resolve_route
 
@@ -13,10 +14,12 @@ router = APIRouter()
 
 @router.post("/v1/tokenize")
 async def tokenize(
+    request: Request,
     token: str = Depends(require_auth),
     data: dict = Depends(json_body),
 ):
     public_model = require_namespaced_model(data.get("model"))
+    await ensure_model_access(request.app.state.engine, token, public_model)
     route = await resolve_route(public_model, token, server_root=True)
     data["model"] = route.upstream_model(public_model)
     response = await llm_proxy_tokenize(
@@ -31,10 +34,12 @@ async def tokenize(
 
 @router.post("/v1/detokenize")
 async def detokenize(
+    request: Request,
     token: str = Depends(require_auth),
     data: dict = Depends(json_body),
 ):
     public_model = require_namespaced_model(data.get("model"))
+    await ensure_model_access(request.app.state.engine, token, public_model)
     route = await resolve_route(public_model, token, server_root=True)
     data["model"] = route.upstream_model(public_model)
     response = await llm_proxy_detokenize(

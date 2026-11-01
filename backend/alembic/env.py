@@ -13,7 +13,11 @@ from backend.config import get_settings
 config = context.config
 
 if config.config_file_name is not None:
-    fileConfig(config.config_file_name)
+    # Keep loggers that already exist: migrations also run in-process (the
+    # test session's conftest, local_dev), and fileConfig's default disables
+    # every logger created before it — backend.* included, silencing them
+    # for the rest of the process.
+    fileConfig(config.config_file_name, disable_existing_loggers=False)
 
 # Use SQLModel metadata for autogenerate support
 target_metadata = SQLModel.metadata

@@ -2,6 +2,7 @@ from fastapi import APIRouter, Request, Depends
 from backend.middleware.auth import require_auth
 from backend.middleware.body import json_body
 from backend.middleware.model_id import require_namespaced_model
+from backend.services.authorization_service import ensure_model_access
 from backend.services.llm_service import llm_proxy_embeddings
 from backend.services.route_service import resolve_route
 
@@ -15,6 +16,9 @@ async def embeddings(
     data: dict = Depends(json_body),
 ):
     public_model = require_namespaced_model(data.get("model"))
+    # Before resolve_route: it rewrites data["model"] to the upstream id, and
+    # the policy is keyed by the id the caller asked for.
+    await ensure_model_access(request.app.state.engine, token, public_model)
     # Prefixed passthrough ids (RCP-AIaaS/..., CSCS-Inference/...) go to
     # the provider; everything else stays on OpenTela. Only the forwarded
     # request carries the upstream's own id.

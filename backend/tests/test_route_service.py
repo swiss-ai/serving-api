@@ -59,6 +59,24 @@ def _no_rate_limit():
         yield limiter
 
 
+_ROUTER_MODULES = (classify, embeddings, rerank, responses, tokenization)
+
+
+@pytest.fixture(autouse=True)
+def _access_gate():
+    """Authorization has its own tests (test_authorization_routes.py); here
+    it must simply allow. The stub still records what it was asked, so the
+    routing tests below can hold each route to checking the id the client
+    sent — not the upstream id resolve_route rewrites it to."""
+    gate = AsyncMock(return_value=None)
+    patches = [patch.object(m, "ensure_model_access", gate) for m in _ROUTER_MODULES]
+    for p in patches:
+        p.start()
+    yield gate
+    for p in patches:
+        p.stop()
+
+
 def _resolve(resolved):
     return patch.object(
         route_service, "resolve_model", new=AsyncMock(return_value=resolved)
@@ -133,11 +151,13 @@ def test_restore_public_id_only_touches_dict_with_model():
 def _client(module) -> TestClient:
     app = FastAPI()
     app.include_router(module.router)
+    # The routes hand the engine to the (stubbed) authorization gate.
+    app.state.engine = None
     app.dependency_overrides[require_auth] = lambda: "user-tok"
     return TestClient(app, raise_server_exceptions=False)
 
 
-def test_embeddings_routes_prefixed_id_to_provider():
+def test_embeddings_routes_prefixed_id_to_provider(_access_gate):
     """The reported failure: an RCP embedding model must reach RCP with
     the provider key and un-prefixed id, and come back under its public
     id."""
@@ -161,6 +181,7 @@ def test_embeddings_routes_prefixed_id_to_provider():
     assert kwargs["provider_label"] == "EPFL RCP"
     assert kwargs["model"] == EMBED_UPSTREAM
     assert kwargs["input"] == "hello"
+    _access_gate.assert_awaited_once_with(None, "user-tok", EMBED_PUBLIC)
 
 
 def test_embeddings_opentela_arm_unchanged():
@@ -190,7 +211,9 @@ POOLING_ROUTES = [
 
 
 @pytest.mark.parametrize("module, proxy_name, path, body", POOLING_ROUTES)
-def test_pooling_routes_prefixed_id_to_provider_v1(module, proxy_name, path, body):
+def test_pooling_routes_prefixed_id_to_provider_v1(
+    module, proxy_name, path, body, _access_gate
+):
     """A provider gets the path as called: the base keeps its /v1, with
     key + id swapped."""
     proxy = AsyncMock(
@@ -208,6 +231,7 @@ def test_pooling_routes_prefixed_id_to_provider_v1(module, proxy_name, path, bod
     assert kwargs["payload"]["model"] == EMBED_UPSTREAM
     for key, value in body.items():
         assert kwargs["payload"][key] == value
+    _access_gate.assert_awaited_once_with(None, "user-tok", EMBED_PUBLIC)
 
 
 @pytest.mark.parametrize("module, proxy_name, path, body", POOLING_ROUTES)
@@ -223,7 +247,7 @@ def test_pooling_routes_opentela_arm_unchanged(module, proxy_name, path, body):
     assert kwargs["payload"]["model"] == "u/org/m"
 
 
-def test_responses_routes_prefixed_id_to_provider():
+def test_responses_routes_prefixed_id_to_provider(_access_gate):
     proxy = AsyncMock(
         return_value=RawResponse(data={"model": EMBED_UPSTREAM, "output": []})
     )
@@ -238,3 +262,4 @@ def test_responses_routes_prefixed_id_to_provider():
     assert kwargs["api_key"] == "provider-key"
     assert kwargs["provider_label"] == "EPFL RCP"
     assert kwargs["payload"]["model"] == EMBED_UPSTREAM
+    _access_gate.assert_awaited_once_with(None, "user-tok", EMBED_PUBLIC)

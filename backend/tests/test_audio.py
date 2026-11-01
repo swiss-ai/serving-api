@@ -52,6 +52,15 @@ def _no_rate_limit():
         yield
 
 
+@pytest.fixture(autouse=True)
+def _access_gate():
+    """Authorization has its own tests (test_authorization_routes.py); here
+    it must simply allow, while recording the id it was asked about."""
+    gate = AsyncMock(return_value=None)
+    with patch.object(audio, "ensure_model_access", gate):
+        yield gate
+
+
 def _resolve(resolved):
     return patch.object(
         route_service, "resolve_model", new=AsyncMock(return_value=resolved)
@@ -61,6 +70,8 @@ def _resolve(resolved):
 def _client() -> TestClient:
     app = FastAPI()
     app.include_router(audio.router)
+    # The route hands the engine to the (stubbed) authorization gate.
+    app.state.engine = None
     app.dependency_overrides[require_auth] = lambda: "user-tok"
     return TestClient(app, raise_server_exceptions=False)
 
@@ -108,7 +119,7 @@ def test_opentela_model_forwards_form(operation):
     assert fields["file"] == [(AUDIO, "clip.wav")]
 
 
-def test_passthrough_model_swaps_key_and_id():
+def test_passthrough_model_swaps_key_and_id(_access_gate):
     proxy = AsyncMock(return_value=BinaryResponse(b'{"text":"x"}', "application/json"))
     with _resolve(RCP_RESOLVED), patch.object(audio, "llm_proxy_audio", proxy):
         resp = _post("transcriptions", {"model": ASR_PUBLIC})
@@ -119,6 +130,8 @@ def test_passthrough_model_swaps_key_and_id():
     assert kwargs["provider_label"] == "EPFL RCP"
     assert kwargs["model"] == ASR_UPSTREAM
     assert _sent_fields(proxy)["model"] == [(ASR_UPSTREAM, None)]
+    # Authorization is checked against the id the caller asked for.
+    _access_gate.assert_awaited_once_with(None, "user-tok", ASR_PUBLIC)
 
 
 def test_repeated_fields_survive():

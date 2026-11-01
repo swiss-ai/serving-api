@@ -8,14 +8,33 @@ from backend.models.entities import APIKey
 from backend.redis_cache import get_token_cache
 
 
-def get_or_create_apikey(engine, owner_email: str) -> APIKey:
+def get_or_create_apikey(engine, owner_email: str, owner_name: str = "") -> APIKey:
+    """The caller's key, created on first sign-in.
+
+    ``owner_name`` is the IdP's ``name`` claim, refreshed on every profile
+    load: it is how the public model catalogue can credit a launcher without
+    publishing their address (see
+    :mod:`backend.services.identity_service`), so it has to keep up with a
+    name the user changes at the IdP. Passed empty by callers that have no
+    claim to offer, which then leaves a recorded name alone rather than
+    blanking it.
+    """
+    name = (owner_name or "").strip()
     with Session(engine) as session:
         api_key = session.exec(
             select(APIKey).where(APIKey.owner_email == owner_email)
         ).first()
         if api_key is None:
             key = f"sk-rc-{secrets.token_urlsafe(16)}"
-            api_key = APIKey(key=key, owner_email=owner_email, budget=1000)
+            api_key = APIKey(
+                key=key, owner_email=owner_email, owner_name=name, budget=1000
+            )
+            session.add(api_key)
+            session.commit()
+            session.refresh(api_key)
+            return api_key
+        if name and name != api_key.owner_name:
+            api_key.owner_name = name
             session.add(api_key)
             session.commit()
             session.refresh(api_key)
@@ -31,6 +50,7 @@ def rotate_key(engine, key: str) -> APIKey:
             raise ValueError("Invalid key")
 
         token_cache.remove_token(key)
+        token_cache.remove_email(key)
 
         api_key.key = f"sk-rc-{secrets.token_urlsafe(16)}"
         session.add(api_key)
@@ -50,6 +70,7 @@ def rotate_key_by_email(engine, owner_email: str) -> APIKey:
             raise ValueError("No API key for this user")
 
         token_cache.remove_token(api_key.key)
+        token_cache.remove_email(api_key.key)
 
         api_key.key = f"sk-rc-{secrets.token_urlsafe(16)}"
         session.add(api_key)
@@ -73,6 +94,48 @@ def verify_token(engine, token: str) -> bool:
 
         token_cache.add_token(token, ttl=3600 * 7 * 30)
         return True
+
+
+# Token → owner_email, resolved once per TTL instead of per request. The
+# redis token cache only stores *validity*, so per-model authorization
+# checks on the inference hot path would otherwise hit the DB every call.
+#
+# It lives in Redis alongside that validity cache rather than in a module
+# dict, because prod runs several serving-api replicas: a per-process dict
+# means a rotated key keeps resolving to its old owner on every replica
+# except the one that served the rotation, for as long as the TTL. Redis is
+# already on the authed request path (verify_token), so this adds no new
+# dependency — and when it is unreachable the client falls back to a
+# per-process dict, which is the old behaviour rather than an outage.
+_EMAIL_CACHE_TTL_SECONDS = 300
+
+
+def _reset_email_cache_for_tests() -> None:
+    """Test helper — clears cached identities so tests don't leak them.
+    Leaves token *validity* alone; that is a separate cache."""
+    get_token_cache().clear_emails()
+
+
+def get_email_for_token(engine, token: str) -> str | None:
+    """Resolve an API key to its owner's email, or None for an unknown key.
+
+    Identity only — no budget gate; verify_token already gates usability.
+    Negative results are not cached so a freshly created key resolves
+    immediately. Rotation evicts the old key from this cache (whoami and
+    the models filter authenticate with identity alone, no require_auth),
+    and because the cache is shared that eviction applies to every replica
+    at once."""
+    token_cache = get_token_cache()
+    cached = token_cache.get_email(token)
+    if cached is not None:
+        return cached
+
+    with Session(engine) as session:
+        api_key = session.exec(select(APIKey).where(APIKey.key == token)).first()
+    if api_key is None:
+        return None
+    token_cache.set_email(token, api_key.owner_email, ttl=_EMAIL_CACHE_TTL_SECONDS)
+    return api_key.owner_email
 
 
 @lru_cache(maxsize=8)

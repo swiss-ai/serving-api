@@ -12,6 +12,11 @@
     let loading = true;
     let error = null;
 
+    // Passed down so a card can call the access endpoints on this viewer's
+    // behalf. Whether it offers "Manage access" at all is the entry's own
+    // `can_manage_access`, answered by the backend.
+    let viewerApiKey = null;
+
     let search = "";
     // One mutually-exclusive facet: "all" | "24/7" | "slurm" | a provider
     // label. Providers are all Platform-managed, so a provider refines
@@ -36,9 +41,68 @@
     // clicking a tier pill resets the dropdown and vice versa.
     $: providerSelection = providers.includes(activeFilter) ? activeFilter : "";
 
+    // auth-astro mounts its endpoints under the default /api/auth prefix
+    // (auth.config.ts sets no override); /session returns the session JSON,
+    // or null for anonymous visitors.
+    const SESSION_ENDPOINT = "/api/auth/session";
+
+    // Resolve the bearer sent with /v1/models_detailed so the backend can
+    // include restricted models this viewer is authorized for: exchange the
+    // auth-astro session accessToken for the caller's key via /v1/profile,
+    // or null when nobody is logged in. Every failure degrades to anonymous —
+    // the public list must render for logged-out visitors.
+    //
+    // Deliberately NOT cached in localStorage (see api_key.astro): that store
+    // is per-browser, not per-account, so a cached key outlives an account
+    // switch and would let this page list another account's restricted models.
+    // One /v1/profile round-trip per page load is the cost of that being right.
+    async function resolveViewer(apiUrl) {
+        try {
+            const sessionRes = await fetch(SESSION_ENDPOINT);
+            if (!sessionRes.ok) return {};
+            const session = await sessionRes.json();
+            if (!session?.accessToken) return {};
+            const profileRes = await fetch(`${apiUrl}/v1/profile`, {
+                headers: { Authorization: `Bearer ${session.accessToken}` },
+            });
+            if (!profileRes.ok) return {};
+            const profile = await profileRes.json();
+            // The key is all we take: every model entry already says whether
+            // this viewer may manage it (`can_manage_access`), decided by the
+            // backend, so the page never has to hold an identity to compare
+            // against a launcher's — which is why launcher addresses no longer
+            // travel with the listing at all.
+            return { apiKey: profile.api_key || null };
+        } catch {
+            return {};
+        }
+    }
+
+    function fetchModels(apiUrl, apiKey) {
+        return fetch(
+            `${apiUrl}/v1/models_detailed`,
+            apiKey ? { headers: { Authorization: `Bearer ${apiKey}` } } : undefined,
+        );
+    }
+
     onMount(async () => {
         try {
-            const response = await fetch(`${getApiUrl()}/v1/models_detailed`);
+            const apiUrl = getApiUrl();
+            const viewer = await resolveViewer(apiUrl);
+            const apiKey = viewer.apiKey ?? null;
+            viewerApiKey = apiKey;
+            let response = await fetchModels(apiUrl, apiKey);
+            if (response.status === 401 && apiKey) {
+                // The key came straight from /v1/profile, so a 401 here means
+                // it was rotated mid-flight. Retry anonymously rather than
+                // failing the page — the public models must still render.
+                //
+                // Drop it for the cards too: it is known dead, and handing it
+                // down would leave every "Manage access" click 401ing with no
+                // hint that the fix is a reload.
+                viewerApiKey = null;
+                response = await fetchModels(apiUrl, null);
+            }
             const data = await response.json();
             const rawModels = data.data;
 
@@ -209,7 +273,7 @@
     {:else}
     <div class="model-list space-y-2">
         {#each filteredModels as model (model.data.title)}
-            <ModelCard entry={model} {chatAppUrl} />
+            <ModelCard entry={model} {chatAppUrl} {viewerApiKey} />
         {/each}
         {#if filteredModels.length === 0}
             <div class="text-center text-slate-500 dark:text-slate-400 py-6">
