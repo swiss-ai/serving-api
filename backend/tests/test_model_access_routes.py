@@ -562,3 +562,112 @@ def test_a_write_still_answers_with_addresses(app):
         body = _put(client, BOB).json()
     assert body["effective_authorization"] == BOB
     assert body["owner_email"] == ALICE
+
+
+# ── consecutive chains ──────────────────────────────────────────────────────
+
+CHAIN_LAUNCH = "chain-launch-id"
+
+
+def _chain_job(slurm_job_id: int) -> dict:
+    """One job of an SML consecutive chain, as the listing sees it. Every job
+    in a chain carries the head's labels — same launch_id, same launch-time
+    authorization — and differs only in its SLURM job and peer."""
+    entry = _peer(MODEL, "public", CHAIN_LAUNCH, ALICE)
+    entry["peer_id"] = f"Qm{slurm_job_id}"
+    entry["labels"] = {**entry["labels"], "slurm_job_id": str(slurm_job_id)}
+    return entry
+
+
+def _chain_dnt(*slurm_job_ids: int) -> dict:
+    """The same jobs as the raw DNT the inference gate reads."""
+    return {
+        f"/Qm{job}": {
+            "id": f"Qm{job}",
+            "labels": {
+                "authorization": "public",
+                "launch_id": CHAIN_LAUNCH,
+                "launched_by_email": ALICE,
+                "slurm_job_id": str(job),
+            },
+            "service": [{"name": "llm", "identity_group": [f"model={MODEL}"]}],
+        }
+        for job in slurm_job_ids
+    }
+
+
+def _may_use(engine, key: str, *slurm_job_ids: int) -> bool:
+    """Whether the inference gate lets ``key`` through while exactly these
+    chain jobs are on the mesh."""
+    import asyncio
+    from unittest.mock import AsyncMock
+
+    from fastapi import HTTPException
+
+    from backend.services import authorization_service
+
+    authorization_service._reset_cache_for_tests()
+    with (
+        patch.object(
+            authorization_service, "resolve_model", new=AsyncMock(return_value=None)
+        ),
+        patch.object(
+            authorization_service,
+            "_fetch_dnt",
+            new=AsyncMock(return_value=_chain_dnt(*slurm_job_ids)),
+        ),
+    ):
+        try:
+            asyncio.run(authorization_service.ensure_model_access(engine, key, MODEL))
+        except HTTPException as exc:
+            assert exc.status_code == 403
+            return False
+    return True
+
+
+def test_an_access_change_holds_for_every_job_of_a_consecutive_chain(app):
+    """Launched public as a chain; the owner restricts it while the first job
+    runs. The restriction must hold through the handover, after the first job
+    is cancelled, across a gap in the queue, and on a job that had not even
+    started when the change was made — and Reset must undo it for whichever
+    job is running."""
+    from backend.services.model_access_service import prune_dead_overrides
+
+    engine = app.state.engine
+    with TestClient(app) as client:
+        # Job 100 is up and public; Alice restricts it to herself.
+        assert _may_use(engine, BOB_KEY, 100)
+        with _with_dnt([_chain_job(100)]):
+            assert _put(client, ALICE).status_code == 200
+        assert not _may_use(engine, BOB_KEY, 100)
+        assert _may_use(engine, ALICE_KEY, 100)
+
+        # Handover: 101 is up alongside 100 — one launch, not a conflict.
+        with _with_dnt([_chain_job(100), _chain_job(101)]):
+            body = _get(client).json()
+        assert body["conflict"] is False
+        assert body["is_overridden"] is True
+        assert body["effective_authorization"] == ALICE
+        assert not _may_use(engine, BOB_KEY, 100, 101)
+        assert _may_use(engine, ALICE_KEY, 100, 101)
+
+        # 101 cancels 100 once healthy.
+        assert not _may_use(engine, BOB_KEY, 101)
+        assert _may_use(engine, ALICE_KEY, 101)
+
+        # 101 ends before 102 leaves the queue: the launch is briefly absent.
+        # Housekeeping must not take that for a dead launch.
+        assert prune_dead_overrides(engine, {"some-other-launch"}) == 0
+
+        # 102 was submitted with the chain, before the change was made.
+        assert not _may_use(engine, BOB_KEY, 102)
+        assert _may_use(engine, ALICE_KEY, 102)
+        with _with_dnt([_chain_job(102)]):
+            body = _get(client).json()
+        assert body["is_overridden"] is True
+        assert body["effective_authorization"] == ALICE
+
+        # Reset on 102 returns the chain to its launch-time policy.
+        with _with_dnt([_chain_job(102)]):
+            assert _delete(client).status_code == 200
+        assert _may_use(engine, BOB_KEY, 102)
