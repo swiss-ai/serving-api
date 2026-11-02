@@ -1,9 +1,10 @@
 ---
-title: "Apertus Data Search: Full-text search over 4.85 billion training documents"
-description: "To understand what a model learned, you need to see what it read. We built a deduplicated Elasticsearch index over the Apertus pretraining and posttraining corpus, where every unique text is stored once and traces back to each file it came from. This post covers how the index is built, how search works, and its limitations."
-date: "Oct 30 2026"
-authors: [{ name: "Alexander Sternfeld", url: "https://www.linkedin.com/in/alexander-sternfeld/" }, {name: "Andrei Kucharavy", url: "https://www.linkedin.com/in/andrei-kucharavy/"}]
+title: "Apertus 1.0 Data Search: Full-text search over 4.85 billion training documents"
+description: "To understand what a model learned, you need to see what it read. We built a deduplicated Elasticsearch index over the Apertus 1.0 pretraining and posttraining corpus, where every unique text is stored once and traces back to each file it came from. This post covers how the index is built, how search works, and its limitations."
+date: "Nov 2 2026"
+authors: [{ name: "Alexander Sternfeld", url: "https://www.linkedin.com/in/alexander-sternfeld/" }]
 demoURL: "https://apertus-search.swissai.svc.cscs.ch"
+demoLabel: "Apertus Data Search"
 repoURL: "https://github.com/swiss-ai/data-indexing"
 ---
 
@@ -45,14 +46,14 @@ The index was built on the Alps supercomputer at CSCS. The web interface and the
 
 Search is keyword-based: each document is split into words (tokens), and a query is matched against those tokens. Results are ranked with BM25, a standard relevance score that favors documents in which the query words are frequent and that are rare in the rest of the corpus. Before matching, the text is normalized: HTML tags are removed, everything is lowercased, accents are folded and punctuation is ignored. Searching `resume` therefore also finds `résumé`.
 
-There are three search modes, as an example we will take the query `how to build a bomb`:
+There are three search modes, as an example we will take the query `how to train a neural network`:
 
 | Mode | A document matches when | Matches |
 |---|---|---|
-| **All words** (default) | every word occurs somewhere in it, in any order | 3,167,286 |
-| **Phrase** | the words occur consecutively, in this order | 9,411 |
-| **Phrase**, slop 2 | the words may be up to 2 positions apart | 26,751 |
-| **Any word** | at least one of the words occurs | far more |
+| **All words** (default) | every word occurs somewhere in it, in any order | 1,231,381 |
+| **Phrase** | the words occur consecutively, in this order | 3,315 |
+| **Phrase**, slop 2 | the words may be up to 2 positions apart | 6,842 |
+| **Any word** | at least one of the words occurs | 3,763,124,150 |
 
 
 ## Using it
@@ -70,9 +71,12 @@ Each document can be exported as JSON. By default the result count stops at 10,0
 ## Limitations
 The current index has several limitations, which we highlight below:
 
-- **Word splitting does not suit every language.** Text is split with Elasticsearch's standard tokenizer, which follows Unicode word boundaries and has no dictionary. This works for languages that separate words with spaces, and for Chinese, where every character becomes a token so that any sequence of characters matches in phrase mode. However, it works poorly for languages such as Thai and Korean, and a custom tokenizer would be better suited here. We aim on improving this, by re-indexing those documents for which the language is known with a custom tokenizer.
+- **Word splitting does not suit every language.** Text is split with Elasticsearch's standard tokenizer, which follows Unicode word boundaries and has no dictionary. This works for languages that separate words with spaces, and for Chinese, where every character becomes a token so that any sequence of characters matches in phrase mode. However, single term counts for languages such as Thai and Lao will be deflated, and a custom tokenizer would be better suited here. We aim on improving this, by re-indexing those documents for which the language is known with a custom tokenizer.
 - **Keywords only.** Paraphrases and translations of a query do not match, as we do lexical matching. It would be beneficial if we could also do semantic matching, however, building an index that allows for this is much more costly.
 - **Speed.** Phrase queries and exact counts can take some time. This can become a problem when running a large volume of queries, but should be acceptable for individual queries.
 
 ## Get in touch!
 We would be happy to hear your feedback on this project, and look forward to getting in touch with you. Please reach out to the Apertus community, or to [Alexander Sternfeld](https://www.linkedin.com/in/alexander-sternfeld/) for specific questions on this project.
+
+## Acknowledgements
+This work would not have been possible without the advice and work from Andrei Kucharavy, Anastasiia Kucherenko, Inés Altemir Mariñas, and Arthur Wuhrmann.

@@ -46,7 +46,7 @@ const { Content } = await project.render();
         <nav class="animate flex gap-1">
           {project.data.demoURL && (
             <Link href={project.data.demoURL} external>
-              Paper
+              {project.data.demoLabel ?? "Paper"}
             </Link>
           )}
           {project.data.demoURL && project.data.repoURL && (
