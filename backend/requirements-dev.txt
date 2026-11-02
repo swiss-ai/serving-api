@@ -225,7 +225,7 @@ pycparser==3.12 ; implementation_name != 'PyPy' and platform_python_implementati
     # via
     #   -c requirements.txt
     #   cffi
-pydantic==2.14.1
+pydantic==2.14.2
     # via
     #   -c requirements.txt
     #   -r requirements.in
@@ -234,7 +234,7 @@ pydantic==2.14.1
     #   openai
     #   pydantic-settings
     #   sqlmodel
-pydantic-core==2.50.1
+pydantic-core==2.50.2
     # via
     #   -c requirements.txt
     #   pydantic
