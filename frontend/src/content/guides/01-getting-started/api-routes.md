@@ -40,7 +40,7 @@ Audio routes take a file upload rather than JSON:
 
 ```bash
 curl https://api.swissai.svc.cscs.ch/v1/audio/transcriptions \
-  -H "Authorization: Bearer $API_KEY" \
+  -H "Authorization: Bearer $SWISSAI_RESEARCH_API_KEY" \
   -F model=RCP-AIaaS/openai/whisper-large-v3 \
   -F file=@test.wav
 ```
