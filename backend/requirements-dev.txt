@@ -44,7 +44,7 @@ backoff==2.2.1
     #   -c requirements.txt
     #   -r requirements.in
     #   langfuse
-cachetools==7.2.7
+cachetools==7.2.8
     # via
     #   -c requirements.txt
     #   -r requirements.in
@@ -135,7 +135,7 @@ jiter==0.17.0
     # via
     #   -c requirements.txt
     #   openai
-langfuse==5.0.4
+langfuse==5.1.0
     # via
     #   -c requirements.txt
     #   -r requirements.in
@@ -256,7 +256,7 @@ python-dotenv==1.2.4
     #   -r requirements.in
     #   pydantic-settings
     #   testcontainers
-python-multipart==0.0.32
+python-multipart==0.0.33
     # via
     #   -c requirements.txt
     #   -r requirements.in
