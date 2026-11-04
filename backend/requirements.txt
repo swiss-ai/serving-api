@@ -26,7 +26,7 @@ backoff==2.2.1
     # via
     #   -r requirements.in
     #   langfuse
-cachetools==7.2.7
+cachetools==7.2.8
     # via -r requirements.in
 certifi==2026.10.19
     # via
@@ -79,7 +79,7 @@ idna==3.20
     #   yarl
 jiter==0.17.0
     # via openai
-langfuse==5.0.4
+langfuse==5.1.0
     # via -r requirements.in
 loguru==0.7.3
     # via -r requirements.in
@@ -152,7 +152,7 @@ python-dotenv==1.2.4
     # via
     #   -r requirements.in
     #   pydantic-settings
-python-multipart==0.0.32
+python-multipart==0.0.33
     # via -r requirements.in
 redis==8.1.0
     # via -r requirements.in
