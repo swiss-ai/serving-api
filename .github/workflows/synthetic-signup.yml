@@ -13,9 +13,12 @@ name: Synthetic sign-up (prod)
 # grant and a test user with an email and an app password; see
 # backend/tests/fixtures/authentik-e2e-blueprint.yaml for the shape.
 
+# The 15-minute schedule is off: the secrets above were never set, so every run
+# only printed "not configured" (96 empty runs a day, billed). Once they are set,
+# run this as a Kubernetes CronJob rather than here, or put the trigger back:
+#   schedule:
+#     - cron: "*/15 * * * *"
 on:
-  schedule:
-    - cron: "*/15 * * * *"
   workflow_dispatch:
 
 permissions:
